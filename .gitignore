@@ -1,0 +1,5 @@
+.venv/ ## Ignore the virtual environment folder
+__pycache__/ ## Ignore Python cache folders
+*.pyc ## Ignore Python bytecode files
+.vscode/ ## Ignore Visual Studio Code settings folder
+

@@ -16,7 +16,7 @@ The objective is to evaluate whether the inclusion of a model-based safety filte
 The implementation is planned to develop progressively through the following main components:
 
 - a simplified 3-DoF close-proximity docking simulation environment,
-- an 6-DoF extension to include rotational dynamics,
+- a 6-DoF extension to include rotational dynamics,
 - an LQR baseline controller,
 - a Soft Actor-Critic controller,
 - a CBF-based safety filter,

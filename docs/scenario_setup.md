@@ -1,5 +1,6 @@
 ### PROBLEM SETUP ###
 
+
 ## Modeled problem
 
 The modeled control problem includes the closing phase and the final approach phase of close-proximity rendezvous. These phases are treated as one continuous autonomous control task.
@@ -23,13 +24,38 @@ Starting from P3, the chaser approaches the target along a straight line as much
 - **continue reducing approach speed**: ensure that the closing speed becomes smaller as contact approaches
 - **arrive with admissible terminal conditions**: satisfy the required constraints on relative position, velocity, attitude, and angular rate at contact with docking point (center of target docking interface)
 
+
 ### Docking geometry 
 
-The **docking axis** is defined as the centerline of the target docking port, i.e. the axis normal to the target docking interface plane and pointing outward from the target port. In the present model, this axis is denoted by `e_d` and is assumed to coincide with one axis of the target-centered frame. The docking corridor is aligned with this axis, which therefore represents the nominal approach direction of the chaser.
+The **docking axis** is defined as the centerline of the target docking port, the axis normal to the target docking interface plane and pointing outward from the target port. This axis is denoted by `e_d` and is assumed to coincide with one axis of the target-centered frame. The docking corridor is aligned with this axis, which therefore represents the nominal approach direction of the chaser.
 
 The **target docking-port center**, expressed relative to the target center of mass, is defined as a fixed offset along the docking axis and is assumed to be located on the front face of the target body.
 
 The **chaser docking-port center**, expressed relative to the chaser center of mass, is defined as a fixed offset along the chaser body `x`-axis and is assumed to be located on the front face of the chaser body.
+
+
+#### Docking port (Oestreich, Linares, and Gondhalekar, 2020)
+
+The relative-motion frame is centered at the target center of mass. Let
+
+- r ∈ R^3 be the position of the chaser center of mass relative to the target center of mass, expressed in the target-centered frame
+- q be the chaser attitude relative to the target-centered frame
+- R(q) ∈ R^(3×3) be the rotation matrix corresponding to q, mapping vectors from the chaser body frame to the target-centered frame
+- r_c ∈ R^3 be the position of the chaser docking-port center relative to the chaser center of mass, expressed in the chaser body frame
+- r_t ∈ R^3 be the position of the target docking-port center relative to the target center of mass, expressed in the target-centered frame
+
+Then the relative position of the chaser docking port with respect to the target docking port is defined as
+
+r_p = r + R(q) * r_c - r_t
+
+Docking contact is achieved when the two docking ports coincide: r_p → 0
+
+If v denotes the relative velocity of the chaser center of mass and ω its angular velocity, then the relative velocity of the chaser docking port with respect to the target docking port can be written as
+
+v_p = v + ω × (R(q) * r_c)
+
+for a stationary target frame. This way, terminal docking conditions can be imposed on r_p, v_p, attitude error, and angular velocity. 
+
 
 ## Reference frames 
 
@@ -59,7 +85,15 @@ Assumption: The closing phase and the final approach phase are modeled as one co
 Consequence: 
 Limitation:
 
-Assumption: docking interface centerline corresponds with the spacecraft centerline 
+Assumption: The docking axis is assumed to coincide with the `x`-axis of the target-centered reference frame.
+Consequence: 
+Limitation:
+
+Assumption: The target docking-port center is assumed to be located on the front face of the target body.
+Consequence: 
+Limitation:
+
+Assumption: The chaser docking-port center is assumed to be collinear with the chaser center of mass and to be located on the front face of the chaser body.
 Consequence: 
 Limitation:
 

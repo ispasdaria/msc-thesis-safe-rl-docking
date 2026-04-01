@@ -26,3 +26,17 @@ Starting from P3, the chaser approaches the target along a straight line as much
 ### 3-DoF modeling interpretation
 
 Within the 3-DoF translational formulation, the state captures only relative position and relative velocity, and the controller commands translational motion. In this sense, successful completion of the modeled task means that the chaser reaches first contact with acceptable translational alignment and closing conditions, while rotational alignment and capture mechanics are left outside the scope of this model.
+
+### Docking port 
+
+Since ttitude dynamics are not modeled explicitly, the chaser is assumed to remain aligned with the nominal docking direction throughout the maneuver. Under this assumption, the rotation matrix is treated as fixed (R(q) = I), and the relative docking-port position simplifies to
+
+r_p = r + r_c - r_t
+
+where:
+
+- r is the relative position of the chaser center of mass with respect to the target center of mass
+- r_c is the fixed offset from the chaser center to the chaser docking port
+- r_t is the fixed offset from the target center to the target docking port
+
+Contact is achieved when the relative docking-port position tends to zero: r_p → 0

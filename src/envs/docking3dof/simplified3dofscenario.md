@@ -2,41 +2,68 @@
 
 ## Modeled problem
 
-For the 3-DoF translational model, the modeled control problem includes the closing phase and the final approach phase of close-proximity rendezvous. These phases are treated as one continuous autonomous control task.
+The modeled control problem includes the closing phase and the final approach phase of close-proximity rendezvous. These phases are treated as two sequential autonomous control tasks, each associated with a dedicated agent.
 
-In this simplified model, only the relative translational motion of the chaser with respect to the target is considered. Relative attitude dynamics, angular rates, and post-contact mechanical docking effects are not modeled explicitly. The control objective is therefore to guide the chaser safely from the initial close-range region to first contact with admissible translational terminal conditions.
+### Controller 1 — Corridor capture
 
-### Closing phase
+In this phase, the chaser reduces the relative distance further and transfers from the previous near-target point, P2, to a station-keeping or corridor-entry point, P3, located hundreds of meters from the target. In the simplified 3-DoF planar model, the purpose of this controller is to bring the chaser into the correct in-plane approach region for the final docking phase. Therefore, Controller 1 is required to:
 
-The chaser reduces the relative distance further and transfers from the previous near-target point, P2 (a couple of kilometers away from the target), to a station-keeping point, P3 (hundreds of meters from the target). Therefore, the controller is required to:
+- reduce the relative range and stabilize near the handover point: move the chaser from the initial close-range state, P2, to a terminal point or corridor-entry point, P3
+- reduce the planar relative velocity: slow the in-plane relative motion as the chaser approaches P3
+- prepare the planar approach geometry: bring the chaser to the correct side of the target and near the nominal in-plane docking axis so that the final approach can begin from an admissible corridor-entry condition
+- prepare rotational alignment for terminal approach: reduce the relative attitude error and angular rate to values compatible with the start of the docking approach
 
-- **reduce range to the target and stabilize at or near the handover point**: move the chaser from the initial close-range state, P2, to a terminal point or corridor-entry point, P3, located hundreds of meters away from the target
-- **reduce relative velocity**: slow the relative translational motion down as the range decreases
-- **prepare geometry for final approach**: bring the chaser into the correct side or region so that it can enter the final straight-line approach corridor
+### Controller 2 — Terminal planar docking
 
-### Final approach phase
+Starting from P3, the chaser approaches the target along the nominal in-plane docking axis and must satisfy strict terminal requirements at contact. In the simplified 3-DoF planar model, the purpose of this controller is to guide the chaser through the planar docking corridor and achieve admissible translational and rotational terminal conditions at the docking point. Therefore, Controller 2 is required to:
 
-Starting from P3, the chaser approaches the target along a straight line as much as possible and must satisfy strict requirements on relative position and relative velocity at contact. Therefore, the controller is required to:
-
-- **enter the approach gate or corridor and track a straight-line approach**: once at or near P3, move into the permitted line of approach and continue along a straight line
-- **keep lateral error small**: stay centered with respect to the docking point and the line-of-sight (LOS) cone
-- **continue reducing approach speed**: ensure that the closing speed becomes smaller as contact approaches
-- **arrive with admissible translational terminal conditions**: satisfy the required constraints on relative position and relative velocity at first contact with the docking point, taken here as the center of the target docking interface
+- enter and follow the planar docking corridor: once at or near P3, move into the permitted in-plane approach region and continue the approach approximately along the nominal docking axis
+- keep the lateral deviation small: remain close to the nominal approach line and within the allowed planar corridor bounds
+- continue reducing the closing speed: ensure that the relative approach speed decreases as contact is approached
+- achieve admissible planar attitude alignment: reduce the relative attitude error and angular rate so that the docking interfaces are properly aligned in the simplified planar sense
+- arrive with admissible terminal conditions at contact: satisfy the required constraints on relative position, planar relative velocity, relative attitude angle, and relative angular rate at the docking point, defined as the center of the target docking interface
 
 ### 3-DoF modeling interpretation
 
-Within the 3-DoF translational formulation, the state captures only relative position and relative velocity, and the controller commands translational motion. In this sense, successful completion of the modeled task means that the chaser reaches first contact with acceptable translational alignment and closing conditions, while rotational alignment and capture mechanics are left outside the scope of this model.
+In this simplified model, the relative motion of the chaser with respect to the target is described in a planar setting with two translational degrees of freedom and one rotational degree of freedom. The state therefore captures the relative position of the chaser in the plane and its relative orientation with respect to the target docking frame. Out-of-plane motion, full three-dimensional attitude dynamics, angular rates about the other axes, and post-contact mechanical docking effects are not modeled. The control objective is to guide the chaser safely from the initial close-range region to first contact while satisfying admissible terminal conditions on both relative position and relative orientation.
 
-### Docking port 
+Motivation: It provides a better representation of the docking task than a purely translational model, while still remaining manageable for analysis and implementation. In docking, it is not sufficient to bring the chaser close to the target; the vehicle must also reach an appropriate orientation for contact. Including an in-plane rotational state, it makes possible to account for interface alignment in addition to relative position and velocity. The model avoids the full complexity of a complete 6-DoF description, making it more suitable for early controller development and reinforcement learning experiments. It can be seen as a practical compromise between realism and simplicity, as well as a useful intermediate step toward a higher-fidelity model.
 
-Since ttitude dynamics are not modeled explicitly, the chaser is assumed to remain aligned with the nominal docking direction throughout the maneuver. Under this assumption, the rotation matrix is treated as fixed (R(q) = I), and the relative docking-port position simplifies to
+#### Docking-port geometry for the simplified planar model
 
-r_p = r + r_c - r_t
+The relative-motion frame is centered at the target center of mass. In the simplified planar model, the motion is restricted to a plane and described by two translational coordinates and one relative rotation angle. Let
 
-where:
+- r = [x, y]^T be the position of the chaser center of mass relative to the target center of mass, expressed in the target-centered planar frame
+- theta be the relative in-plane orientation of the chaser with respect to the target frame
+- R(theta) be the planar rotation matrix corresponding to theta, mapping vectors from the chaser body frame to the target-centered planar frame
+- r_c = [r_cx, r_cy]^T be the position of the chaser docking-port center relative to the chaser center of mass, expressed in the chaser body frame
+- r_t = [r_tx, r_ty]^T be the position of the target docking-port center relative to the target center of mass, expressed in the target-centered planar frame
 
-- r is the relative position of the chaser center of mass with respect to the target center of mass
-- r_c is the fixed offset from the chaser center to the chaser docking port
-- r_t is the fixed offset from the target center to the target docking port
+The relative position of the chaser docking port with respect to the target docking port is then defined as
 
-Contact is achieved when the relative docking-port position tends to zero: r_p → 0
+r_p = r + R(theta) * r_c - r_t
+
+where
+
+R(theta) = [[cos(theta), -sin(theta)], [sin(theta), cos(theta)]]
+
+Docking contact is achieved when the two docking-port centers coincide: r_p = 0
+
+If v = [x_dot, y_dot]^T denotes the relative velocity of the chaser center of mass and omega = theta_dot the relative angular velocity about the out-of-plane axis, then the relative velocity of the chaser docking port with respect to the target docking port can be written as
+
+v_p = v + omega * S * R(theta) * r_c
+
+where
+
+S = [[0, -1], [1, 0]]
+
+is the planar skew-symmetric matrix. This term represents the additional docking-port velocity induced by the in-plane rotation of the chaser when the docking port is offset from the center of mass.
+
+This formulation makes it possible to define terminal docking conditions at the docking-port level rather than at the center-of-mass level. In particular, docking success can be imposed through admissible bounds on the docking-port position error r_p, the docking-port relative velocity v_p, the relative orientation error theta, and the relative angular velocity omega.
+
+
+## Assumptions
+
+Assumption: The model takes into account the in-plane relative motion and the corresponding planar attitude motion. The out-of-plane translational motion and the two remaining rotational degrees of freedom are neglected.
+Consequence: 
+Limitation:

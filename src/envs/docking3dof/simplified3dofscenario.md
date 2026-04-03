@@ -29,6 +29,8 @@ In this simplified model, the relative motion of the chaser with respect to the 
 
 Motivation: It provides a better representation of the docking task than a purely translational model, while still remaining manageable for analysis and implementation. In docking, it is not sufficient to bring the chaser close to the target; the vehicle must also reach an appropriate orientation for contact. Including an in-plane rotational state, it makes possible to account for interface alignment in addition to relative position and velocity. The model avoids the full complexity of a complete 6-DoF description, making it more suitable for early controller development and reinforcement learning experiments. It can be seen as a practical compromise between realism and simplicity, as well as a useful intermediate step toward a higher-fidelity model.
 
+
+
 #### Docking-port geometry for the simplified planar model
 
 The relative-motion frame is centered at the target center of mass. In the simplified planar model, the motion is restricted to a plane and described by two translational coordinates and one relative rotation angle. Let

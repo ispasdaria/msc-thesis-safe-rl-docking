@@ -29,7 +29,9 @@ In this simplified model, the relative motion of the chaser with respect to the 
 
 Motivation: It provides a better representation of the docking task than a purely translational model, while still remaining manageable for analysis and implementation. In docking, it is not sufficient to bring the chaser close to the target; the vehicle must also reach an appropriate orientation for contact. Including an in-plane rotational state, it makes possible to account for interface alignment in addition to relative position and velocity. The model avoids the full complexity of a complete 6-DoF description, making it more suitable for early controller development and reinforcement learning experiments. It can be seen as a practical compromise between realism and simplicity, as well as a useful intermediate step toward a higher-fidelity model.
 
+The relative motion is restricted to the x_T-y_T plane of the target-attached frame (Sharma et al., 2024). The translational DoFs are the relative displacements along the nominal docking axis x_T and the lateral axis y_T, while the rotational DoF is the relatieve in-plane attitude angle represented by a rotation about the out-of-plane z_T axis. 
 
+Motivation: This choice allows the model to capture approach motion, lateral corridor deviation, and yaw-like docking-interface misalignment, while neglecting vertical motion and the remaining attitude dynamics. 
 
 #### Docking-port geometry for the simplified planar model
 
@@ -67,5 +69,9 @@ This formulation makes it possible to define terminal docking conditions at the 
 ## Assumptions
 
 Assumption: The model takes into account the in-plane relative motion and the corresponding planar attitude motion. The out-of-plane translational motion and the two remaining rotational degrees of freedom are neglected.
+Consequence: 
+Limitation:
+
+Assumption: The docking motion is assumed to be planar in the target-attached x_T-y_T plane, with relative translation along x_T and y_T, and relative in-plane rotation represented by an angle about z_T. 
 Consequence: 
 Limitation:

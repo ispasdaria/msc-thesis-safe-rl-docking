@@ -86,6 +86,16 @@ The target body-fixed frame is a right-handed orthogonal frame fixed to the targ
 
 The chaser body-fixed frame F_{B_c} is a right-handed orthogonal frame with origin at the chaser center of mass. The x_{B_c} axis lies in the symmetry plane and points forward, the z_{B_c} axis lies in the symmetry plane and points downward, and the y_{B_c} axis points to the right. This frame is used for quantities intrinsic to the chaser, such as thruster directions, the inertia matrix, body angular velocity, control forces and torques, and the docking-port offset relative to the chaser CoM. 
 
+
+## Target orbit and relative docking geometry 
+
+
+
+
+## Initial conditions 
+
+
+
 ## Assumptions 
 
 Assumption: One spacecraft is modelled as the active chaser, responsible for performing the approach and control actions.

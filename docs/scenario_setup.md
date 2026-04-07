@@ -91,26 +91,18 @@ The chaser body-fixed frame F_{B_c} is a right-handed orthogonal frame with orig
 
 ### Target orbit
 
-The target is assumed to move on an ISS-like circular low-Earth orbit. A circular low-Earth orbit is selected because it is representative of the baseline docking scenario considered in this study and is compatible with standard close-proximity relative-motion modeling assumptions.
-
-The target orbit is defined by the following parameters:
+The target is assumed to move on an ISS-like circular low-Earth orbit, compatible with standard close-proximity relative-motion modeling assumptions. The target orbit is defined by the following parameters:
 
 - orbit type: circular low-Earth orbit
 - altitude: 400 km
 - inclination: 51.6 deg
 - eccentricity: 0
-- semi-major axis: `a = R_E + 400 km`
+- semi-major axis: a = R_E + 400 km
 - right ascension of the ascending node: 0 deg
 - argument of perigee: 0 deg
 - true anomaly at the initial time: 0 deg
 
-Motivation:
-
-- An ISS-like orbit is adopted because the baseline target is modeled as an ISS-like docking port module.
-- A circular orbit simplifies the relative-motion modeling and is consistent with common assumptions used in close-proximity rendezvous and docking studies.
-- The altitude of 400 km and inclination of 51.6 deg are chosen as representative values for an ISS-like low-Earth orbit.
-- The eccentricity is set to zero in order to avoid additional complexity due to orbital ellipticity and to keep the relative-motion model consistent with a circular-reference-orbit formulation.
-- The right ascension of the ascending node, argument of perigee, and initial true anomaly are fixed to zero for convenience, since the docking-control problem is formulated in the target-centered frame and these angles are not expected to significantly affect the local close-proximity docking scenario considered here.
+Motivation: An ISS-like orbit is adopted because the baseline target is modeled as an ISS-like docking port module. A circular orbit simplifies the relative-motion modeling and is consistent with common assumptions used in close-proximity rendezvous and docking studies. The altitude of 400 km and inclination of 51.6 deg are chosen as representative values for an ISS-like low-Earth orbit. The eccentricity is set to zero in order to avoid additional complexity due to orbital ellipticity and to keep the relative-motion model consistent with a circular-reference-orbit formulation. The right ascension of the ascending node, argument of perigee, and initial true anomaly are fixed to zero for convenience, since the docking-control problem is formulated in the target-centered frame and these angles are not expected to significantly affect the local close-proximity docking scenario considered here.
 
 ### Reference docking geometry
 

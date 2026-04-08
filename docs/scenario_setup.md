@@ -242,7 +242,127 @@ Motivation: The testing range at P3 is selected to represent a realistic handove
 Motivation: The training range at P3 is wider than the testing range in order to improve robustness of the terminal docking controller. Even though the range is wider, it remains significantly tighter than the corresponding range at P2, because P3 must still represent a near-aligned corridor-entry state. This preserves the physical distinction between the closing phase and the terminal docking phase.
 
 
+## Environmental disturbances (Starin and Eterno, 2011)
 
+In the initial version of the docking model, environmental disturbances are neglected. The emphasis is placed on the nominal close-proximity relative motion dynamics and on the correct implementation of the docking scenario, controller structure, reward design, phase handover logic, and terminal conditions. Under this assumption, the translational and rotational motion of the chaser is driven only by the nominal relative-motion model and the applied control inputs. This disturbance-free case is used as the baseline case for verification and performance evaluation.
+
+### Disturbed environment
+
+After the nominal docking model has been implemented and validated, the environment is extended to include the main external disturbance torques acting on the chaser. For typical Earth-orbiting spacecraft, the main environmental disturbance sources are gravity-gradient torque, magnetic torque, solar-radiation-pressure torque, and, in low-Earth orbit, aerodynamic torque. Since the present scenario is based on an ISS-like low-Earth orbit at about 400 km altitude, these four disturbance sources are taken as the main environmental effects to be included in the extended model: aerodynamic drag torque, magnetic torque, gravity-gradient torque, solar-radiation-pressure torque. 
+
+The total environmental disturbance torque can then be modeled as
+
+`tau_env = tau_aero + tau_mag + tau_gg + tau_srp`, where each contribution is computed separately.
+
+#### 1. Atmospheric drag torque
+
+At 400 km altitude, atmospheric drag is relevant because the residual atmosphere in LEO can generate a force in the ram direction. When the center of aerodynamic pressure is not aligned with the center of mass, this force produces a torque.
+
+A suitable simplified implementation is:
+
+`tau_aero = 0.5 * rho(h) * C_d * A_ram * V_rel^2 * l_aero`
+
+where:
+
+- `rho(h)` is the atmospheric density at altitude `h`
+- `C_d` is the drag coefficient
+- `A_ram` is the projected area normal to the velocity direction
+- `V_rel` is the orbital-relative flow speed
+- `l_aero` is the moment arm between the center of aerodynamic pressure and the center of mass
+
+At 400 km, this term should generally be included before higher-altitude-only effects, because aerodynamic torque is one of the characteristic LEO disturbances. 
+
+#### 2. Magnetic torque
+
+Magnetic effects are relatively strong in LEO and the disturbance torque is modeled as the interaction between the spacecraft residual magnetic dipole moment and the Earth magnetic field. The Earth field can be approximated as a dipole for design purposes. 
+
+A practical model is:
+
+`tau_mag = m_res x B_E`
+
+where:
+
+- `m_res` is the spacecraft residual magnetic dipole vector
+- `B_E` is the Earth magnetic field at the spacecraft location
+
+For an initial implementation, `B_E` can be taken from a simple dipole model at the target orbit altitude and inclination. If a simpler first approximation is needed, the magnitude of `B_E` may be fixed and only its direction varied along the orbit.
+
+#### 3. Gravity-gradient torque
+
+Gravity-gradient torque arises because the gravity field is not perfectly uniform across the spacecraft body, and its simplified expression depends on the spacecraft inertia distribution, attitude relative to the local vertical, and orbit radius. 
+
+A standard simplified model is:
+
+`tau_gg = 3 * mu / r^3 * (e_r x J e_r)`
+
+where:
+
+- `mu` is the Earth gravitational parameter
+- `r` is the orbital radius
+- `e_r` is the local vertical unit vector expressed in the spacecraft frame
+- `J` is the spacecraft inertia matrix
+
+#### 4. Solar radiation pressure torque
+
+SRP torque is modeled through the illuminated area, reflectance, incidence angle, and the offset between center of pressure and center of mass. It also notes that accurate SRP prediction is difficult, so a simplified estimate is appropriate at first. 
+
+A suitable first model is:
+
+`tau_srp = (Phi / c) * A_sun * (1 + q) * cos(phi) * l_srp`
+
+where:
+
+- `Phi` is the solar flux
+- `c` is the speed of light
+- `A_sun` is the illuminated projected area
+- `q` is an effective reflectance factor
+- `phi` is the incidence angle
+- `l_srp` is the moment arm between center of pressure and center of mass
+
+In this disturbed case, the translational and rotational dynamics are propagated using the nominal control inputs together with the environmental disturbance terms.
+
+### Translational dynamics
+
+The translational motion of the chaser center of mass is written as
+
+`r_dot = v`
+
+`m * v_dot = F_control + F_env`
+
+where:
+
+- `r` is the relative position of the chaser
+- `v` is the relative velocity of the chaser
+- `m` is the chaser mass
+- `F_control` is the commanded control force
+- `F_env` is the total environmental disturbance force
+
+If the disturbance model is restricted to environmental torques only, then
+
+`F_env = 0`
+
+and the translational dynamics reduce to
+
+`r_dot = v`
+
+`m * v_dot = F_control`
+
+In this case, the translational motion remains unchanged with respect to the disturbance-free model, and the environmental effects act only through the rotational dynamics.
+
+### Rotational dynamics
+
+The rotational motion of the chaser is written as
+
+`J * omega_dot + omega x (J * omega) = tau_control + tau_env`
+
+where:
+
+- `J` is the chaser inertia matrix
+- `omega` is the chaser angular velocity
+- `tau_control` is the commanded control torque
+- `tau_env` is the total environmental disturbance torque
+
+The rotational dynamics are driven by their combined effect through the single total environmental torque `tau_env`.
 
 
 ## Assumptions 
@@ -335,8 +455,63 @@ Assumption: A narrower testing range is assumed to represent realistic operation
 Consequence: 
 Limitation:
 
+Assumption: Environmental disturbances are neglected in the initial docking model.
+Consequence: 
+Limitation:
+
+Assumption: After validation of the nominal model, the docking environment is assumed to be extendable to a disturbed case represented by the main external environmental disturbance torques: aerodynamic drag torque, magnetic torque, gravity-gradient torque, solar-radiation-pressure torque.
+Consequence: 
+Limitation:
+
+Assumption: The aerodynamic disturbance is assumed to act through a ram-direction force that produces a torque when the center of aerodynamic pressure is not aligned with the center of mass.
+Consequence: 
+Limitation:
+
+Assumption: The Earth magnetic field is assumed to be approximable by a dipole model.
+Consequence: 
+Limitation:
+
+Assumption: The spacecraft is assumed to possess a non-zero residual magnetic dipole moment.
+Consequence: 
+Limitation:
+
+Assumption: The gravity-gradient torque is assumed to arise from the non-uniformity of the gravity field across the spacecraft body.
+Consequence: 
+Limitation:
+
+Assumption: The SRP torque is assumed to arise from an offset between the center of pressure and the center of mass.
+Consequence: 
+Limitation:
+
 Assumption: 
 Consequence: 
 Limitation:
+
+Assumption: 
+Consequence: 
+Limitation:
+
+Assumption: 
+Consequence: 
+Limitation:
+
+Assumption: 
+Consequence: 
+Limitation:
+
+Assumption: 
+Consequence: 
+Limitation:
+
+Assumption: 
+Consequence: 
+Limitation:
+
+Assumption: 
+Consequence: 
+Limitation:
+
+
+
 
 

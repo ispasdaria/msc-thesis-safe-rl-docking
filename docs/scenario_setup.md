@@ -364,6 +364,10 @@ where:
 
 The rotational dynamics are driven by their combined effect through the single total environmental torque `tau_env`.
 
+## Performance conditions 
+
+## Safety requirements 
+
 
 ## Assumptions 
 

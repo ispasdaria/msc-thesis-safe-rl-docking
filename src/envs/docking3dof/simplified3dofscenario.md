@@ -75,3 +75,7 @@ Limitation:
 Assumption: The docking motion is assumed to be planar in the target-attached x_T-y_T plane, with relative translation along x_T and y_T, and relative in-plane rotation represented by an angle about z_T. 
 Consequence: 
 Limitation:
+
+Assumption: In the planar 3-DoF scenario, the out-of-plane position and out-of-plane velocity are assumed to be zero.
+Consequence: 
+Limitation:

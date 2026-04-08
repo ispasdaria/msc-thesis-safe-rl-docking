@@ -106,29 +106,19 @@ Motivation: An ISS-like orbit is adopted because the baseline target is modeled 
 
 ### Reference docking geometry
 
-The docking axis is assumed to coincide with the positive `x_T`-axis of the target-centered frame. The chaser is initialized on the positive `x_T` side of the target and approaches the docking interface by moving toward smaller `x_T` values. In this way, the approach direction is aligned with the nominal docking corridor.
+The docking axis is assumed to coincide with the positive x_T-axis of the target-centered frame, and the chaser is initialized on the positive x_T side of the target and approaches the docking interface by moving toward smaller x_T values.
 
 The target attitude is assumed to remain fixed during the modeled docking phase, and the target angular velocity is assumed to be zero. Therefore, the relevant rotational state is the attitude and angular velocity of the chaser relative to the target-centered frame.
 
-Motivation:
-
-- Aligning the docking axis with the positive `x_T`-axis provides a clear geometric interpretation of the approach direction and simplifies the definition of corridor constraints and terminal docking conditions.
-- Initializing the chaser on the positive `x_T` side ensures that the vehicle approaches the target from the nominal docking direction.
-- Assuming a fixed target attitude and zero target angular velocity is consistent with modeling the target as passive during docking and reduces the complexity of the relative rotational dynamics.
-- Under these assumptions, the control problem can focus on the chaser relative to the target, which is appropriate for the present close-proximity docking study.
+Motivation: Aligning the docking axis with the positive x_T-axis provides a clear geometric interpretation of the approach direction and simplifies the definition of corridor constraints and terminal docking conditions. Initializing the chaser on the positive x_T side ensures that the vehicle approaches the target from the nominal docking direction. Assuming a fixed target attitude and zero target angular velocity is consistent with modeling the target as passive during docking and reduces the complexity of the relative rotational dynamics. Under these assumptions, the control problem can focus on the chaser relative to the target.
 
 ### Relative initial conditions and handover geometry
 
-The modeled motion begins at the close-range rendezvous point `P2`, after phasing and homing have already been completed. At this point, the chaser is assumed to be in a controlled approach state: it is not yet in terminal docking, but it is already roughly aligned with the target and has relatively small translational and rotational errors.
+The modeled motion begins at the close-range rendezvous point P2, after phasing and homing have already been completed. At this point, the chaser is assumed to be in a controlled approach state: it is not yet in terminal docking, but it is already roughly aligned with the target and has relatively small translational and rotational errors.
 
-The point `P3` defines the end of the closing phase and the start of the terminal docking phase. It is selected as a corridor-entry or handover region from which the docking-port relative state is already sufficiently aligned for precise final approach and corridor tracking.
+The point P3 defines the end of the closing phase and the start of the terminal docking phase. It is selected as a corridor-entry or handover region from which the docking-port relative state is already sufficiently aligned for precise final approach and corridor tracking.
 
-Motivation:
-
-- Starting the modeled motion at `P2` is consistent with the assumption that the earlier phasing and homing phases have already been completed successfully.
-- `P2` must therefore represent a realistic close-range state in which the chaser is already under controlled motion and roughly prepared for final approach, but is not yet sufficiently aligned to begin terminal docking.
-- `P3` is introduced as a handover state between the two controllers so that the closing controller and the terminal docking controller can address different objectives and operate under different tolerance levels.
-- The conditions at `P3` are chosen to be significantly tighter than those at `P2`, reflecting the fact that the chaser should already be better aligned, slower, and closer to the corridor before the terminal docking controller takes over.
+Motivation: P2 must therefore represent a realistic close-range state in which the chaser is already under controlled motion and roughly prepared for final approach, but is not yet sufficiently aligned to begin terminal docking. P3 is introduced as a handover state between the two controllers so that the closing controller and the terminal docking controller can address different objectives and operate under different tolerance levels. The conditions at P3 are chosen to be significantly tighter than those at P2, reflecting the fact that the chaser should already be better aligned, slower, and closer to the corridor before the terminal docking controller takes over.
 
 ## Nominal states and randomized initialization
 
@@ -139,18 +129,13 @@ Two sets of bounds are defined:
 - a narrower testing range, used to evaluate controller performance under representative operating conditions
 - a wider training range, used during learning to improve robustness to initial-state variations
 
-Motivation:
-
-- Using nominal states provides a clear reference scenario around which the docking problem can be defined.
-- A narrower testing range ensures that the controller is evaluated on a realistic and focused set of operating conditions.
-- A wider training range exposes the controller to a broader variety of initial conditions, which can improve robustness and reduce overfitting to a single nominal case.
-- This approach is consistent with the idea of training on a broader region of the state space while evaluating performance on a more representative subset of that region. :contentReference[oaicite:0]{index=0}
+Motivation: Using nominal states provides a clear reference scenario around which the docking problem can be defined. A narrower testing range ensures that the controller is evaluated on a realistic and focused set of operating conditions. A wider training range exposes the controller to a broader variety of initial conditions, which can improve robustness and reduce overfitting to a single nominal case. This approach is consistent with the idea of training on a broader region of the state space while evaluating performance on a more representative subset of that region (Oestreich, Linares, and Gondhalekar, 2020). 
 
 ### P2 definition
 
-At `P2`, the chaser is assumed to be in a close-range rendezvous condition but not yet in terminal docking. The chaser should therefore be reasonably well prepared for approach, while still exhibiting enough translational and rotational error to justify a dedicated closing controller.
+At P2, the chaser should therefore be reasonably well prepared for approach, while still exhibiting enough translational and rotational error to justify a dedicated closing controller.
 
-#### Nominal `P2` state
+#### Nominal P2 state
 
 - axial distance along the docking axis: `1700 m`
 - lateral offset: `0 m`
@@ -165,14 +150,9 @@ At `P2`, the chaser is assumed to be in a close-range rendezvous condition but n
 - attitude error: `0 deg` on each axis
 - angular velocity: `0 deg/s` on each axis
 
-Motivation:
+Motivation: A nominal axial distance of 1700 m is selected to place the chaser clearly within the close-range rendezvous region while remaining outside the terminal docking region. Zero nominal lateral and out-of-plane offsets represent an ideal reference alignment, around which perturbations can be introduced. A small nominal closing velocity is selected to reflect that the chaser is still approaching the target, but under controlled motion. Zero nominal attitude and angular-rate error represent the ideal reference handover geometry from the preceding homing phase.
 
-- A nominal axial distance of 1700 m is selected to place the chaser clearly within the close-range rendezvous region while remaining outside the terminal docking region.
-- Zero nominal lateral and out-of-plane offsets represent an ideal reference alignment, around which perturbations can be introduced.
-- A small nominal closing velocity is selected to reflect that the chaser is still approaching the target, but under controlled motion.
-- Zero nominal attitude and angular-rate error represent the ideal reference handover geometry from the preceding homing phase.
-
-#### `P2` testing range
+#### P2 testing range
 
 - axial distance: `1600 m` to `1800 m`
 - lateral offset: `-100 m` to `100 m`
@@ -187,13 +167,9 @@ Motivation:
 - attitude error: `-3 deg` to `3 deg` on each axis
 - angular velocity: `-0.05 deg/s` to `0.05 deg/s` on each axis
 
-Motivation:
+Motivation: The testing range is kept relatively narrow so that it represents a realistic close-range operating region after homing has already been completed. The chaser is allowed moderate position and orientation errors, but not large deviations that would be inconsistent with the assumption that the vehicle has already reached P2 under controlled motion. The lateral, out-of-plane, and angular errors are chosen to be noticeable but still small enough to remain representative of a pre-terminal docking state.
 
-- The testing range is kept relatively narrow so that it represents a realistic close-range operating region after homing has already been completed.
-- The chaser is allowed moderate position and orientation errors, but not large deviations that would be inconsistent with the assumption that the vehicle has already reached `P2` under controlled motion.
-- The lateral, out-of-plane, and angular errors are chosen to be noticeable but still small enough to remain representative of a pre-terminal docking state.
-
-#### `P2` training range
+#### P2 training range
 
 - axial distance: `1500 m` to `1900 m`
 - lateral offset: `-150 m` to `150 m`
@@ -208,17 +184,13 @@ Motivation:
 - attitude error: `-5 deg` to `5 deg` on each axis
 - angular velocity: `-0.10 deg/s` to `0.10 deg/s` on each axis
 
-Motivation:
-
-- The training range is wider than the testing range in order to expose the controller to a broader set of initial conditions during learning.
-- The wider bounds help improve robustness while remaining physically consistent with a close-range post-homing rendezvous state.
-- The spread is intentionally limited so that the sampled states remain representative of `P2` and do not overlap with conditions that would correspond to earlier rendezvous phases.
+Motivation: The training range is wider than the testing range in order to expose the controller to a broader set of initial conditions during learning. The wider bounds help improve robustness while remaining physically consistent with a close-range post-homing rendezvous state. The spread is intentionally limited so that the sampled states remain representative of P2 and do not overlap with conditions that would correspond to earlier rendezvous phases.
 
 ### P3 definition
 
-At `P3`, the chaser is assumed to have already completed the closing phase and to be ready for terminal docking. The state at `P3` must therefore be significantly tighter than at `P2`, so that the terminal docking controller can focus on precise corridor tracking and terminal constraint satisfaction.
+At P3, the chaser is assumed to have already completed the closing phase and to be ready for terminal docking. The state at P3 must therefore be significantly tighter than at P2, so that the terminal docking controller can focus on precise corridor tracking and terminal constraint satisfaction.
 
-#### Nominal `P3` state
+#### Nominal P3 state
 
 - axial distance from the docking point: `300 m`
 - lateral offset: `0 m`
@@ -233,13 +205,9 @@ At `P3`, the chaser is assumed to have already completed the closing phase and t
 - attitude error: `0 deg` on each axis
 - angular velocity: `0 deg/s` on each axis
 
-Motivation:
+Motivation: A nominal axial distance of 300 m is chosen to place the chaser close enough to the target to justify a dedicated terminal docking controller, while still leaving sufficient room for final approach and corridor tracking. Zero nominal lateral, out-of-plane, attitude, and angular-rate errors represent the ideal handover state from the closing controller to the terminal controller. The smaller nominal closing velocity reflects the fact that the approach speed should already have been reduced before the terminal docking phase begins.
 
-- A nominal axial distance of 300 m is chosen to place the chaser close enough to the target to justify a dedicated terminal docking controller, while still leaving sufficient room for final approach and corridor tracking.
-- Zero nominal lateral, out-of-plane, attitude, and angular-rate errors represent the ideal handover state from the closing controller to the terminal controller.
-- The smaller nominal closing velocity reflects the fact that the approach speed should already have been reduced before the terminal docking phase begins.
-
-#### `P3` testing range
+#### P3 testing range
 
 - axial distance: `280 m` to `320 m`
 - lateral offset: `-3 m` to `3 m`
@@ -254,13 +222,9 @@ Motivation:
 - attitude error: `-1 deg` to `1 deg` on each axis
 - angular velocity: `-0.02 deg/s` to `0.02 deg/s` on each axis
 
-Motivation:
+Motivation: The testing range at P3 is selected to represent a realistic handover state from which the terminal controller can begin precise docking. The lateral and out-of-plane offsets are made much smaller than at `P2`, reflecting that the closing controller should already have centered the chaser relative to the docking corridor. The tighter velocity, attitude, and angular-rate bounds reflect the more restrictive nature of the final approach phase.
 
-- The testing range at `P3` is selected to represent a realistic handover state from which the terminal controller can begin precise docking.
-- The lateral and out-of-plane offsets are made much smaller than at `P2`, reflecting that the closing controller should already have centered the chaser relative to the docking corridor.
-- The tighter velocity, attitude, and angular-rate bounds reflect the more restrictive nature of the final approach phase.
-
-#### `P3` training range
+#### P3 training range
 
 - axial distance: `250 m` to `350 m`
 - lateral offset: `-5 m` to `5 m`
@@ -275,11 +239,10 @@ Motivation:
 - attitude error: `-2 deg` to `2 deg` on each axis
 - angular velocity: `-0.03 deg/s` to `0.03 deg/s` on each axis
 
-Motivation:
+Motivation: The training range at P3 is wider than the testing range in order to improve robustness of the terminal docking controller. Even though the range is wider, it remains significantly tighter than the corresponding range at P2, because P3 must still represent a near-aligned corridor-entry state. This preserves the physical distinction between the closing phase and the terminal docking phase.
 
-- The training range at `P3` is wider than the testing range in order to improve robustness of the terminal docking controller.
-- Even though the range is wider, it remains significantly tighter than the corresponding range at `P2`, because `P3` must still represent a near-aligned corridor-entry state.
-- This preserves the physical distinction between the closing phase and the terminal docking phase.
+
+
 
 
 ## Assumptions 
@@ -292,6 +255,10 @@ Assumption: The other spacecraft is modelled as a passive target, with no active
 Consequence: 
 Limitation:
 
+Assumption: The target attitude is assumed to remain fixed throughout the modeled motion, and the target angular velocity is assumed to be zero.
+Consequence: 
+Limitation:
+
 Assumption: Phasing part (earlier rendezvous maneuvers during which the large orbital differences between the chaser and target, such as relative distance, phase angle, and orbital plane differences, are corrected) and the homing part (chaser has already autonomously acquired the target orbit and reduced the relative velocity, reaching the station-keeping point P2, located a couple of kilometers away from the target) have already been completed successfully before the start of the modeled motion, therefore, the modeled motion begins from P2. (Luo, J. Zhang, and Tang, 2014)
 Consequence: 
 Limitation:
@@ -300,7 +267,11 @@ Assumption: The control task terminates at first contact between the chaser and 
 Consequence: 
 Limitation:
 
-Assumption: The docking axis is assumed to coincide with the `x`-axis of the target-centered reference frame. 
+Assumption: The docking axis is assumed to coincide with the x_T-axis of the target-centered reference frame. 
+Consequence: 
+Limitation:
+
+Assumption: The nominal docking corridor is assumed to be aligned with the x_T-axis of the target-centered reference frame. 
 Consequence: 
 Limitation:
 
@@ -344,11 +315,23 @@ Assumption: The target-centered frame F_T is assumed to coincide with the target
 Consequence: 
 Limitation:
 
-Assumption: 
+Assumption: The target orbit is assumed to be an ISS-like circular LEO with altitude 400 km, inclination 51.6 deg, eccentricity equal to zero, and right ascension of the ascending node, argument of perigee, and initial true anomaly fixed and set to zero. 
 Consequence: 
 Limitation:
 
-Assumption: 
+Assumption: The close-proximity docking problem is assumed to be sufficiently local that the orbital angles do not significantly affect the modeled docking scenario.
+Consequence: 
+Limitation:
+
+Assumption: The chaser is assumed to start on the positive x_T side of the target.
+Consequence: 
+Limitation:
+
+Assumption: Nominal states are assumed to be representative reference conditions for both P2 and P3, and actual initial conditions are assumed to be generated by pertubing these nominal states within bounded intervals. 
+Consequence: 
+Limitation:
+
+Assumption: A narrower testing range is assumed to represent realistic operational conditions, and a wider training range is assumed to improve controller robustness by exposing it to a broader set of initial conditions. 
 Consequence: 
 Limitation:
 

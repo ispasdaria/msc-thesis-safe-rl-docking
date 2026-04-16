@@ -78,9 +78,13 @@ In the docking-port geometry model, the vectors from the vehicle center of mass 
 
 The Earth-centered inertial frame, denoted by F_I, is used to describe the absolute orbital motion of the target and chaser spacecraft. It is a right-handed orthogonal reference frame with origin at the Earth’s center of mass. The Z_I axis is aligned with the Earth’s rotation axis and points toward the North Pole, the X_I axis points toward the vernal equinox, and the Y_I axis completes the right-handed triad in the equatorial plane. This frame serves as the global reference frame for the absolute translational motion of both vehicles, so that their inertial positions and velocities can be defined in it. The attitude of each spacecraft may also be defined with respect to F_I, for example by Euler angles or quaternions. ![Earth-centered inertial reference frame](ECI.png)
 
-- Target body-fixed frame/target-attached frame: 
+- Target body-fixed frame: 
 
-The target body-fixed frame is a right-handed orthogonal frame fixed to the target vehicle, with origin at the target CoM. The x_{B_t} axis lies in the target symmetry plane and points forward toward the nominal docking interface, the z_{B_t} axis lies in the same plane and points downward, and the y_{B_t} axis points to the right, completing the right-handed triad. The target-centered frame F_T is chosen to coincide with the target body-fixed frame F_{B_t} (Oestreich, Linares, and Gondhalekar, 2020). The nominal docking axis is assumed to coincide with the positive x_T axis. Relative position, relative velocity, docking-port locations, corridor constraints, and terminal docking conditions are expressed in a frame attached to the target. The relative attitude of the chaser with respect to the target is described by the rotation from F_{B_c} to F_T. ![Body-Fixed Reference Frame](body_fixed_frame.png)
+The target body-fixed frame, denoted by F_{B_t}, is a right-handed orthogonal frame rigidly attached to the target spacecraft, with origin at the target CoM. The x_{B_t} axis lies in the target symmetry plane and points forward toward the nominal docking interface. The z_{B_t} axis lies in the same symmetry plane and points downward. The y_{B_t} axis points to the right, completing the right-handed triad. This frame is fixed to the physical structure of the target and is therefore used to describe quantities that are directly tied to the target geometry. In particular, the target docking-port location, the nominal docking axis, and the attitude-related docking constraints are defined in F_{B_t}. The nominal docking axis is assumed to coincide with the positive x_{B_t} axis. The relative attitude of the chaser with respect to the target is described by the rotation from the chaser body-fixed frame F_{B_c} to the target body-fixed frame F_{B_t}. ![Body-Fixed Reference Frame](body_fixed_frame.png)
+
+- Target-centered orbital frame
+
+The target-centered orbital frame, denoted by F_O, is a right-handed orthogonal frame centered at the target CoM and attached to the local orbital motion of the target. This frame is introduced to describe the translational relative motion of the chaser with respect to the target. The origin is located at the target cCoM. The x_O axis is chosen along the local radial direction, the y_O axis along the local along-track direction, and the z_O axis along the orbit-normal direction, completing the right-handed triad. The relative position and relative velocity of the chaser are expressed in F_O, and the close-proximity translational dynamics are formulated in this frame. This choice allows the relative-motion model to remain consistent with orbital dynamics, while avoiding the unnecessary restriction of expressing the translational motion directly in the target body-fixed frame. ![Orbital Reference Frame](orbital_reference_frame.png)
 
 - Chaser body-fixed frame: 
 
@@ -364,9 +368,18 @@ where:
 
 The rotational dynamics are driven by their combined effect through the single total environmental torque `tau_env`.
 
-## Performance conditions 
 
-## Safety requirements 
+## Performance conditions: what the controller is trying to achieve 
+
+
+
+## Safety requirements: conditions that must hold throughout a phase 
+
+
+
+## Terminal conditions: the set that defines successful completion of the phase 
+
+
 
 
 ## Assumptions 
@@ -435,7 +448,7 @@ Assumption: The vectors r_c and r_t from the vehicle center of mass to the docki
 Consequence: 
 Limitation:
 
-Assumption: The target-centered frame F_T is assumed to coincide with the target body-fixed frame F_{B_t}.
+Assumption: The target is assumed to maintain a fixed attitude relative to the local orbital frame during the maneuver, therefore, the transformation between F_O and F_{B_t} is constant.
 Consequence: 
 Limitation:
 

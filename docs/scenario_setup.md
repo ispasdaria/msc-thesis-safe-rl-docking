@@ -468,33 +468,33 @@ A_unsafe = {
 
 #### Closing phase 
 V_safe_close = {
-    ||v|| <= 0.25 m/s AND
+    ||v_p|| <= 0.25 m/s AND
     |s_dot| <= 0.15 m/s
 }
 
 V_warn_close = {
-    (0.25 < ||v|| <= 0.35) OR
+    (0.25 < ||v_p|| <= 0.35) OR
     (0.15 < |s_dot| <= 0.25)
 }
 
 V_unsafe_close = {
-    ||v|| > 0.35 OR
+    ||v_p|| > 0.35 OR
     |s_dot| > 0.25
 }
 
 #### Final approach phase 
 V_safe_final = {
-    ||v|| <= 0.15 AND
+    ||v_p|| <= 0.15 AND
     |s_dot| <= 0.1
 }
 
 V_warn_final = {
-    (0.15 < ||v|| <= 0.2) OR
+    (0.15 < ||v_p|| <= 0.2) OR
     (0.1 < |s_dot| <= 0.15)
 }
 
 V_unsafe_final = {
-    ||v|| > 0.2 OR
+    ||v_p|| > 0.2 OR
     |s_dot| > 0.15
 }
 
@@ -533,7 +533,26 @@ X_P3 = {
 
 ### Safety Sets 
 
-#### Clsoing phase 
+#### Closing phase 
+
+#### Geometry layer 
+
+##### Safe set 
+G_safe_close = (E_AE \ S_KOS) ∩ C_dock   with   d_P3 <= s <= d_P2 
+(region inside the approach ellipsoid but outside the keep-out sphere, and constrained to the docking cone between P2 and P3)
+
+##### Warning set 
+G_warn_close = (E_AE \ (S_KOS ∪ C_dock)) ∪ (S_KOS ∩ C_dock) 
+(union of regions inside approach ellipsoid but outside the docking cone and keep-out sphere + regions inside the keep-out sphere but inside the docking cone --> geometrically risk but recoverable situations)
+
+##### Unsafe set 
+G_unsafe_close = S_KOS \ C_dock
+(inside keep-out sphere but outside docking cone)
+
+##### Outside set 
+G_out_close = E_AE_complement
+
+##### Combined sets
 X_safe_close = G_safe_close ∩ V_safe_close
 
 X_warn_close = (G_warn_close ∪ V_warn_close) \ X_unsafe_close
@@ -541,6 +560,21 @@ X_warn_close = (G_warn_close ∪ V_warn_close) \ X_unsafe_close
 X_unsafe_close = G_unsafe_close ∪ V_unsafe_close
 
 #### Final approach 
+
+##### Geometry layer 
+
+###### Safe set 
+G_safe_final = C_dock ∩ C_corr
+(chaser is inside docking cone and inside the final approach corridor)
+
+###### Warning set 
+G_warn_final = C_dock \ C_corr
+(chaser is inside docking cone, but outisde stricter final corridor)
+
+###### Unsafe set 
+G_unsafe_final = C_dock_complement with   0 <= s <= d_P3
+(chaser is outside docking cone)
+
 X_safe_final = G_safe_final ∩ V_safe_final ∩ A_safe
 
 X_warn_final = (G_warn_final ∪ V_warn_final ∪ A_warn) \ X_unsafe_final

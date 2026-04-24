@@ -369,17 +369,208 @@ where:
 The rotational dynamics are driven by their combined effect through the single total environmental torque `tau_env`.
 
 
-## Performance conditions: what the controller is trying to achieve 
+## Docking Problem Setup 
+
+### State:
+x(t) = [r(t), v(t), q(t), w(t)]
+
+where:
+- r(t) ∈ R^3: relative position of chaser CoM w.r.t. target CoM (in target orbital frame F_O)
+- v(t) ∈ R^3: relative velocity (in F_O)
+- q(t): relative attitude (quaternion or equivalent)
+- w(t) ∈ R^3: relative angular velocity
+
+### Control input:
+u(t) = [f_c(t), tau_c(t)]
+
+where:
+- f_c(t): control force
+- tau_c(t): control torque
 
 
-
-## Safety requirements: conditions that must hold throughout a phase 
-
-
-
-## Terminal conditions: the set that defines successful completion of the phase 
+### Admissible control set:
+U = { u : ||f_c|| <= f_max AND ||tau_c|| <= tau_max }
 
 
+### Docking port relative position:
+r_p = r + R(q) * r_c - r_t
+
+where: 
+- r_c: chaser docking port offset (in chaser body frame)
+- r_t: target docking port offset (in target body frame) 
+- R(q): rotation from chaser body frame to target body frame 
+- r_p: position of chaser docking port relative to target docking por (in target frame)
+
+### Docking axis: points outward from docking port 
+e_d = [1, 0, 0]   
+
+### Longitudinal distance: distance along docking axis 
+s = dot(e_d, r_p)
+
+### Lateral offset: distance from docking axis (how "off-center" it is)
+rho = || (I - outer(e_d, e_d)) * r_p ||
+
+
+### Primitive Geometric Sets 
+
+#### Approach Ellipsoid: operational region around the target (4x2x2 km)
+E_AE = { r : r^T Q_AE r <= 1 }
+
+Q_AE = diag(1/2000^2, 1/1000^2, 1/1000^2)
+
+#### Keep-Out Sphere: hard safety region around target (200 m radius)
+S_KOS = { r : ||r|| <= R_KOS }
+
+R_KOS = 200 m
+
+#### Docking Cone: conical approach region alignd with docking axis 
+C_dock = { x :
+    0 <= s <= 2000 AND
+    rho <= (200 / 2000) * s
+}
+
+#### Docking Corridor: narrow cylindrical region near docking port 
+C_corr = { x :
+    0 <= s <= d_P3 AND
+    rho <= 5 m
+}
+
+where: 
+- d_P3: axial distance along the docking axis from P3 to docking point 
+
+
+### Alignment Sets: how well the chaser is aligned with docking axis 
+
+#### Safe alignment 
+A_safe = { x :
+    theta_e <= 3 deg AND
+    ||w_e|| <= 0.15 deg/s
+}
+
+where: 
+- theta_e: alignment error 
+- w_e: angular velocity 
+
+#### Warning alignment 
+A_warn = {
+    (3 deg < theta_e <= 4 deg) OR
+    (0.15 < ||w_e|| <= 0.2 deg/s)
+}
+
+#### Unsafe alignment 
+A_unsafe = {
+    theta_e > 4 deg OR
+    ||w_e|| > 0.2 deg/s
+}
+
+
+### Velocity Sets: linits sped and approach rate 
+
+#### Closing phase 
+V_safe_close = {
+    ||v|| <= 0.25 m/s AND
+    |s_dot| <= 0.15 m/s
+}
+
+V_warn_close = {
+    (0.25 < ||v|| <= 0.35) OR
+    (0.15 < |s_dot| <= 0.25)
+}
+
+V_unsafe_close = {
+    ||v|| > 0.35 OR
+    |s_dot| > 0.25
+}
+
+#### Final approach phase 
+V_safe_final = {
+    ||v|| <= 0.15 AND
+    |s_dot| <= 0.1
+}
+
+V_warn_final = {
+    (0.15 < ||v|| <= 0.2) OR
+    (0.1 < |s_dot| <= 0.15)
+}
+
+V_unsafe_final = {
+    ||v|| > 0.2 OR
+    |s_dot| > 0.15
+}
+
+
+### Terminal Docking Set: defines successful docking conditions 
+X_dock = {
+    ||r_p|| <= 0.1 m AND
+    ||v_p|| <= 0.1 m/s AND
+    theta_e <= 4 deg AND
+    ||w_e|| <= 0.2 deg/s
+}
+
+
+### Initialization Sets 
+
+#### P2
+X_P2 = {
+    s ∈ [d_P2_min, d_P2_max],
+    rho <= rho_P2,
+    v_parallel ∈ [v_min_P2, v_max_P2],
+    ||v_perp|| <= v_perp_P2,
+    theta_e <= theta_P2,
+    ||w_e|| <= w_P2
+}
+
+#### P3
+X_P3 = {
+    s ∈ [d_P3_min, d_P3_max],
+    rho <= rho_P3,
+    v_parallel ∈ [v_min_P3, v_max_P3],
+    ||v_perp|| <= v_perp_P3,
+    theta_e <= theta_P3,
+    ||w_e|| <= w_P3
+}
+
+
+### Safety Sets 
+
+#### Clsoing phase 
+X_safe_close = G_safe_close ∩ V_safe_close
+
+X_warn_close = (G_warn_close ∪ V_warn_close) \ X_unsafe_close
+
+X_unsafe_close = G_unsafe_close ∪ V_unsafe_close
+
+#### Final approach 
+X_safe_final = G_safe_final ∩ V_safe_final ∩ A_safe
+
+X_warn_final = (G_warn_final ∪ V_warn_final ∪ A_warn) \ X_unsafe_final
+
+X_unsafe_final = G_unsafe_final ∪ V_unsafe_final ∪ A_unsafe
+
+
+### Phase Definitions 
+
+#### Closing (P2 --> P3)
+Initial:
+x(t_P2) ∈ X_P2
+
+During:
+x(t) ∈ X_safe_close
+u(t) ∈ U
+
+Final:
+x(t_P3) ∈ X_P3
+
+#### Final Approach (P3 --> Docking)
+Initial:
+x(t_P3) ∈ X_P3
+
+During:
+x(t) ∈ X_safe_final
+u(t) ∈ U
+
+Final:
+x(t_f) ∈ X_dock
 
 
 ## Assumptions 
@@ -500,23 +691,39 @@ Assumption: The SRP torque is assumed to arise from an offset between the center
 Consequence: 
 Limitation:
 
-Assumption: 
+Assumption: The control inputs are assumed to be continuous and instantaneously applied. 
 Consequence: 
 Limitation:
 
-Assumption: 
+Assumption:  Only maximum magnitude constraints are considered for the control force and torque are enforced, while actuator dynamics, delays, and saturation effects are neglected in the initial model.
 Consequence: 
 Limitation:
 
-Assumption: 
+Assumption: An approach ellipsoid of dimensions 4 × 2 × 2 km, centered at the target CoM, is assumed to represent the operational region for close-proximity rendezvous.
 Consequence: 
 Limitation:
 
-Assumption: 
+Assumption: A keep-out sphere of radius 200 m, centered at the target CoM, is assumed to represent a prohibited region that the chaser must not enter, modelling the presence of sensitive structures such as antennas, appendages, and interference zones.
 Consequence: 
 Limitation:
 
-Assumption: 
+Assumption: A docking cone aligned with the docking axis is assumed to define the admissible approach region toward the docking port, where the chaser is required to remain within this cone during the approach.
+Consequence: 
+Limitation:
+
+Assumption: A docking corridor, defined as a cylindrical region extending from point P3 to the docking interface, is assumed to enforce alignment with the docking axis during the final approach phase.
+Consequence: 
+Limitation:
+
+Assumption: Maximum velocity bounds are assumed for both the closing phase and the final approach phase, limiting the magnitude of the relative velocity.
+Consequence: 
+Limitation:
+
+Assumption: Maximum range-rate (closing speed along the docking axis) bounds are assumed for both the closing phase and the final approach phase, ensuring a controlled and safe approach toward the target.
+Consequence: 
+Limitation:
+
+Assumption: Alignment bounds, expressed in terms of allowable attitude error and angular velocity, are assumed during the closing phase to ensure that the chaser maintains a suitable orientation for transition into the final approach phase.
 Consequence: 
 Limitation:
 

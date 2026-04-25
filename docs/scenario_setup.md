@@ -396,6 +396,7 @@ U = { u : ||f_c|| <= f_max AND ||tau_c|| <= tau_max }
 r_p = r + R(q) * r_c - r_t
 
 where: 
+- r: position of the chaser CoM relative to the target CoM, expressed in the target-centered frame
 - r_c: chaser docking port offset (in chaser body frame)
 - r_t: target docking port offset (in target body frame) 
 - R(q): rotation from chaser body frame to target body frame 
@@ -464,7 +465,7 @@ A_unsafe = {
 }
 
 
-### Velocity Sets: linits sped and approach rate 
+### Velocity Sets: limits sped and approach rate 
 
 #### Closing phase 
 V_safe_close = {
@@ -568,11 +569,11 @@ G_safe_final = C_dock ∩ C_corr
 (chaser is inside docking cone and inside the final approach corridor)
 
 ###### Warning set 
-G_warn_final = C_dock \ C_corr
+G_warn_final = C_dock \ C_corr 
 (chaser is inside docking cone, but outisde stricter final corridor)
 
 ###### Unsafe set 
-G_unsafe_final = C_dock_complement with   0 <= s <= d_P3
+G_unsafe_final = C_dock_complement 
 (chaser is outside docking cone)
 
 X_safe_final = G_safe_final ∩ V_safe_final ∩ A_safe
@@ -580,6 +581,8 @@ X_safe_final = G_safe_final ∩ V_safe_final ∩ A_safe
 X_warn_final = (G_warn_final ∪ V_warn_final ∪ A_warn) \ X_unsafe_final
 
 X_unsafe_final = G_unsafe_final ∪ V_unsafe_final ∪ A_unsafe
+
+![Geometry of docking](<geometry_of_docking .jpeg>)
 
 
 ### Phase Definitions 
@@ -737,7 +740,7 @@ Assumption: An approach ellipsoid of dimensions 4 × 2 × 2 km, centered at the 
 Consequence: 
 Limitation:
 
-Assumption: A keep-out sphere of radius 200 m, centered at the target CoM, is assumed to represent a prohibited region that the chaser must not enter, modelling the presence of sensitive structures such as antennas, appendages, and interference zones.
+Assumption: A keep-out sphere of radius 200 m, centered at the target CoM, is assumed to represent a prohibited region that the chaser must not enter, besides the intersection with the docking cone, modelling the presence of sensitive structures such as antennas, appendages, and interference zones.
 Consequence: 
 Limitation:
 

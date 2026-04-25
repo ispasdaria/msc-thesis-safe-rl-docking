@@ -266,7 +266,7 @@ G_warn_final = C_dock \ C_corr
 (chaser is inside docking cone, but outisde stricter final corridor)
 
 ###### Unsafe set 
-G_unsafe_final = C_dock_complement with   0 <= s <= d_P3
+G_unsafe_final = C_dock_complement 
 (chaser is outside docking cone)
 
 X_safe_final = G_safe_final ∩ V_safe_final ∩ A_safe

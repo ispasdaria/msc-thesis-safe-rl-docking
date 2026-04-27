@@ -610,6 +610,71 @@ Final:
 x(t_f) ∈ X_dock
 
 
+
+### Reward structure (preliminary ideas)
+
+The reward is phase-dependent, because the closing phase and the final approach phase have different control priorities. Failure should be very expensive. Docking or reaching P3 should be strongly rewarded. Progress should be continuously encouraged. Control effort should be discouraged, but not dominate the behavior.
+
+For the closing phase, the reward encourages:
+- reduction of the distance to the corridor-entry point P3
+- reduction of relative velocity
+- reduction of lateral offset from the docking axis
+- satisfaction of control input bounds, geometric and velocity safety constraints
+- arrival inside the P3 handover set
+
+r_close = 
+    - w_s * distance_to_P3
+    - w_v * ||v_p||
+    - w_rho * rho
+    - w_u * ||u||
+    - w_warn * I_warn
+    - w_fail * I_fail
+    + w_success * I_P3
+
+For the final approach phase, the reward encourages:
+- reduction of the docking-port position error
+- reduction of docking-port relative velocity
+- small lateral offset inside the docking corridor
+- alignment with the docking axis
+- low angular velocity
+- satisfaction of control input bounds, geometric and velocity safety constraints 
+- satisfaction of terminal docking conditions
+
+r_final =
+    - w_rp * ||r_p||
+    - w_vp * ||v_p||
+    - w_rho * rho
+    - w_theta * theta_e
+    - w_w * ||w_e||
+    - w_u * ||u||
+    - w_warn * I_warn_final
+    - w_fail * I_fail_final 
+    + w_dock * I_dock
+
+where: 
+- I_warn = 1 if the state enters the warning set, otherwise 0
+- I_fail = 1 if the state enters the unsafe set or violates hard constraints, otherwise 0
+- I_P3 = 1 if the closing phase reaches X_P3, otherwise 0
+- I_dock = 1 if the final phase reaches X_dock, otherwise 0
+
+If I_P3 = 1:
+    terminate closing episode successfully
+
+If I_dock = 1:
+    terminate final approach episode successfully
+
+If I_fail = 1:
+    terminate episode unsuccessfully
+
+If admissibile control bounds are violated: 
+    terminate episode unsuccessfully
+
+
+
+### Failure conditions (preliminary ideas)
+
+
+
 ## Assumptions 
 
 Assumption: One spacecraft is modelled as the active chaser, responsible for performing the approach and control actions.

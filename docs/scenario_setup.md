@@ -1,628 +1,606 @@
-### PROBLEM SETUP ###
+# Scenario Setup
 
+## 1. Modeled Problem
 
-## Modeled problem
+The modeled control problem includes two sequential close-proximity rendezvous tasks, each with a dedicated autonomous controller:
 
-The modeled control problem includes the closing phase and the final approach phase of close-proximity rendezvous. These phases are treated as two sequential autonomous control tasks, each associated with a dedicated agent.
+1. Closing phase (P2 -> P3)
+2. Final approach phase (P3 -> Docking)
 
 ![Docking Phases](docking_phases.png) (Luo, J. Zhang, and Tang, 2014)
 
-Motivation: This design is adopted because the two phases impose different control objectives and safety requirements: the closing phase emphasizes convergence toward the target, operating at larger separations with larger admissible position and velocity errors, whereas the final approach phase requires precise and constrained motion in the vicinity of the docking target, where the admissible region is much smaller and the tolerances are tighter. Additionally, the reward in the closing phase emphasizes reducing distance and velocity, while in the final approach phase it emphasizes low closing speed, alignment, corridor keeping, and terminal accuracy. The safety constraints near the target are also much stricter than those farther away. Using a dedicated agent for each phase allows the control strategy to be specialized to the characteristics of that phase.
+This split is motivated by phase-specific objectives and safety constraints:
 
-### Controller 1 — Corridor capture
+- Closing phase prioritizes convergence from larger distance, reduction of relative velocity, and geometric preparation for final approach.
+- Final approach prioritizes strict terminal precision, corridor adherence, low closing speed, and tighter safety envelopes.
 
-In this phase, the chaser reduces the relative distance further and transfers from the previous near-target point, P2 (a couple of km away from the target), to a station-keeping point, P3 (hundreds of meters from the target). The purpose of this controller is to bring the chaser into the correct region for the final straight-line approach. Therefore, Controller 1 is required to:
+### 1.1 Controller 1: Corridor Capture (P2 -> P3)
 
-- reduce range to the target and stabilize at or near the handover point: move the chaser from the initial close-range state, P2, to a terminal point or corridor-entry point, P3, located hundreds of meters away from the target
-- reduce relative velocity: slow the relative motion down as the range decreases
-- prepare the geometry for final approach: bring the chaser into the correct side or region so that it can enter the final straight-line approach corridor
+Controller 1 is responsible for transferring the chaser from close-range point P2 (couple of km away from target) to handover point P3 (hundreds of m away from target), preparing terminal docking entry conditions.
 
-### Controller 2 — Terminal docking translation
+Objectives:
 
-Starting from P3, the chaser approaches the target along a straight line as much as possible and must satisfy strict requirements on relative position, velocity, attitude, and angular rate at contact. The purpose of this controller is to guide the chaser through the docking corridor and achieve admissible terminal contact conditions. Therefore, Controller 2 is required to:
+- Reduce range to target and stabilize near P3.
+- Reduce relative velocity as range decreases.
+- Place chaser in appropriate geometry for final straight-line corridor entry.
 
-- enter the approach gate or corridor and track a straight-line approach: once at or near P3, move into the permitted line of approach and continue along a straight line
-- keep lateral error small: stay centered with respect to the docking point and the line-of-sight (LOS) cone
-- continue reducing approach speed: ensure that the closing speed becomes smaller as contact approaches
-- arrive with admissible terminal conditions: satisfy the required constraints on relative position, velocity, attitude, and angular rate at contact with the docking point, defined as the center of the target docking interface
+P2 to P3 is treated as a dedicated corridor-capture task so that geometry preparation and speed shaping are achieved before terminal constraints become dominant.
 
+### 1.2 Controller 2: Terminal Docking (P3 -> Docking)
 
-### Docking geometry 
+Controller 2 starts from P3 and guides the chaser through the docking corridor to admissible contact conditions.
 
-The **docking axis** is defined as the centerline of the target docking port, the axis normal to the target docking interface plane and pointing outward from the target port. This axis is denoted by `e_d` and is assumed to coincide with the 'x'-axis of the target-centered frame. The docking corridor is aligned with this axis, which therefore represents the nominal approach direction of the chaser. 
+Objectives:
 
-The **target docking-port center**, expressed relative to the target center of mass, is defined as a fixed offset along the docking axis and is assumed to be located on the front face of the target body.
+- Enter and track the nominal straight-line approach corridor.
+- Keep lateral error small.
+- Continue reducing approach speed near contact.
+- Satisfy terminal constraints on position, velocity, attitude, and angular rate.
 
-The **chaser docking-port center**, expressed relative to the chaser center of mass, is defined as a fixed offset along the chaser body `x`-axis and is assumed to be located on the front face of the chaser body.
+Terminal docking is separated from corridor capture because terminal contact requires stricter and more coupled constraints than far-range convergence.
 
+## 2. Docking Geometry and Vehicles
 
-#### Docking port geometry (Oestreich, Linares, and Gondhalekar, 2020)
+### 2.1 Core Geometry
 
-The relative-motion frame is centered at the target center of mass. Let
+- Docking axis `e_d`: centerline of target docking port, normal to docking interface plane, pointing outward.
+- Target docking-port center: fixed offset from target CoM, located on front face.
+- Chaser docking-port center: fixed offset from chaser CoM along chaser body x-axis, located on front face.
 
-- r ∈ R^3 be the position of the chaser center of mass relative to the target center of mass, expressed in the target-centered frame
-- q be the chaser attitude relative to the target-centered frame
-- R(q) ∈ R^(3×3) be the rotation matrix corresponding to q, mapping vectors from the chaser body frame to the target-centered frame
-- r_c ∈ R^3 be the position of the chaser docking-port center relative to the chaser center of mass, expressed in the chaser body frame
-- r_t ∈ R^3 be the position of the target docking-port center relative to the target center of mass, expressed in the target-centered frame
+### 2.2 Docking-Port Relative Kinematics (Oestreich, Linares, and Gondhalekar, 2020)
 
-Then the relative position of the chaser docking port with respect to the target docking port is defined as
+Let:
 
+- `r in R^3`: chaser CoM position relative to target CoM (target-centered frame)
+- `q`: chaser attitude relative to target-centered frame
+- `R(q) in R^(3x3)`: rotation from chaser body frame to target-centered frame
+- `r_c in R^3`: chaser docking-port center relative to chaser CoM (chaser body frame)
+- `r_t in R^3`: target docking-port center relative to target CoM (target-centered frame)
+
+Then docking-port relative position is:
+
+```
 r_p = r + R(q) * r_c - r_t
+```
 
-Docking contact is achieved when the two docking ports coincide: r_p = 0
+Docking contact condition:
 
-If v denotes the relative velocity of the chaser center of mass and ω its angular velocity, then the relative velocity of the chaser docking port with respect to the target docking port can be written as
+```
+r_p = 0
+```
 
-v_p = v + ω × (R(q) * r_c)
+If `v` is relative CoM velocity and `omega` is chaser angular velocity, docking-port relative velocity is:
 
-for a stationary target frame. This way, terminal docking conditions can be imposed on r_p, v_p, attitude error, and angular velocity. 
+```
+v_p = v + omega x (R(q) * r_c)
+```
 
+Terminal conditions are imposed on `r_p`, `v_p`, attitude error, and angular velocity.
 
-#### Vehicles (International Space Station Multilateral Coordination Board, 2013)
+Imposing terminal constraints at docking-port level, rather than only at CoM level, better represents interface-level contact quality.
 
-The chaser is assumed to be a Boeing Starliner-like vehicle, and the target is assumed to be an ISS-like port module. The selected vehicles are approximated using the IDSS reference vehicle classes rather than exact proprietary spacecraft data. The Starliner-like chaser is approximated using th IDSS-15T reference class, since Starliner is a medium crew visiting vehcile and the IDSS defines medium vehicles in the range of 8 to 25 tonnes. The ISS-like target port module is approximated using the IDSS-350T reference class, since the IDSS states that these vehicles may dock to large space complexes in the range of 100 to 375 tonnes. 
+### 2.3 Vehicle Modeling (IDSS-Based)
 
-Motivation: The Starliner is an IDSS/NDS-compatible visiting vehicle, while the ISS provides International Docking Adapter (IDA) interfaces for compatible spacecraft. This makes the scenatio realistic a standardized docking study, and keeps the geometric assumptions consistent with the IDSS framework from which the terminal contact conditions are used from. 
+Baseline case:
 
-As a vehicle-to-vehicle docking case option, the analysis may also consider a Starliner-like chaser and a Crew Dragon-like target. Both the Starliner-like chaser and the Crew Dragon-like target are approximated using medium IDSS vehciles classes. The Starliner-like vehicles is approximated using the IDSS-15T class, and the Crew Dragon-like vehicles is approximated using the IDSS-10T class, as it is described by SpaceX to be capable of carrying up to seven people and listed as a spacecraft for Earth-orbit missions. 
+- Chaser: Boeing Starliner-like, approximated by IDSS-15T class.
+- Target: ISS-like port module, approximated by IDSS-350T class.
 
-Motivation: The study represents docking between two existing classes of IDSS-compatible crew vehicles of similar scale, which is useful for examining a more symmetric configuration. 
+The Starliner-like chaser is approximated with IDSS-15T because Starliner is a medium crew visiting vehicle and this class captures the IDSS medium-vehicle range (about 8 to 25 tonnes). The ISS-like target module is approximated with IDSS-350T because the baseline target represents docking to a large orbital complex and this class captures the IDSS large-complex range (about 100 to 375 tonnes).
 
-In the docking-port geometry model, the vectors from the vehicle center of mass to the docking-port center, r_c and r_t, are approximated using the IDSS reference mass-properties table. These values are given as the coordinates of the Hard Capture System mating plane center in a coordinate system located at the vehicle CoG, with the positive x-axis pointing toward the docking interface. These coordinates are used as representative first-order approximations of the CoM to docking-port offsets. 
+Alternative vehicle-to-vehicle case:
 
+- Chaser: Starliner-like, IDSS-15T.
+- Target: Crew Dragon-like, IDSS-10T.
 
-## Reference frames (AE3202 Flight Dynamics Lecture notes)
+The Crew Dragon-like target is approximated with IDSS-10T because it is a medium-class crew vehicle, and using IDSS-10T with a Starliner-like IDSS-15T chaser keeps the pair in a comparable scale range while preserving an IDSS-consistent approximation.
 
-- Earth-centered inertial frame: 
+In both cases, `r_c` and `r_t` are first-order approximations derived from IDSS reference mass-properties (Hard Capture System mating plane center coordinates relative to CoG with +x toward docking interface). Using IDSS reference mass properties avoids dependence on proprietary geometry while preserving consistent first-order port-offset modeling.
 
-The Earth-centered inertial frame, denoted by F_I, is used to describe the absolute orbital motion of the target and chaser spacecraft. It is a right-handed orthogonal reference frame with origin at the Earth’s center of mass. The Z_I axis is aligned with the Earth’s rotation axis and points toward the North Pole, the X_I axis points toward the vernal equinox, and the Y_I axis completes the right-handed triad in the equatorial plane. This frame serves as the global reference frame for the absolute translational motion of both vehicles, so that their inertial positions and velocities can be defined in it. The attitude of each spacecraft may also be defined with respect to F_I, for example by Euler angles or quaternions. ![Earth-centered inertial reference frame](ECI.png)
+## 3. Reference Frames (AE3202 Flight Dynamics Notes)
 
-- Target body-fixed frame: 
+### 3.1 Earth-Centered Inertial Frame `F_I`
 
-The target body-fixed frame, denoted by F_{B_t}, is a right-handed orthogonal frame rigidly attached to the target spacecraft, with origin at the target CoM. The x_{B_t} axis lies in the target symmetry plane and points forward toward the nominal docking interface. The z_{B_t} axis lies in the same symmetry plane and points downward. The y_{B_t} axis points to the right, completing the right-handed triad. This frame is fixed to the physical structure of the target and is therefore used to describe quantities that are directly tied to the target geometry. In particular, the target docking-port location, the nominal docking axis, and the attitude-related docking constraints are defined in F_{B_t}. The nominal docking axis is assumed to coincide with the positive x_{B_t} axis. The relative attitude of the chaser with respect to the target is described by the rotation from the chaser body-fixed frame F_{B_c} to the target body-fixed frame F_{B_t}. ![Body-Fixed Reference Frame](body_fixed_frame.png)
+Used for absolute orbital motion of target and chaser.
 
-- Target-centered orbital frame
+- Origin: Earth CoM
+- `Z_I`: Earth rotation axis (toward North Pole)
+- `X_I`: toward vernal equinox
+- `Y_I`: completes right-handed equatorial triad
 
-The target-centered orbital frame, denoted by F_O, is a right-handed orthogonal frame centered at the target CoM and attached to the local orbital motion of the target. This frame is introduced to describe the translational relative motion of the chaser with respect to the target. The origin is located at the target cCoM. The x_O axis is chosen along the local radial direction, the y_O axis along the local along-track direction, and the z_O axis along the orbit-normal direction, completing the right-handed triad. The relative position and relative velocity of the chaser are expressed in F_O, and the close-proximity translational dynamics are formulated in this frame. This choice allows the relative-motion model to remain consistent with orbital dynamics, while avoiding the unnecessary restriction of expressing the translational motion directly in the target body-fixed frame. ![Orbital Reference Frame](orbital_reference_frame.png)
+![Earth-centered inertial reference frame](ECI.png)
 
-- Chaser body-fixed frame: 
+### 3.2 Target Body-Fixed Frame `F_{B_t}`
 
-The chaser body-fixed frame F_{B_c} is a right-handed orthogonal frame with origin at the chaser center of mass. The x_{B_c} axis lies in the symmetry plane and points forward, the z_{B_c} axis lies in the symmetry plane and points downward, and the y_{B_c} axis points to the right. This frame is used for quantities intrinsic to the chaser, such as thruster directions, the inertia matrix, body angular velocity, control forces and torques, and the docking-port offset relative to the chaser CoM. 
+Rigidly attached to target spacecraft.
 
+- Origin: target CoM
+- `x_{B_t}`: forward toward docking interface
+- `z_{B_t}`: downward in symmetry plane
+- `y_{B_t}`: right-hand completion
 
-## Target Orbit and Relative Docking Geometry
+Used for target-geometry-defined quantities such as docking-port location and docking-axis constraints.
 
-### Target orbit
+![Body-Fixed Reference Frame](body_fixed_frame.png)
 
-The target is assumed to move on an ISS-like circular low-Earth orbit, compatible with standard close-proximity relative-motion modeling assumptions. The target orbit is defined by the following parameters:
+### 3.3 Target-Centered Orbital Frame `F_O`
 
-- orbit type: circular low-Earth orbit
-- altitude: 400 km
-- inclination: 51.6 deg
-- eccentricity: 0
-- semi-major axis: a = R_E + 400 km
-- right ascension of the ascending node: 0 deg
-- argument of perigee: 0 deg
-- true anomaly at the initial time: 0 deg
+Used for translational relative dynamics.
 
-Motivation: An ISS-like orbit is adopted because the baseline target is modeled as an ISS-like docking port module. A circular orbit simplifies the relative-motion modeling and is consistent with common assumptions used in close-proximity rendezvous and docking studies. The altitude of 400 km and inclination of 51.6 deg are chosen as representative values for an ISS-like low-Earth orbit. The eccentricity is set to zero in order to avoid additional complexity due to orbital ellipticity and to keep the relative-motion model consistent with a circular-reference-orbit formulation. The right ascension of the ascending node, argument of perigee, and initial true anomaly are fixed to zero for convenience, since the docking-control problem is formulated in the target-centered frame and these angles are not expected to significantly affect the local close-proximity docking scenario considered here.
+- Origin: target CoM
+- `x_O`: radial
+- `y_O`: along-track
+- `z_O`: orbit-normal
 
-### Reference docking geometry
+Relative position and velocity are expressed in `F_O`.
 
-The docking axis is assumed to coincide with the positive x_T-axis of the target-centered frame, and the chaser is initialized on the positive x_T side of the target and approaches the docking interface by moving toward smaller x_T values.
+![Orbital Reference Frame](orbital_reference_frame.png)
 
-The target attitude is assumed to remain fixed during the modeled docking phase, and the target angular velocity is assumed to be zero. Therefore, the relevant rotational state is the attitude and angular velocity of the chaser relative to the target-centered frame.
+### 3.4 Chaser Body-Fixed Frame `F_{B_c}`
 
-Motivation: Aligning the docking axis with the positive x_T-axis provides a clear geometric interpretation of the approach direction and simplifies the definition of corridor constraints and terminal docking conditions. Initializing the chaser on the positive x_T side ensures that the vehicle approaches the target from the nominal docking direction. Assuming a fixed target attitude and zero target angular velocity is consistent with modeling the target as passive during docking and reduces the complexity of the relative rotational dynamics. Under these assumptions, the control problem can focus on the chaser relative to the target.
+Rigidly attached to chaser spacecraft.
 
-### Relative initial conditions and handover geometry
+- Origin: chaser CoM
+- `x_{B_c}`: forward
+- `z_{B_c}`: downward in symmetry plane
+- `y_{B_c}`: right-hand completion
 
-The modeled motion begins at the close-range rendezvous point P2, after phasing and homing have already been completed. At this point, the chaser is assumed to be in a controlled approach state: it is not yet in terminal docking, but it is already roughly aligned with the target and has relatively small translational and rotational errors.
+Used for chaser-intrinsic quantities (thruster directions, inertia, body rates, control torques, docking-port offset).
 
-The point P3 defines the end of the closing phase and the start of the terminal docking phase. It is selected as a corridor-entry or handover region from which the docking-port relative state is already sufficiently aligned for precise final approach and corridor tracking.
+The frame selection separates absolute orbital motion (`F_I`), relative translation (`F_O`), and body-tied geometry/control (`F_{B_t}`, `F_{B_c}`), which keeps the dynamics and constraints physically interpretable.
 
-Motivation: P2 must therefore represent a realistic close-range state in which the chaser is already under controlled motion and roughly prepared for final approach, but is not yet sufficiently aligned to begin terminal docking. P3 is introduced as a handover state between the two controllers so that the closing controller and the terminal docking controller can address different objectives and operate under different tolerance levels. The conditions at P3 are chosen to be significantly tighter than those at P2, reflecting the fact that the chaser should already be better aligned, slower, and closer to the corridor before the terminal docking controller takes over.
+## 4. Orbit, Handover Geometry, and Initial Conditions
 
-## Nominal states and randomized initialization
+### 4.1 Target Orbit (ISS-like Circular LEO)
 
-To define representative but non-identical docking scenarios, nominal states are selected for both `P2` and `P3`, and the actual initial conditions are sampled from bounded regions around these nominal values.
+- Orbit type: circular LEO
+- Altitude: 400 km
+- Inclination: 51.6 deg
+- Eccentricity: 0
+- Semi-major axis: `a = R_E + 400 km`
+- RAAN: 0 deg
+- Argument of perigee: 0 deg
+- True anomaly at initial time: 0 deg
 
-Two sets of bounds are defined:
+Motivation: consistent with ISS-like baseline target and standard circular-reference close-proximity modeling assumptions. A circular orbit avoids additional ellipticity effects in the initial model and supports cleaner verification of relative-motion logic.
+
+### 4.2 Reference Docking Geometry
+
+- Docking axis aligned with positive `x_T` of target-centered frame.
+- Chaser initialized on positive `x_T` side and approaches toward smaller `x_T`.
+- Target attitude fixed; target angular velocity zero.
+
+Motivation: Aligning approach with the positive docking-axis direction gives a direct interpretation of longitudinal and lateral errors, while fixed target attitude simplifies rotational coupling in early development.
+
+### 4.3 Handover Points
+
+- `P2`: close-range state after phasing and homing; controlled but not terminal.
+- `P3`: handover/corridor-entry state; tighter than `P2`; start of terminal phase.
+
+## 5. Nominal States and Randomized Initialization
+
+Nominal states define reference scenarios; sampled initialization intervals define training and evaluation diversity.
+
+Two ranges are used:
+
+- Testing range (narrower): representative operational evaluation.
+- Training range (wider): robustness-oriented learning exposure.
+
+Motivation: Narrow test ranges evaluate representative operating performance, while wider training ranges improve robustness and reduce overfitting to one nominal state.
+
+### 5.1 P2 Definition
+
+#### Nominal P2 State
+
+- Axial distance: `1700 m`
+- Lateral offset: `0 m`
+- Out-of-plane offset:
+  - `0 m` (3-DoF)
+  - `0 m` nominal (6-DoF)
+- Axial relative velocity: `-0.10 m/s`
+- Lateral relative velocity: `0 m/s`
+- Out-of-plane relative velocity:
+  - `0 m/s` (3-DoF)
+  - `0 m/s` nominal (6-DoF)
+- Attitude error: `0 deg` each axis
+- Angular velocity: `0 deg/s` each axis
+
+#### P2 Testing Range
+
+- Axial distance: `1600 m` to `1800 m`
+- Lateral offset: `-100 m` to `100 m`
+- Out-of-plane offset:
+  - `0 m` (3-DoF)
+  - `-100 m` to `100 m` (6-DoF)
+- Axial relative velocity: `-0.15 m/s` to `-0.05 m/s`
+- Lateral relative velocity: `-0.02 m/s` to `0.02 m/s`
+- Out-of-plane relative velocity:
+  - `0 m/s` (3-DoF)
+  - `-0.02 m/s` to `0.02 m/s` (6-DoF)
+- Attitude error: `-3 deg` to `3 deg` each axis
+- Angular velocity: `-0.05 deg/s` to `0.05 deg/s` each axis
 
-- a narrower testing range, used to evaluate controller performance under representative operating conditions
-- a wider training range, used during learning to improve robustness to initial-state variations
+#### P2 Training Range
 
-Motivation: Using nominal states provides a clear reference scenario around which the docking problem can be defined. A narrower testing range ensures that the controller is evaluated on a realistic and focused set of operating conditions. A wider training range exposes the controller to a broader variety of initial conditions, which can improve robustness and reduce overfitting to a single nominal case. This approach is consistent with the idea of training on a broader region of the state space while evaluating performance on a more representative subset of that region (Oestreich, Linares, and Gondhalekar, 2020). 
+- Axial distance: `1500 m` to `1900 m`
+- Lateral offset: `-150 m` to `150 m`
+- Out-of-plane offset:
+  - `0 m` (3-DoF)
+  - `-150 m` to `150 m` (6-DoF)
+- Axial relative velocity: `-0.20 m/s` to `-0.03 m/s`
+- Lateral relative velocity: `-0.03 m/s` to `0.03 m/s`
+- Out-of-plane relative velocity:
+  - `0 m/s` (3-DoF)
+  - `-0.03 m/s` to `0.03 m/s` (6-DoF)
+- Attitude error: `-5 deg` to `5 deg` each axis
+- Angular velocity: `-0.10 deg/s` to `0.10 deg/s` each axis
 
-### P2 definition
+Motivation: P2 bounds are chosen so the state remains close-range and controllable, but still diverse enough to justify a dedicated closing controller.
 
-At P2, the chaser should therefore be reasonably well prepared for approach, while still exhibiting enough translational and rotational error to justify a dedicated closing controller.
+### 5.2 P3 Definition
 
-#### Nominal P2 state
+#### Nominal P3 State
 
-- axial distance along the docking axis: `1700 m`
-- lateral offset: `0 m`
-- out-of-plane offset:
-  - `0 m` for the 3-DoF scenario
-  - `0 m` nominal for the 6-DoF scenario
-- axial relative velocity: `-0.10 m/s`
-- lateral relative velocity: `0 m/s`
-- out-of-plane relative velocity:
-  - `0 m/s` for the 3-DoF scenario
-  - `0 m/s` nominal for the 6-DoF scenario
-- attitude error: `0 deg` on each axis
-- angular velocity: `0 deg/s` on each axis
-
-Motivation: A nominal axial distance of 1700 m is selected to place the chaser clearly within the close-range rendezvous region while remaining outside the terminal docking region. Zero nominal lateral and out-of-plane offsets represent an ideal reference alignment, around which perturbations can be introduced. A small nominal closing velocity is selected to reflect that the chaser is still approaching the target, but under controlled motion. Zero nominal attitude and angular-rate error represent the ideal reference handover geometry from the preceding homing phase.
-
-#### P2 testing range
-
-- axial distance: `1600 m` to `1800 m`
-- lateral offset: `-100 m` to `100 m`
-- out-of-plane offset:
-  - `0 m` for the 3-DoF scenario
-  - `-100 m` to `100 m` for the 6-DoF scenario
-- axial relative velocity: `-0.15 m/s` to `-0.05 m/s`
-- lateral relative velocity: `-0.02 m/s` to `0.02 m/s`
-- out-of-plane relative velocity:
-  - `0 m/s` for the 3-DoF scenario
-  - `-0.02 m/s` to `0.02 m/s` for the 6-DoF scenario
-- attitude error: `-3 deg` to `3 deg` on each axis
-- angular velocity: `-0.05 deg/s` to `0.05 deg/s` on each axis
+- Axial distance: `300 m`
+- Lateral offset: `0 m`
+- Out-of-plane offset:
+  - `0 m` (3-DoF)
+  - `0 m` nominal (6-DoF)
+- Axial relative velocity: `-0.03 m/s`
+- Lateral relative velocity: `0 m/s`
+- Out-of-plane relative velocity:
+  - `0 m/s` (3-DoF)
+  - `0 m/s` nominal (6-DoF)
+- Attitude error: `0 deg` each axis
+- Angular velocity: `0 deg/s` each axis
 
-Motivation: The testing range is kept relatively narrow so that it represents a realistic close-range operating region after homing has already been completed. The chaser is allowed moderate position and orientation errors, but not large deviations that would be inconsistent with the assumption that the vehicle has already reached P2 under controlled motion. The lateral, out-of-plane, and angular errors are chosen to be noticeable but still small enough to remain representative of a pre-terminal docking state.
+#### P3 Testing Range
 
-#### P2 training range
+- Axial distance: `280 m` to `320 m`
+- Lateral offset: `-3 m` to `3 m`
+- Out-of-plane offset:
+  - `0 m` (3-DoF)
+  - `-3 m` to `3 m` (6-DoF)
+- Axial relative velocity: `-0.05 m/s` to `-0.01 m/s`
+- Lateral relative velocity: `-0.005 m/s` to `0.005 m/s`
+- Out-of-plane relative velocity:
+  - `0 m/s` (3-DoF)
+  - `-0.005 m/s` to `0.005 m/s` (6-DoF)
+- Attitude error: `-1 deg` to `1 deg` each axis
+- Angular velocity: `-0.02 deg/s` to `0.02 deg/s` each axis
 
-- axial distance: `1500 m` to `1900 m`
-- lateral offset: `-150 m` to `150 m`
-- out-of-plane offset:
-  - `0 m` for the 3-DoF scenario
-  - `-150 m` to `150 m` for the 6-DoF scenario
-- axial relative velocity: `-0.20 m/s` to `-0.03 m/s`
-- lateral relative velocity: `-0.03 m/s` to `0.03 m/s`
-- out-of-plane relative velocity:
-  - `0 m/s` for the 3-DoF scenario
-  - `-0.03 m/s` to `0.03 m/s` for the 6-DoF scenario
-- attitude error: `-5 deg` to `5 deg` on each axis
-- angular velocity: `-0.10 deg/s` to `0.10 deg/s` on each axis
+#### P3 Training Range
 
-Motivation: The training range is wider than the testing range in order to expose the controller to a broader set of initial conditions during learning. The wider bounds help improve robustness while remaining physically consistent with a close-range post-homing rendezvous state. The spread is intentionally limited so that the sampled states remain representative of P2 and do not overlap with conditions that would correspond to earlier rendezvous phases.
+- Axial distance: `250 m` to `350 m`
+- Lateral offset: `-5 m` to `5 m`
+- Out-of-plane offset:
+  - `0 m` (3-DoF)
+  - `-5 m` to `5 m` (6-DoF)
+- Axial relative velocity: `-0.06 m/s` to `-0.01 m/s`
+- Lateral relative velocity: `-0.01 m/s` to `0.01 m/s`
+- Out-of-plane relative velocity:
+  - `0 m/s` (3-DoF)
+  - `-0.01 m/s` to `0.01 m/s` (6-DoF)
+- Attitude error: `-2 deg` to `2 deg` each axis
+- Angular velocity: `-0.03 deg/s` to `0.03 deg/s` each axis
 
-### P3 definition
+Motivation: P3 ranges are intentionally tighter than P2 to preserve clear phase separation and enforce corridor-readiness before terminal docking.
 
-At P3, the chaser is assumed to have already completed the closing phase and to be ready for terminal docking. The state at P3 must therefore be significantly tighter than at P2, so that the terminal docking controller can focus on precise corridor tracking and terminal constraint satisfaction.
+## 6. Environmental Disturbances (Starin and Eterno, 2011)
 
-#### Nominal P3 state
+### 6.1 Baseline (Nominal) Environment
 
-- axial distance from the docking point: `300 m`
-- lateral offset: `0 m`
-- out-of-plane offset:
-  - `0 m` for the 3-DoF scenario
-  - `0 m` nominal for the 6-DoF scenario
-- axial relative velocity: `-0.03 m/s`
-- lateral relative velocity: `0 m/s`
-- out-of-plane relative velocity:
-  - `0 m/s` for the 3-DoF scenario
-  - `0 m/s` nominal for the 6-DoF scenario
-- attitude error: `0 deg` on each axis
-- angular velocity: `0 deg/s` on each axis
+Initial model neglects environmental disturbances to validate scenario logic, dynamics implementation, handover behavior, and reward structure under controlled conditions.
 
-Motivation: A nominal axial distance of 300 m is chosen to place the chaser close enough to the target to justify a dedicated terminal docking controller, while still leaving sufficient room for final approach and corridor tracking. Zero nominal lateral, out-of-plane, attitude, and angular-rate errors represent the ideal handover state from the closing controller to the terminal controller. The smaller nominal closing velocity reflects the fact that the approach speed should already have been reduced before the terminal docking phase begins.
+Motivation: A disturbance-free baseline isolates modeling and control-design errors before introducing environment-induced variance.
 
-#### P3 testing range
+### 6.2 Disturbed Environment Extension
 
-- axial distance: `280 m` to `320 m`
-- lateral offset: `-3 m` to `3 m`
-- out-of-plane offset:
-  - `0 m` for the 3-DoF scenario
-  - `-3 m` to `3 m` for the 6-DoF scenario
-- axial relative velocity: `-0.05 m/s` to `-0.01 m/s`
-- lateral relative velocity: `-0.005 m/s` to `0.005 m/s`
-- out-of-plane relative velocity:
-  - `0 m/s` for the 3-DoF scenario
-  - `-0.005 m/s` to `0.005 m/s` for the 6-DoF scenario
-- attitude error: `-1 deg` to `1 deg` on each axis
-- angular velocity: `-0.02 deg/s` to `0.02 deg/s` on each axis
+Extended model includes main LEO disturbance torques:
 
-Motivation: The testing range at P3 is selected to represent a realistic handover state from which the terminal controller can begin precise docking. The lateral and out-of-plane offsets are made much smaller than at `P2`, reflecting that the closing controller should already have centered the chaser relative to the docking corridor. The tighter velocity, attitude, and angular-rate bounds reflect the more restrictive nature of the final approach phase.
+- Aerodynamic drag torque
+- Magnetic torque
+- Gravity-gradient torque
+- Solar-radiation-pressure torque
 
-#### P3 training range
+Motivation: These four effects capture the dominant first-order environmental torques for an ISS-like LEO context.
 
-- axial distance: `250 m` to `350 m`
-- lateral offset: `-5 m` to `5 m`
-- out-of-plane offset:
-  - `0 m` for the 3-DoF scenario
-  - `-5 m` to `5 m` for the 6-DoF scenario
-- axial relative velocity: `-0.06 m/s` to `-0.01 m/s`
-- lateral relative velocity: `-0.01 m/s` to `0.01 m/s`
-- out-of-plane relative velocity:
-  - `0 m/s` for the 3-DoF scenario
-  - `-0.01 m/s` to `0.01 m/s` for the 6-DoF scenario
-- attitude error: `-2 deg` to `2 deg` on each axis
-- angular velocity: `-0.03 deg/s` to `0.03 deg/s` on each axis
+Total environmental disturbance torque:
 
-Motivation: The training range at P3 is wider than the testing range in order to improve robustness of the terminal docking controller. Even though the range is wider, it remains significantly tighter than the corresponding range at P2, because P3 must still represent a near-aligned corridor-entry state. This preserves the physical distinction between the closing phase and the terminal docking phase.
+```
+tau_env = tau_aero + tau_mag + tau_gg + tau_srp
+```
 
+#### 6.2.1 Atmospheric Drag Torque
 
-## Environmental disturbances (Starin and Eterno, 2011)
+```
+tau_aero = 0.5 * rho(h) * C_d * A_ram * V_rel^2 * l_aero
+```
 
-In the initial version of the docking model, environmental disturbances are neglected. The emphasis is placed on the nominal close-proximity relative motion dynamics and on the correct implementation of the docking scenario, controller structure, reward design, phase handover logic, and terminal conditions. Under this assumption, the translational and rotational motion of the chaser is driven only by the nominal relative-motion model and the applied control inputs. This disturbance-free case is used as the baseline case for verification and performance evaluation.
+Where `rho(h)`, `C_d`, `A_ram`, `V_rel`, and `l_aero` are atmospheric density, drag coefficient, projected area, relative flow speed, and aerodynamic moment arm.
 
-### Disturbed environment
+#### 6.2.2 Magnetic Torque
 
-After the nominal docking model has been implemented and validated, the environment is extended to include the main external disturbance torques acting on the chaser. For typical Earth-orbiting spacecraft, the main environmental disturbance sources are gravity-gradient torque, magnetic torque, solar-radiation-pressure torque, and, in low-Earth orbit, aerodynamic torque. Since the present scenario is based on an ISS-like low-Earth orbit at about 400 km altitude, these four disturbance sources are taken as the main environmental effects to be included in the extended model: aerodynamic drag torque, magnetic torque, gravity-gradient torque, solar-radiation-pressure torque. 
+```
+tau_mag = m_res x B_E
+```
 
-The total environmental disturbance torque can then be modeled as
+Where `m_res` is residual magnetic dipole and `B_E` is Earth magnetic field.
 
-`tau_env = tau_aero + tau_mag + tau_gg + tau_srp`, where each contribution is computed separately.
+#### 6.2.3 Gravity-Gradient Torque
 
-#### 1. Atmospheric drag torque
+```
+tau_gg = 3 * mu / r^3 * (e_r x J e_r)
+```
 
-At 400 km altitude, atmospheric drag is relevant because the residual atmosphere in LEO can generate a force in the ram direction. When the center of aerodynamic pressure is not aligned with the center of mass, this force produces a torque.
+Where `mu` is Earth gravitational parameter, `r` orbital radius, `e_r` local vertical unit vector in spacecraft frame, and `J` inertia matrix.
 
-A suitable simplified implementation is:
+#### 6.2.4 Solar Radiation Pressure Torque
 
-`tau_aero = 0.5 * rho(h) * C_d * A_ram * V_rel^2 * l_aero`
+```
+tau_srp = (Phi / c) * A_sun * (1 + q) * cos(phi) * l_srp
+```
 
-where:
+Where `Phi`, `c`, `A_sun`, `q`, `phi`, and `l_srp` denote solar flux, speed of light, illuminated area, reflectance factor, incidence angle, and SRP moment arm.
 
-- `rho(h)` is the atmospheric density at altitude `h`
-- `C_d` is the drag coefficient
-- `A_ram` is the projected area normal to the velocity direction
-- `V_rel` is the orbital-relative flow speed
-- `l_aero` is the moment arm between the center of aerodynamic pressure and the center of mass
+### 6.3 Dynamics with Disturbances
 
-At 400 km, this term should generally be included before higher-altitude-only effects, because aerodynamic torque is one of the characteristic LEO disturbances. 
+Translational:
 
-#### 2. Magnetic torque
+```
+r_dot = v
+m * v_dot = F_control + F_env
+```
 
-Magnetic effects are relatively strong in LEO and the disturbance torque is modeled as the interaction between the spacecraft residual magnetic dipole moment and the Earth magnetic field. The Earth field can be approximated as a dipole for design purposes. 
+If disturbance model includes only torques, then `F_env = 0` and translational model remains nominal.
 
-A practical model is:
+Rotational:
 
-`tau_mag = m_res x B_E`
+```
+J * omega_dot + omega x (J * omega) = tau_control + tau_env
+```
 
-where:
+## 7. Docking Problem Setup (Formal)
 
-- `m_res` is the spacecraft residual magnetic dipole vector
-- `B_E` is the Earth magnetic field at the spacecraft location
+### 7.1 State
 
-For an initial implementation, `B_E` can be taken from a simple dipole model at the target orbit altitude and inclination. If a simpler first approximation is needed, the magnitude of `B_E` may be fixed and only its direction varied along the orbit.
-
-#### 3. Gravity-gradient torque
-
-Gravity-gradient torque arises because the gravity field is not perfectly uniform across the spacecraft body, and its simplified expression depends on the spacecraft inertia distribution, attitude relative to the local vertical, and orbit radius. 
-
-A standard simplified model is:
-
-`tau_gg = 3 * mu / r^3 * (e_r x J e_r)`
-
-where:
-
-- `mu` is the Earth gravitational parameter
-- `r` is the orbital radius
-- `e_r` is the local vertical unit vector expressed in the spacecraft frame
-- `J` is the spacecraft inertia matrix
-
-#### 4. Solar radiation pressure torque
-
-SRP torque is modeled through the illuminated area, reflectance, incidence angle, and the offset between center of pressure and center of mass. It also notes that accurate SRP prediction is difficult, so a simplified estimate is appropriate at first. 
-
-A suitable first model is:
-
-`tau_srp = (Phi / c) * A_sun * (1 + q) * cos(phi) * l_srp`
-
-where:
-
-- `Phi` is the solar flux
-- `c` is the speed of light
-- `A_sun` is the illuminated projected area
-- `q` is an effective reflectance factor
-- `phi` is the incidence angle
-- `l_srp` is the moment arm between center of pressure and center of mass
-
-In this disturbed case, the translational and rotational dynamics are propagated using the nominal control inputs together with the environmental disturbance terms.
-
-### Translational dynamics
-
-The translational motion of the chaser center of mass is written as
-
-`r_dot = v`
-
-`m * v_dot = F_control + F_env`
-
-where:
-
-- `r` is the relative position of the chaser
-- `v` is the relative velocity of the chaser
-- `m` is the chaser mass
-- `F_control` is the commanded control force
-- `F_env` is the total environmental disturbance force
-
-If the disturbance model is restricted to environmental torques only, then
-
-`F_env = 0`
-
-and the translational dynamics reduce to
-
-`r_dot = v`
-
-`m * v_dot = F_control`
-
-In this case, the translational motion remains unchanged with respect to the disturbance-free model, and the environmental effects act only through the rotational dynamics.
-
-### Rotational dynamics
-
-The rotational motion of the chaser is written as
-
-`J * omega_dot + omega x (J * omega) = tau_control + tau_env`
-
-where:
-
-- `J` is the chaser inertia matrix
-- `omega` is the chaser angular velocity
-- `tau_control` is the commanded control torque
-- `tau_env` is the total environmental disturbance torque
-
-The rotational dynamics are driven by their combined effect through the single total environmental torque `tau_env`.
-
-
-## Docking Problem Setup 
-
-### State:
+```
 x(t) = [r(t), v(t), q(t), w(t)]
+```
 
-where:
-- r(t) ∈ R^3: relative position of chaser CoM w.r.t. target CoM (in target orbital frame F_O)
-- v(t) ∈ R^3: relative velocity (in F_O)
-- q(t): relative attitude (quaternion or equivalent)
-- w(t) ∈ R^3: relative angular velocity
+Where:
 
-### Control input:
+- `r(t) in R^3`: relative chaser CoM position w.r.t. target CoM (in `F_O`)
+- `v(t) in R^3`: relative velocity (in `F_O`)
+- `q(t)`: relative attitude
+- `w(t) in R^3`: relative angular velocity
+
+### 7.2 Control Input
+
+```
 u(t) = [f_c(t), tau_c(t)]
+```
 
-where:
-- f_c(t): control force
-- tau_c(t): control torque
+Where `f_c` is control force and `tau_c` is control torque.
 
+### 7.3 Admissible Control Set
 
-### Admissible control set:
+```
 U = { u : ||f_c|| <= f_max AND ||tau_c|| <= tau_max }
+```
 
+### 7.4 Derived Docking Quantities
 
-### Docking port relative position:
+Docking-port relative position:
+
+```
 r_p = r + R(q) * r_c - r_t
+```
 
-where: 
-- r: position of the chaser CoM relative to the target CoM, expressed in the target-centered frame
-- r_c: chaser docking port offset (in chaser body frame)
-- r_t: target docking port offset (in target body frame) 
-- R(q): rotation from chaser body frame to target body frame 
-- r_p: position of chaser docking port relative to target docking por (in target frame)
+Docking axis:
 
-### Docking axis: points outward from docking port 
-e_d = [1, 0, 0]   
+```
+e_d = [1, 0, 0]
+```
 
-### Longitudinal distance: distance along docking axis 
+Longitudinal distance:
+
+```
 s = dot(e_d, r_p)
+```
 
-### Lateral offset: distance from docking axis (how "off-center" it is)
+Lateral offset:
+
+```
 rho = || (I - outer(e_d, e_d)) * r_p ||
+```
 
+### 7.5 Primitive Geometric Sets
 
-### Primitive Geometric Sets 
+Approach ellipsoid (4 x 2 x 2 km):
 
-#### Approach Ellipsoid: operational region around the target (4x2x2 km)
+```
 E_AE = { r : r^T Q_AE r <= 1 }
-
 Q_AE = diag(1/2000^2, 1/1000^2, 1/1000^2)
+```
 
-#### Keep-Out Sphere: hard safety region around target (200 m radius)
+Keep-out sphere (200 m radius):
+
+```
 S_KOS = { r : ||r|| <= R_KOS }
-
 R_KOS = 200 m
+```
 
-#### Docking Cone: conical approach region alignd with docking axis 
+Docking cone:
+
+```
 C_dock = { x :
     0 <= s <= 2000 AND
     rho <= (200 / 2000) * s
 }
+```
 
-#### Docking Corridor: narrow cylindrical region near docking port 
+Docking corridor:
+
+```
 C_corr = { x :
     0 <= s <= d_P3 AND
     rho <= 5 m
 }
+```
 
-where: 
-- d_P3: axial distance along the docking axis from P3 to docking point 
+Where `d_P3` is axial distance from P3 to docking point.
 
+### 7.6 Alignment Sets
 
-### Alignment Sets: how well the chaser is aligned with docking axis 
-
-#### Safe alignment 
-A_safe = { x :
-    theta_e <= 3 deg AND
-    ||w_e|| <= 0.15 deg/s
-}
-
-where: 
-- theta_e: alignment error 
-- w_e: angular velocity 
-
-#### Warning alignment 
+```
+A_safe = { x : theta_e <= 3 deg AND ||w_e|| <= 0.15 deg/s }
 A_warn = {
     (3 deg < theta_e <= 4 deg) OR
     (0.15 < ||w_e|| <= 0.2 deg/s)
 }
-
-#### Unsafe alignment 
 A_unsafe = {
     theta_e > 4 deg OR
     ||w_e|| > 0.2 deg/s
 }
+```
 
+### 7.7 Velocity Sets
 
-### Velocity Sets: limits sped and approach rate 
+Closing phase:
 
-#### Closing phase 
+```
 V_safe_close = {
     ||v_p|| <= 0.25 m/s AND
     |s_dot| <= 0.15 m/s
 }
-
 V_warn_close = {
     (0.25 < ||v_p|| <= 0.35) OR
     (0.15 < |s_dot| <= 0.25)
 }
-
 V_unsafe_close = {
     ||v_p|| > 0.35 OR
     |s_dot| > 0.25
 }
+```
 
-#### Final approach phase 
+Final approach phase:
+
+```
 V_safe_final = {
     ||v_p|| <= 0.15 AND
     |s_dot| <= 0.1
 }
-
 V_warn_final = {
     (0.15 < ||v_p|| <= 0.2) OR
     (0.1 < |s_dot| <= 0.15)
 }
-
 V_unsafe_final = {
     ||v_p|| > 0.2 OR
     |s_dot| > 0.15
 }
+```
 
+### 7.8 Terminal Docking Set
 
-### Terminal Docking Set: defines successful docking conditions 
+```
 X_dock = {
     ||r_p|| <= 0.1 m AND
     ||v_p|| <= 0.1 m/s AND
     theta_e <= 4 deg AND
     ||w_e|| <= 0.2 deg/s
 }
+```
 
+### 7.9 Initialization Sets
 
-### Initialization Sets 
-
-#### P2
+```
 X_P2 = {
-    s ∈ [d_P2_min, d_P2_max],
+    s in [d_P2_min, d_P2_max],
     rho <= rho_P2,
-    v_parallel ∈ [v_min_P2, v_max_P2],
+    v_parallel in [v_min_P2, v_max_P2],
     ||v_perp|| <= v_perp_P2,
     theta_e <= theta_P2,
     ||w_e|| <= w_P2
 }
 
-#### P3
 X_P3 = {
-    s ∈ [d_P3_min, d_P3_max],
+    s in [d_P3_min, d_P3_max],
     rho <= rho_P3,
-    v_parallel ∈ [v_min_P3, v_max_P3],
+    v_parallel in [v_min_P3, v_max_P3],
     ||v_perp|| <= v_perp_P3,
     theta_e <= theta_P3,
     ||w_e|| <= w_P3
 }
+```
 
+### 7.10 Safety Sets
 
-### Safety Sets 
+Closing phase geometry layer:
 
-#### Closing phase 
-
-#### Geometry layer 
-
-##### Safe set 
-G_safe_close = (E_AE \ S_KOS) ∩ C_dock   with   d_P3 <= s <= d_P2 
-(region inside the approach ellipsoid but outside the keep-out sphere, and constrained to the docking cone between P2 and P3)
-
-##### Warning set 
-G_warn_close = (E_AE \ (S_KOS ∪ C_dock)) ∪ (S_KOS ∩ C_dock) 
-(union of regions inside approach ellipsoid but outside the docking cone and keep-out sphere + regions inside the keep-out sphere but inside the docking cone --> geometrically risk but recoverable situations)
-
-##### Unsafe set 
+```
+G_safe_close = (E_AE \ S_KOS) ∩ C_dock   with   d_P3 <= s <= d_P2
 G_unsafe_close = S_KOS \ C_dock
-(inside keep-out sphere but outside docking cone)
-
-##### Outside set 
+G_warn_close = (E_AE \ (S_KOS ∪ C_dock)) ∪ (S_KOS ∩ C_dock)
 G_out_close = E_AE_complement
+```
 
-##### Combined sets
+Closing phase combined sets:
+
+```
 X_safe_close = G_safe_close ∩ V_safe_close
-
-X_warn_close = (G_warn_close ∪ V_warn_close) \ X_unsafe_close
-
 X_unsafe_close = G_unsafe_close ∪ V_unsafe_close
+X_warn_close = (G_warn_close ∪ V_warn_close) \ X_unsafe_close
+```
 
-#### Final approach 
+Final approach geometry layer:
 
-##### Geometry layer 
-
-###### Safe set 
+```
 G_safe_final = C_dock ∩ C_corr
-(chaser is inside docking cone and inside the final approach corridor)
+G_unsafe_final = C_dock_complement
+G_warn_final = C_dock \ C_corr
+```
 
-###### Warning set 
-G_warn_final = C_dock \ C_corr 
-(chaser is inside docking cone, but outisde stricter final corridor)
+Final approach combined sets:
 
-###### Unsafe set 
-G_unsafe_final = C_dock_complement 
-(chaser is outside docking cone)
-
+```
 X_safe_final = G_safe_final ∩ V_safe_final ∩ A_safe
-
-X_warn_final = (G_warn_final ∪ V_warn_final ∪ A_warn) \ X_unsafe_final
-
 X_unsafe_final = G_unsafe_final ∪ V_unsafe_final ∪ A_unsafe
+X_warn_final = (G_warn_final ∪ V_warn_final ∪ A_warn) \ X_unsafe_final
+```
 
-![Geometry of docking](<geometry_of_docking .jpeg>)
+![Geometry of docking](geometry_of_docking.jpeg)
 
+### 7.11 Phase Definitions
 
-### Phase Definitions 
+Closing (P2 -> P3):
 
-#### Closing (P2 --> P3)
-Initial:
-x(t_P2) ∈ X_P2
+- Initial: `x(t_P2) in X_P2`
+- During: `x(t) in X_safe_close`, `u(t) in U`
+- Final: `x(t_P3) in X_P3`
 
-During:
-x(t) ∈ X_safe_close
-u(t) ∈ U
+Final approach (P3 -> Docking):
 
-Final:
-x(t_P3) ∈ X_P3
+- Initial: `x(t_P3) in X_P3`
+- During: `x(t) in X_safe_final`, `u(t) in U`
+- Final: `x(t_f) in X_dock`
 
-#### Final Approach (P3 --> Docking)
-Initial:
-x(t_P3) ∈ X_P3
+## 8. Reward Structure and Episode Logic
 
-During:
-x(t) ∈ X_safe_final
-u(t) ∈ U
+Reward is phase-dependent. Failures should be heavily penalized. Reaching P3 or docking should be strongly rewarded. Progress terms should dominate over control effort penalties.
 
-Final:
-x(t_f) ∈ X_dock
+### 8.1 Closing-Phase Reward
 
+Encourages:
 
+- Reduction of distance to P3
+- Reduction of relative velocity
+- Reduction of lateral offset
+- Constraint adherence
+- Arrival inside `X_P3`
 
-### Reward structure (preliminary ideas)
-
-The reward is phase-dependent, because the closing phase and the final approach phase have different control priorities. Failure should be very expensive. Docking or reaching P3 should be strongly rewarded. Progress should be continuously encouraged. Control effort should be discouraged, but not dominate the behavior.
-
-For the closing phase, the reward encourages:
-- reduction of the distance to the corridor-entry point P3
-- reduction of relative velocity
-- reduction of lateral offset from the docking axis
-- satisfaction of control input bounds, geometric and velocity safety constraints
-- arrival inside the P3 handover set
-
-r_close = 
+```
+r_close =
     - w_s * distance_to_P3
     - w_v * ||v_p||
     - w_rho * rho
@@ -630,16 +608,21 @@ r_close =
     - w_warn * I_warn
     - w_fail * I_fail
     + w_success * I_P3
+```
 
-For the final approach phase, the reward encourages:
-- reduction of the docking-port position error
-- reduction of docking-port relative velocity
-- small lateral offset inside the docking corridor
-- alignment with the docking axis
-- low angular velocity
-- satisfaction of control input bounds, geometric and velocity safety constraints 
-- satisfaction of terminal docking conditions
+### 8.2 Final-Approach Reward
 
+Encourages:
+
+- Reduction of `||r_p||`
+- Reduction of `||v_p||`
+- Small corridor lateral error
+- Small attitude error
+- Low angular velocity
+- Constraint adherence
+- Satisfaction of terminal docking conditions
+
+```
 r_final =
     - w_rp * ||r_p||
     - w_vp * ||v_p||
@@ -648,196 +631,103 @@ r_final =
     - w_w * ||w_e||
     - w_u * ||u||
     - w_warn * I_warn_final
-    - w_fail * I_fail_final 
+    - w_fail * I_fail_final
     + w_dock * I_dock
+```
 
-where: 
-- I_warn = 1 if the state enters the warning set, otherwise 0
-- I_fail = 1 if the state enters the unsafe set or violates hard constraints, otherwise 0
-- I_P3 = 1 if the closing phase reaches X_P3, otherwise 0
-- I_dock = 1 if the final phase reaches X_dock, otherwise 0
+Indicator definitions:
 
-If I_P3 = 1:
-    terminate closing episode successfully
+- `I_warn = 1` if warning set is entered, else `0`
+- `I_fail = 1` if unsafe set or hard-constraint violation occurs, else `0`
+- `I_P3 = 1` if closing phase reaches `X_P3`, else `0`
+- `I_dock = 1` if final phase reaches `X_dock`, else `0`
 
-If I_dock = 1:
-    terminate final approach episode successfully
+Termination logic:
 
-If I_fail = 1:
-    terminate episode unsuccessfully
+- If `I_P3 = 1`: terminate closing episode successfully.
+- If `I_dock = 1`: terminate final-approach episode successfully.
+- If `I_fail = 1`: terminate episode unsuccessfully.
+- If admissible control bounds are violated: terminate episode unsuccessfully.
 
-If admissibile control bounds are violated: 
-    terminate episode unsuccessfully
+### 8.3 Failure Conditions (Preliminary)
 
+To be finalized. Candidate groups:
 
+- Geometric hard violations
+- Velocity/rate hard violations
+- Control saturation/violation
+- Time-limit termination without success
 
-### Failure conditions (preliminary ideas)
+## 9. Assumptions Register
 
+Use each item as:
 
+- Assumption
+- Consequence:
+- Limitation:
 
-## Assumptions 
+### 9.1 Mission and Modeling Scope
 
-Assumption: One spacecraft is modelled as the active chaser, responsible for performing the approach and control actions.
-Consequence: 
-Limitation:
+1. One spacecraft is modeled as the active chaser, responsible for approach and control actions.
+2. The other spacecraft is modeled as a passive target, with no active control during docking.
+3. Target attitude remains fixed and target angular velocity is zero.
+4. Phasing and homing are already completed; modeled motion begins at P2.
+5. Control task terminates at first contact; contact dynamics/latching/capture are out of scope.
 
-Assumption: The other spacecraft is modelled as a passive target, with no active control input during the docking phase.
-Consequence: 
-Limitation:
+### 9.2 Geometry and Frames
 
-Assumption: The target attitude is assumed to remain fixed throughout the modeled motion, and the target angular velocity is assumed to be zero.
-Consequence: 
-Limitation:
+6. Docking axis coincides with `x_T` of the target-centered frame.
+7. Nominal docking corridor is aligned with `x_T`.
+8. Target docking-port center is collinear with target CoM and on front face.
+9. Chaser docking-port center is collinear with chaser CoM and on front face.
+10. Target maintains fixed attitude relative to local orbital frame; transformation between `F_O` and `F_{B_t}` is constant and initialized with zero relative attitude at the start of the scenario.
+11. Chaser starts on positive `x_T` side.
 
-Assumption: Phasing part (earlier rendezvous maneuvers during which the large orbital differences between the chaser and target, such as relative distance, phase angle, and orbital plane differences, are corrected) and the homing part (chaser has already autonomously acquired the target orbit and reduced the relative velocity, reaching the station-keeping point P2, located a couple of kilometers away from the target) have already been completed successfully before the start of the modeled motion, therefore, the modeled motion begins from P2. (Luo, J. Zhang, and Tang, 2014)
-Consequence: 
-Limitation:
+### 9.3 Vehicle Abstraction
 
-Assumption: The control task terminates at first contact between the chaser and the target (contact dynamics, latching mechanisms, and other capture-related processes are outside the scope of this control problem). 
-Consequence: 
-Limitation:
+12. Chaser is Starliner-like.
+13. Starliner-like chaser is approximated by IDSS-15T class.
+14. Baseline target is ISS-like target port module.
+15. ISS-like target module is approximated by IDSS-350T class.
+16. Alternative target is Crew Dragon-like.
+17. Crew Dragon-like target is approximated by IDSS-10T class.
+18. Vectors `r_c` and `r_t` are approximated from IDSS mass-properties Hard Capture System data.
 
-Assumption: The docking axis is assumed to coincide with the x_T-axis of the target-centered reference frame. 
-Consequence: 
-Limitation:
+### 9.4 Orbit and Initialization
 
-Assumption: The nominal docking corridor is assumed to be aligned with the x_T-axis of the target-centered reference frame. 
-Consequence: 
-Limitation:
+19. Target orbit is ISS-like circular LEO (`h = 400 km`, `i = 51.6 deg`, `e = 0`, angular elements fixed at zero).
+20. Docking problem is local enough that those fixed orbital angles do not significantly affect close-proximity geometry.
+21. Nominal states are representative for P2 and P3; actual initial states are bounded perturbations.
+22. Narrower testing ranges represent operations; wider training ranges improve robustness.
 
-Assumption: The target docking-port center is assumed to be collinear with the target center of mass and to be located on the front face of the target body.
-Consequence: 
-Limitation:
+### 9.5 Disturbances and Actuation
 
-Assumption: The chaser docking-port center is assumed to be collinear with the chaser center of mass and to be located on the front face of the chaser body.
-Consequence: 
-Limitation:
+23. Environmental disturbances are neglected in the initial model.
+24. Disturbed extension includes aerodynamic, magnetic, gravity-gradient, and SRP torques.
+25. Aerodynamic disturbance acts through ram-direction force and CoP-CoM offset torque.
+26. Earth magnetic field is approximated by a dipole model.
+27. Spacecraft has non-zero residual magnetic dipole.
+28. Gravity-gradient torque arises from spatial non-uniformity of gravity field.
+29. SRP torque arises from CoP-CoM offset.
+30. Control inputs are continuous and instantaneously applied.
+31. Only magnitude bounds are enforced on force and torque; actuator dynamics, delays, and detailed saturation effects are neglected.
 
-Assumption: The chaser is assumed to be a Boeing Starliner-like vehicle.
-Consequence: 
-Limitation:
+### 9.6 Safety Geometry and Limits
 
-Assumption: The Starliner-like chaser is approximated by the IDSS-15T reference vehicle class.
-Consequence: 
-Limitation:
+32. Approach ellipsoid `4 x 2 x 2 km` around target CoM defines close-proximity operational region.
+33. Keep-out sphere radius `200 m` around target CoM defines prohibited region except allowed cone intersection.
+34. Docking cone aligned with docking axis defines admissible approach region.
+35. Docking corridor from P3 to docking interface enforces final-approach alignment.
+36. Phase-dependent relative-velocity bounds are imposed in closing and final phases.
+37. Phase-dependent range-rate bounds are imposed in closing and final phases.
+38. Alignment bounds on attitude/angular velocity are imposed to support safe transition and final approach.
 
-Assumption: For the baseline docking scenario, the target is assumed to be an ISS-like target port module.
-Consequence: 
-Limitation:
+### 9.7 Open Assumptions
 
-Assumption: The ISS-like target port module is approximated by the IDSS-350T reference vehicle class.
-Consequence: 
-Limitation:
+39. Assumption: 
+   Consequence:
+   Limitation:
 
-Assumption: For the alternative vehicle-to-vehicle docking scenario, the target is assumed to be a Crew Dragon-like vehicle.
-Consequence: 
-Limitation:
-
-Assumption: The Crew Dragon-like target is approximated by the IDSS-10T reference vehicle class.
-Consequence: 
-Limitation:
-
-Assumption: The vectors r_c and r_t from the vehicle center of mass to the docking-port center are approximated using the IDSS reference mass-properties table, which gives the coordinates of the Hard Capture System mating plane center in a coordinate system located at the vehicle center of gravity, with the positive x-axis directed toward the docking interface.
-Consequence: 
-Limitation:
-
-Assumption: The target is assumed to maintain a fixed attitude relative to the local orbital frame during the maneuver, therefore, the transformation between F_O and F_{B_t} is constant.
-Consequence: 
-Limitation:
-
-Assumption: The target orbit is assumed to be an ISS-like circular LEO with altitude 400 km, inclination 51.6 deg, eccentricity equal to zero, and right ascension of the ascending node, argument of perigee, and initial true anomaly fixed and set to zero. 
-Consequence: 
-Limitation:
-
-Assumption: The close-proximity docking problem is assumed to be sufficiently local that the orbital angles do not significantly affect the modeled docking scenario.
-Consequence: 
-Limitation:
-
-Assumption: The chaser is assumed to start on the positive x_T side of the target.
-Consequence: 
-Limitation:
-
-Assumption: Nominal states are assumed to be representative reference conditions for both P2 and P3, and actual initial conditions are assumed to be generated by pertubing these nominal states within bounded intervals. 
-Consequence: 
-Limitation:
-
-Assumption: A narrower testing range is assumed to represent realistic operational conditions, and a wider training range is assumed to improve controller robustness by exposing it to a broader set of initial conditions. 
-Consequence: 
-Limitation:
-
-Assumption: Environmental disturbances are neglected in the initial docking model.
-Consequence: 
-Limitation:
-
-Assumption: After validation of the nominal model, the docking environment is assumed to be extendable to a disturbed case represented by the main external environmental disturbance torques: aerodynamic drag torque, magnetic torque, gravity-gradient torque, solar-radiation-pressure torque.
-Consequence: 
-Limitation:
-
-Assumption: The aerodynamic disturbance is assumed to act through a ram-direction force that produces a torque when the center of aerodynamic pressure is not aligned with the center of mass.
-Consequence: 
-Limitation:
-
-Assumption: The Earth magnetic field is assumed to be approximable by a dipole model.
-Consequence: 
-Limitation:
-
-Assumption: The spacecraft is assumed to possess a non-zero residual magnetic dipole moment.
-Consequence: 
-Limitation:
-
-Assumption: The gravity-gradient torque is assumed to arise from the non-uniformity of the gravity field across the spacecraft body.
-Consequence: 
-Limitation:
-
-Assumption: The SRP torque is assumed to arise from an offset between the center of pressure and the center of mass.
-Consequence: 
-Limitation:
-
-Assumption: The control inputs are assumed to be continuous and instantaneously applied. 
-Consequence: 
-Limitation:
-
-Assumption:  Only maximum magnitude constraints are considered for the control force and torque are enforced, while actuator dynamics, delays, and saturation effects are neglected in the initial model.
-Consequence: 
-Limitation:
-
-Assumption: An approach ellipsoid of dimensions 4 × 2 × 2 km, centered at the target CoM, is assumed to represent the operational region for close-proximity rendezvous.
-Consequence: 
-Limitation:
-
-Assumption: A keep-out sphere of radius 200 m, centered at the target CoM, is assumed to represent a prohibited region that the chaser must not enter, besides the intersection with the docking cone, modelling the presence of sensitive structures such as antennas, appendages, and interference zones.
-Consequence: 
-Limitation:
-
-Assumption: A docking cone aligned with the docking axis is assumed to define the admissible approach region toward the docking port, where the chaser is required to remain within this cone during the approach.
-Consequence: 
-Limitation:
-
-Assumption: A docking corridor, defined as a cylindrical region extending from point P3 to the docking interface, is assumed to enforce alignment with the docking axis during the final approach phase.
-Consequence: 
-Limitation:
-
-Assumption: Maximum velocity bounds are assumed for both the closing phase and the final approach phase, limiting the magnitude of the relative velocity.
-Consequence: 
-Limitation:
-
-Assumption: Maximum range-rate (closing speed along the docking axis) bounds are assumed for both the closing phase and the final approach phase, ensuring a controlled and safe approach toward the target.
-Consequence: 
-Limitation:
-
-Assumption: Alignment bounds, expressed in terms of allowable attitude error and angular velocity, are assumed during the closing phase to ensure that the chaser maintains a suitable orientation for transition into the final approach phase.
-Consequence: 
-Limitation:
-
-Assumption: 
-Consequence: 
-Limitation:
-
-Assumption: 
-Consequence: 
-Limitation:
-
-
-
-
-
+40. Assumption: 
+   Consequence:
+   Limitation:

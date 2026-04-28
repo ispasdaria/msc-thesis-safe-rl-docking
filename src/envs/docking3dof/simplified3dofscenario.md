@@ -113,22 +113,25 @@ Where:
 ### 4.2 Control Input
 
 ```
-u(t) = [f_c(t), tau_c(t)]
+u(t) = [a_c(t), alpha_c(t)]
 ```
 
 Where:
 
-- `f_c(t) in R^2`: planar control force
-- `tau_c(t)`: scalar control torque about `z_T`
+- `a_c(t) in R^2`: commanded translational acceleration of the chaser in the x and y directions of the target-centered orbital frame
+- `alpha_c(t) in R`: commanded angular acceleration about the z-axis
 
 ### 4.3 Admissible Control Set
 
 ```
 U = { u :
-    ||f_c|| <= f_max AND
-    |tau_c| <= tau_max
+    ||a_c|| <= a_max AND
+    ||alpha_c|| <= alpha_max
 }
 ```
+a_x_max = 8 * 378 / 13000 ≈ 0.233 m/s^2
+a_y_max = 4 * 378 / 13000 ≈ 0.116 m/s^2
+alpha_z_max = 6955 / 22498 ≈ 0.309 rad/s^2
 
 ## 5. 3-DoF Derived Quantities and Sets
 

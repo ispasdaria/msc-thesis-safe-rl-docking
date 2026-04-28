@@ -378,16 +378,41 @@ Where:
 ### 7.2 Control Input
 
 ```
-u(t) = [f_c(t), tau_c(t)]
+u(t) = [a_c(t), alpha_c(t)]
 ```
 
-Where `f_c` is control force and `tau_c` is control torque.
+Where `a_c` is the commanded translational acceleration and `alpha_c` is the commanded angular acceleration. 
+
+This means that the simulator does not model individual thrusters, vehicle mass, or moment of inertia. The control input represents the effective acceleration that would result from a lower-level actuator allocation system. This simplification is used to focus on the guidance, control, safety, and reinforcement-learning architecture rather than on vehicle-specific actuation.
 
 ### 7.3 Admissible Control Set
 
 ```
-U = { u : ||f_c|| <= f_max AND ||tau_c|| <= tau_max }
+U = { u : ||a_c|| <= a_max AND ||alpha_c|| <= alpha_max }
 ```
+
+To approximate 'a_max' and 'alpha_max', specifications about the Service Module RCS thrusters of Boeing Starliner were used. These are generally used for attitude and maneuvering during orbital flight/docking, while the Crew Module RCS thrusters are mainly relevant for crew-module control after separation/re-entry, and the OMAC thrusters are much larger orbital maneuvering thrusters, not appropriate for fine docking control (https://en.wikipedia.org/wiki/Boeing_Starliner).
+
+Given launch mass of 13,000 kg, F_RCS = 85 lbf = 378 N, R = 2.3 m, H = 5.0 m (https://www.boeing.com/space/starliner). The one RCS thruster gives a_one = F_RCS / m = 378 / 13000 ≈ 0.0291 m/s^2. 
+
+Thruster layout (https://arstechnica.com/space/2025/04/the-harrowing-story-of-what-flying-starliner-was-like-when-its-thrusters-failed/):
+4 doghouses × 2 forward-facing thrusters = 8 forward-facing thrusters
+4 doghouses × 2 aft-facing thrusters = 8 aft-facing thrusters
+4 doghouses × 1 radial thruster = 4 radial thrusters
+4 doghouses × 2 tangential thrusters = 8 tangential thrusters
+
+For maximum translational acceleration: 
+a_x_max = 8 * 378 / 13000 ≈ 0.233 m/s^2
+a_y_max = 4 * 378 / 13000 ≈ 0.116 m/s^2
+a_z_max = 4 * 378 / 13000 ≈ 0.116 m/s^2
+
+The x-axis is assumed the symmetry/docking axis of the cone. For a solid cone, the moment of inertia about the symmetry axis is: I_x = (3/10) * m * R^2 = (3/10) * 13000 * 2.3^2 ≈ 20631 kg m^2. For the transverse axes through the center of mass: I_y = I_z = (3/80) * m * (4R^2 + H^2) = (3/80) * 13000 * (4*2.3^2 + 5^2) ≈ 22498 kg m^2. 
+
+The 8 tangential RCS thrusters are used to estimated the maximum torque. Using a moment arm approximately equal to the vehicle radius: tau_max = 8 * 378 * 2.3 ≈ 6955 N m. Then: 
+
+alpha_x_max = 6955 / 20631 ≈ 0.337 rad/s^2
+alpha_y_max = 6955 / 22498 ≈ 0.309 rad/s^2
+alpha_z_max = 6955 / 22498 ≈ 0.309 rad/s^2
 
 ### 7.4 Derived Docking Quantities
 

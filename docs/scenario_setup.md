@@ -406,7 +406,7 @@ a_x_max = 8 * 378 / 13000 ≈ 0.233 m/s^2
 a_y_max = 4 * 378 / 13000 ≈ 0.116 m/s^2
 a_z_max = 4 * 378 / 13000 ≈ 0.116 m/s^2
 
-The x-axis is assumed the symmetry/docking axis of the cone. For a solid cone, the moment of inertia about the symmetry axis is: I_x = (3/10) * m * R^2 = (3/10) * 13000 * 2.3^2 ≈ 20631 kg m^2. For the transverse axes through the center of mass: I_y = I_z = (3/80) * m * (4R^2 + H^2) = (3/80) * 13000 * (4*2.3^2 + 5^2) ≈ 22498 kg m^2. 
+The x-axis is assumed the symmetry of the cone. For a solid cone, the moment of inertia about the symmetry axis is: I_x = (3/10) * m * R^2 = (3/10) * 13000 * 2.3^2 ≈ 20631 kg m^2. For the transverse axes through the center of mass: I_y = I_z = (3/80) * m * (4R^2 + H^2) = (3/80) * 13000 * (4*2.3^2 + 5^2) ≈ 22498 kg m^2. 
 
 The 8 tangential RCS thrusters are used to estimated the maximum torque. Using a moment arm approximately equal to the vehicle radius: tau_max = 8 * 378 * 2.3 ≈ 6955 N m. Then: 
 
@@ -737,22 +737,22 @@ Use each item as:
 30. Control inputs are continuous and instantaneously applied.
 31. Only magnitude bounds are enforced on force and torque; actuator dynamics, delays, and detailed saturation effects are neglected.
 
-### 9.6 Safety Geometry and Limits
+### 9.6 Actuation 
+32. The control input is represented directly as commanded translational and angular acceleration, rather than as individual thruster forces and torques, because the vehicle mass properties, exact inertia matrix, and individual thruster geometry are only approximated.
+33. Boeing Starliner Service Module RCS thrusters are used as the reference actuators for estimating the admissible control bounds.
+34. The Starliner launch mass of `13000 kg` is used when calculating the maximum translational and angular acceleration bounds.
+35. The maximum translational and angular acceleration bounds are calculated using the nominal healthy-thruster configuration, corresponding to zero thruster failures.
+36. For the moment-of-inertia approximation, the Starliner-like chaser is modeled as a solid cone with symmetry along the chaser body `x`-axis.
+37. For the maximum torque approximation, the RCS moment arm is taken equal to the vehicle radius.
 
-32. Approach ellipsoid `4 x 2 x 2 km` around target CoM defines close-proximity operational region.
-33. Keep-out sphere radius `200 m` around target CoM defines prohibited region except allowed cone intersection.
-34. Docking cone aligned with docking axis defines admissible approach region.
-35. Docking corridor from P3 to docking interface enforces final-approach alignment.
-36. Phase-dependent relative-velocity bounds are imposed in closing and final phases.
-37. Phase-dependent range-rate bounds are imposed in closing and final phases.
-38. Alignment bounds on attitude/angular velocity are imposed to support safe transition and final approach.
+### 9.7 Safety Geometry and Limits
 
-### 9.7 Open Assumptions
+38. Approach ellipsoid `4 x 2 x 2 km` around target CoM defines close-proximity operational region.
+39. Keep-out sphere radius `200 m` around target CoM defines prohibited region except allowed cone intersection.
+40. Docking cone aligned with docking axis defines admissible approach region.
+41. Docking corridor from P3 to docking interface enforces final-approach alignment.
+42. Phase-dependent relative-velocity bounds are imposed in closing and final phases.
+43. Phase-dependent range-rate bounds are imposed in closing and final phases.
+44. Alignment bounds on attitude/angular velocity are imposed to support safe transition and final approach.
 
-39. Assumption: 
-   Consequence:
-   Limitation:
 
-40. Assumption: 
-   Consequence:
-   Limitation:

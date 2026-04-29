@@ -18,9 +18,11 @@ state = np.array([rx, ry, vx, vy, theta, omega])
 
 input = np.array([ax, ay, alphaz])
 
-AX_MAX = 0.23   # m/s^2
-AY_MAX = 0.12   # m/s^2
-ALPHAZ_MAX = 0.31   # rad/s^2
+AX_MAX = 0.01   # m/s^2
+AY_MAX = 0.01   # m/s^2
+ALPHAZ_MAX = 0.003   # rad/s^2
+
+
 
 
 

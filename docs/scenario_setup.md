@@ -391,28 +391,17 @@ This means that the simulator does not model individual thrusters, vehicle mass,
 U = { u : ||a_c|| <= a_max AND ||alpha_c|| <= alpha_max }
 ```
 
-To approximate 'a_max' and 'alpha_max', specifications about the Service Module RCS thrusters of Boeing Starliner were used. These are generally used for attitude and maneuvering during orbital flight/docking, while the Crew Module RCS thrusters are mainly relevant for crew-module control after separation/re-entry, and the OMAC thrusters are much larger orbital maneuvering thrusters, not appropriate for fine docking control (https://en.wikipedia.org/wiki/Boeing_Starliner).
+The translational acceleration bound is selected from the required velocity-correction capability during close-proximity docking. In the final approach phase, the relative velocity limits are on the order of 0.10–0.15 m/s. Therefore, the controller should be able to correct a representative velocity error of approximately 0.10 m/s over a short but not instantaneous time interval.
 
-Given launch mass of 13,000 kg, F_RCS = 85 lbf = 378 N, R = 2.3 m, H = 5.0 m (https://www.boeing.com/space/starliner). The one RCS thruster gives a_one = F_RCS / m = 378 / 13000 ≈ 0.0291 m/s^2. 
+A correction time of 10 s is selected as a reasonable guidance-level response time for fine docking control. This gives: a_max = delta_v / delta_t = 0.10 / 10 = 0.01 m/s^2
 
-Thruster layout (https://arstechnica.com/space/2025/04/the-harrowing-story-of-what-flying-starliner-was-like-when-its-thrusters-failed/):
-4 doghouses × 2 forward-facing thrusters = 8 forward-facing thrusters
-4 doghouses × 2 aft-facing thrusters = 8 aft-facing thrusters
-4 doghouses × 1 radial thruster = 4 radial thrusters
-4 doghouses × 2 tangential thrusters = 8 tangential thrusters
+The controller can change the relative velocity by 0.10 m/s in 10 s. This is comparable to the final-approach velocity limits, so the controller has sufficient authority to regulate the motion without being allowed to brake or translate unrealistically fast.
 
-For maximum translational acceleration: 
-a_x_max = 8 * 378 / 13000 ≈ 0.233 m/s^2
-a_y_max = 4 * 378 / 13000 ≈ 0.116 m/s^2
-a_z_max = 4 * 378 / 13000 ≈ 0.116 m/s^2
+The maximum commanded angular acceleration is defined as: alpha_max = 0.003 rad/s^2
 
-The x-axis is assumed the symmetry of the cone. For a solid cone, the moment of inertia about the symmetry axis is: I_x = (3/10) * m * R^2 = (3/10) * 13000 * 2.3^2 ≈ 20631 kg m^2. For the transverse axes through the center of mass: I_y = I_z = (3/80) * m * (4R^2 + H^2) = (3/80) * 13000 * (4*2.3^2 + 5^2) ≈ 22498 kg m^2. 
+This value is selected as a physically motivated order-of-magnitude estimate based on a representative spacecraft attitude slew maneuver. The reference maneuver assumes a 30 deg slew completed in 60 s using a trapezoidal angular-rate profile, where 5% of the maneuver time is spent accelerating, 90% coasting, and 5% decelerating. For a 60 s maneuver, this corresponds to 3 s of angular acceleration, 54 s of nearly constant angular rate, and 3 s of angular deceleration.
 
-The 8 tangential RCS thrusters are used to estimated the maximum torque. Using a moment arm approximately equal to the vehicle radius: tau_max = 8 * 378 * 2.3 ≈ 6955 N m. Then: 
-
-alpha_x_max = 6955 / 20631 ≈ 0.337 rad/s^2
-alpha_y_max = 6955 / 22498 ≈ 0.309 rad/s^2
-alpha_z_max = 6955 / 22498 ≈ 0.309 rad/s^2
+The total attitude change is equal to the area under the angular-rate profile: theta = omega_max * (t_coast + 0.5 * t_acc + 0.5 * t_dec). Using theta = 30 deg = 0.5236 rad, t_acc = t_dec = 3 s, and t_coast = 54 s: omega_max = 0.5236 / 57 = 0.0092 rad/s. The angular acceleration required to reach this angular rate in 3 s is then: alpha = omega_max / t_acc = 0.0092 / 3 = 0.0031 rad/s^2. Therefore, alpha_max = 0.003 rad/s^2 is used as a representative upper bound for the commanded rotational acceleration. This value is not intended to model a specific thruster layout, spacecraft inertia matrix, reaction-control pulse logic, or actuator-allocation scheme. Instead, it represents the maximum effective angular acceleration that a lower-level attitude-control and actuator-allocation system could generate during a moderate slew maneuver (Space Mission and Analysis Design, W.J. Larson and J.R. Wertz).
 
 ### 7.4 Derived Docking Quantities
 
@@ -734,25 +723,22 @@ Use each item as:
 27. Spacecraft has non-zero residual magnetic dipole.
 28. Gravity-gradient torque arises from spatial non-uniformity of gravity field.
 29. SRP torque arises from CoP-CoM offset.
-30. Control inputs are continuous and instantaneously applied.
-31. Only magnitude bounds are enforced on force and torque; actuator dynamics, delays, and detailed saturation effects are neglected.
-
-### 9.6 Actuation 
-32. The control input is represented directly as commanded translational and angular acceleration, rather than as individual thruster forces and torques, because the vehicle mass properties, exact inertia matrix, and individual thruster geometry are only approximated.
-33. Boeing Starliner Service Module RCS thrusters are used as the reference actuators for estimating the admissible control bounds.
-34. The Starliner launch mass of `13000 kg` is used when calculating the maximum translational and angular acceleration bounds.
-35. The maximum translational and angular acceleration bounds are calculated using the nominal healthy-thruster configuration, corresponding to zero thruster failures.
-36. For the moment-of-inertia approximation, the Starliner-like chaser is modeled as a solid cone with symmetry along the chaser body `x`-axis.
-37. For the maximum torque approximation, the RCS moment arm is taken equal to the vehicle radius.
+30. The control inputs are modeled as continuous effective acceleration commands, assuming that thes are applied directly to the translational and rotational equations of motion at each integration step.
+31. Only magnitude bounds are enforced on accelerations; actuator dynamics, delays, and detailed saturation effects are neglected.
+32. The translational acceleration bound is sized from the required velocity-correction of 0.1 m/s within 10 s capability during close-proximity docking, and is assumed to be 0.01 m/s^2.
+33. The same translational acceleration bound is applied along all translational axes, because direction-dependent thruster geometry is outside the scope of the simulator.
+34. The angular acceleration bound is estimated to be 0.003 rad/s^2 from a representative single-axis attitude slew maneuver of 30 deg in 60 s, with 5% of the maneuver time spent accelerating, 90% coasting, and 5% decelerating, starting and ending at zero angular rate.
+35. The angular acceleration is assumed constant during the acceleration and deceleration phases.
+36. The angular acceleration bound is used as an effective guidance-level rotational control limit and does not model a specific inertia matrix, thruster layout, or pulse logic.
 
 ### 9.7 Safety Geometry and Limits
 
-38. Approach ellipsoid `4 x 2 x 2 km` around target CoM defines close-proximity operational region.
-39. Keep-out sphere radius `200 m` around target CoM defines prohibited region except allowed cone intersection.
-40. Docking cone aligned with docking axis defines admissible approach region.
-41. Docking corridor from P3 to docking interface enforces final-approach alignment.
-42. Phase-dependent relative-velocity bounds are imposed in closing and final phases.
-43. Phase-dependent range-rate bounds are imposed in closing and final phases.
-44. Alignment bounds on attitude/angular velocity are imposed to support safe transition and final approach.
+37. Approach ellipsoid `4 x 2 x 2 km` around target CoM defines close-proximity operational region.
+38. Keep-out sphere radius `200 m` around target CoM defines prohibited region except allowed cone intersection.
+39. Docking cone aligned with docking axis defines admissible approach region.
+40. Docking corridor from P3 to docking interface enforces final-approach alignment.
+41. Phase-dependent relative-velocity bounds are imposed in closing and final phases.
+42. Phase-dependent range-rate bounds are imposed in closing and final phases.
+43. Alignment bounds on attitude/angular velocity are imposed to support safe transition and final approach.
 
 

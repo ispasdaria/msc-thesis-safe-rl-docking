@@ -129,9 +129,9 @@ U = { u :
     ||alpha_c|| <= alpha_max
 }
 ```
-a_x_max = 8 * 378 / 13000 ≈ 0.233 m/s^2
-a_y_max = 4 * 378 / 13000 ≈ 0.116 m/s^2
-alpha_z_max = 6955 / 22498 ≈ 0.309 rad/s^2
+a_x_max = 0.01 m/s^2
+a_y_max = 0.01 m/s^2
+alpha_z_max = 0.003 rad/s^2
 
 ## 5. 3-DoF Derived Quantities and Sets
 

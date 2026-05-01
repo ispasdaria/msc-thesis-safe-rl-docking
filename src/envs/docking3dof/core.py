@@ -1,5 +1,9 @@
 import numpy as np 
 
+# Frame convention: target-centered orbital frame with F_O = {V-bar, H-bar, R-bar}
+# V-bar (x-axis) = along-track / approximately target velocity direction
+# H-bar (y-axis) = orbit-normal direction
+# R-bar (z-axis) = radial direction
 
 # State:
 
@@ -8,7 +12,7 @@ import numpy as np
 # state[4] = relative attitude of chaser w.r.t target in target-centered orbital frame 
 # state[5] = relative angular velocity of chaser w.r.t target in target-centered orbital frame 
 
-state = np.array([rx, ry, vx, vy, theta, omega])
+state = np.array([rx, ry, vx, vy, psi, omegaz])
 
 
 # Action (control input): 

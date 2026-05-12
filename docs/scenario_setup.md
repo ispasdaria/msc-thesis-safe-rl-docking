@@ -128,9 +128,9 @@ Used for target-geometry-defined quantities such as docking-port location and do
 Used for translational relative dynamics.
 
 - Origin: target CoM
-- `x_O`: radial
-- `y_O`: along-track
-- `z_O`: orbit-normal
+- `x_O`: along-track/docking direction (V-bar)
+- `y_O`: normal to orbital plane (H-bar)
+- `z_O`: radial direction pointing from target CoM toward Earth (R-bar)
 
 Relative position and velocity are expressed in `F_O`.
 
@@ -166,8 +166,8 @@ Motivation: consistent with ISS-like baseline target and standard circular-refer
 
 ### 4.2 Reference Docking Geometry
 
-- Docking axis aligned with positive `x_T` of target-centered frame.
-- Chaser initialized on positive `x_T` side and approaches toward smaller `x_T`.
+- Docking axis aligned with positive `x_O` of target-centered frame.
+- Chaser initialized on positive `x_O` side and approaches toward smaller `x_O`.
 - Target attitude fixed; target angular velocity zero.
 
 Motivation: Aligning approach with the positive docking-axis direction gives a direct interpretation of longitudinal and lateral errors, while fixed target attitude simplifies rotational coupling in early development.

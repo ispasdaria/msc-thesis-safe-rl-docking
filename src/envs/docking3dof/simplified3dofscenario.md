@@ -16,14 +16,14 @@ The mission is still split into two sequential control tasks:
 
 In the simplified model, relative motion is represented by:
 
-- Two translational DoFs in the target-attached docking plane (`x_T`, `y_T`)
-- One rotational DoF: relative in-plane angle about out-of-plane axis (`z_T`)
+- Two translational DoFs in the target-centered docking plane (`x_O`, `y_O`)
+- One rotational DoF: relative in-plane angle about out-of-plane axis (`z_O`)
 
 Not modeled in this variant:
 
 - Out-of-plane translation
 - Full 3D attitude dynamics
-- Angular rates about axes other than `z_T`
+- Angular rates about axes other than `z_O`
 - Post-contact capture/latching dynamics
 
 Motivation: This is a practical intermediate model between pure translation and full 6-DoF docking, allowing interface-alignment effects to be represented with moderate complexity.
@@ -58,21 +58,21 @@ Relative-motion frame is centered at target CoM and restricted to the docking pl
 Let:
 
 - `r = [x, y]^T`: chaser CoM relative position in target planar frame
-- `theta`: relative in-plane orientation of chaser
-- `R(theta)`: planar rotation mapping chaser-body vectors into target planar frame
+- `psi`: relative in-plane orientation of chaser
+- `R(psi)`: planar rotation mapping chaser-body vectors into target planar frame
 - `r_c = [r_cx, r_cy]^T`: chaser docking-port center offset from chaser CoM (body frame)
 - `r_t = [r_tx, r_ty]^T`: target docking-port center offset from target CoM (target planar frame)
 
 Docking-port relative position:
 
 ```
-r_p = r + R(theta) * r_c - r_t
+r_p = r + R(psi) * r_c - r_t
 ```
 
 Planar rotation matrix:
 
 ```
-R(theta) = [[cos(theta), -sin(theta)], [sin(theta), cos(theta)]]
+R(psi) = [[cos(psi), -sin(psi)], [sin(psi), cos(psi)]]
 ```
 
 Docking contact condition:
@@ -81,10 +81,10 @@ Docking contact condition:
 r_p = 0
 ```
 
-If `v = [x_dot, y_dot]^T` and `omega = theta_dot`, docking-port relative velocity is:
+If `v = [x_dot, y_dot]^T` and `omega = psi_dot`, docking-port relative velocity is:
 
 ```
-v_p = v + omega * S * R(theta) * r_c
+v_p = v + omega * S * R(psi) * r_c
 ```
 
 with planar skew-symmetric matrix:
@@ -93,22 +93,22 @@ with planar skew-symmetric matrix:
 S = [[0, -1], [1, 0]]
 ```
 
-This allows terminal constraints to be imposed at docking-port level on `r_p`, `v_p`, `theta`, and `omega`.
+This allows terminal constraints to be imposed at docking-port level on `r_p`, `v_p`, `psi`, and `omega`.
 
 ## 4. Formal 3-DoF Problem Definition
 
 ### 4.1 State
 
 ```
-x(t) = [r(t), v(t), theta(t), omega(t)]
+x(t) = [r(t), v(t), psi(t), omega(t)]
 ```
 
 Where:
 
-- `r(t) in R^2`: relative position in target plane (`x_T`, `y_T`)
+- `r(t) in R^2`: relative position in target plane (`x_O`, `y_O`)
 - `v(t) in R^2`: relative velocity in target plane
-- `theta(t)`: relative in-plane orientation angle (about `z_T`)
-- `omega(t)`: scalar angular velocity (about `z_T`)
+- `psi(t)`: relative in-plane orientation angle (about `z_O`)
+- `omega(t)`: scalar angular velocity (about `z_O`)
 
 ### 4.2 Control Input
 
@@ -140,7 +140,7 @@ alpha_z_max = 0.003 rad/s^2
 Docking-port relative position:
 
 ```
-r_p = r + R(theta) * r_c - r_t
+r_p = r + R(psi) * r_c - r_t
 ```
 
 Docking axis (planar projection):
@@ -198,17 +198,17 @@ C_corr = { x :
 
 ```
 A_safe = {
-    |theta_e| <= 3 deg AND
+    |psi_e| <= 3 deg AND
     |omega| <= 0.15 deg/s
 }
 
 A_warn = {
-    (3 < |theta_e| <= 4) OR
+    (3 < |psi_e| <= 4) OR
     (0.15 < |omega| <= 0.2)
 }
 
 A_unsafe = {
-    |theta_e| > 4 OR
+    |psi_e| > 4 OR
     |omega| > 0.2
 }
 ```
@@ -259,7 +259,7 @@ V_unsafe_final = {
 X_dock = {
     ||r_p|| <= 0.1 AND
     ||v_p|| <= 0.1 AND
-    |theta_e| <= 4 deg AND
+    |psi_e| <= 4 deg AND
     |omega| <= 0.2 deg/s
 }
 ```
@@ -272,7 +272,7 @@ X_P2 = {
     rho <= rho_P2,
     v_parallel in [v_min_P2, v_max_P2],
     |v_perp| <= v_perp_P2,
-    |theta_e| <= theta_P2,
+    |psi_e| <= psi_P2,
     |omega| <= w_P2
 }
 
@@ -281,7 +281,7 @@ X_P3 = {
     rho <= rho_P3,
     v_parallel in [v_min_P3, v_max_P3],
     |v_perp| <= v_perp_P3,
-    |theta_e| <= theta_P3,
+    |psi_e| <= psi_P3,
     |omega| <= w_P3
 }
 ```

@@ -538,7 +538,17 @@ class Docking3DoFEnv:
 
         rx, ry, vx, vy, psi, omegaz = state
 
-        if mode == "testing":
+        if mode == "nominal":
+            d_min = 300.0
+            d_max = 300.0
+            rho_max = 0.0
+            v_min = -0.03
+            v_max = -0.03
+            v_perp_max = 0.0
+            psi_max = np.deg2rad(0.0)
+            omega_max = np.deg2rad(0.0)
+
+        elif mode == "testing":
             d_min = 290.0
             d_max = 310.0
             rho_max = 3.0
@@ -559,7 +569,7 @@ class Docking3DoFEnv:
             omega_max = np.deg2rad(0.05)
 
         else:
-            raise ValueError("mode must be either 'testing' or 'training'.")
+            raise ValueError("mode must be one of: 'nominal', 'testing', or 'training'.")
 
         return (
             d_min <= rx <= d_max

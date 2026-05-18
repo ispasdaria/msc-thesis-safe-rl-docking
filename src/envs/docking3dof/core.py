@@ -49,6 +49,12 @@ class Docking3DoFEnv:
         phase = "final":
             initial condition is sampled from X_P3
             successful terminal condition is reaching X_dock
+
+    Key methods:
+        reset(): initialize the episode state for the selected phase
+        step(): propagate the dynamics and return (state, reward, done, info)
+        monitor_safety(): classify the state into safe/warn/unsafe sets
+        get_history_arrays(): export logged trajectories for analysis/plotting
     """
 
     def __init__(
@@ -62,10 +68,14 @@ class Docking3DoFEnv:
         alphaz_max=0.003,
         integrator="rk4",
         phase="closing",
-        r_c_body=np.array([4.1, 0.0]),
-        r_t_orbital=np.array([20.0, 0.0]),
+        r_c_body=None,
+        r_t_orbital=None,
+        p3_target_tolerance=None,
         seed=None,
     ):
+        """
+        Initializes the environment parameters and safety thresholds.
+        """
         if dt <= 0.0:
             raise ValueError("dt must be positive.")
         if max_time <= 0.0:
@@ -131,14 +141,14 @@ class Docking3DoFEnv:
         # If both are zero, the docking-port relative position reduces to
         # the CoM relative position [rx, ry].
         if r_c_body is None:
-            self.r_c_body = np.zeros(2, dtype=float)
+            self.r_c_body = np.array([4.1, 0.0], dtype=float)
         else:
             self.r_c_body = np.asarray(r_c_body, dtype=float)
             if self.r_c_body.shape != (2,):
                 raise ValueError("r_c_body must have shape (2,), i.e. [x_c, y_c].")
 
         if r_t_orbital is None:
-            self.r_t_orbital = np.zeros(2, dtype=float)
+            self.r_t_orbital = np.array([20.0, 0.0], dtype=float)
         else:
             self.r_t_orbital = np.asarray(r_t_orbital, dtype=float)
             if self.r_t_orbital.shape != (2,):
@@ -146,14 +156,73 @@ class Docking3DoFEnv:
 
         self.rng = np.random.default_rng(seed)
 
+        # Safety geometry parameters
+        self.ae_x = 2000.0      # [m] approach ellipse semi-axis along docking axis
+        self.ae_y = 1000.0      # [m] approach ellipse semi-axis lateral
+        self.r_kos = 200.0      # [m] keep-out circle radius
+        self.cone_length = 2000.0
+        self.cone_base_radius = 200.0
+        self.cone_slope = self.cone_base_radius / self.cone_length
+
+        # Phase distances (set per episode in reset from port axial distance)
+        self.d_P2 = None
+        self.d_P3 = None
+        self.p3_target = None
+
+        if p3_target_tolerance is None:
+            self.p3_target_tolerance = np.array(
+                [
+                    1.0,
+                    0.5,
+                    0.01,
+                    0.005,
+                    np.deg2rad(0.5),
+                    np.deg2rad(0.01),
+                ],
+                dtype=float,
+            )
+        else:
+            self.p3_target_tolerance = np.asarray(p3_target_tolerance, dtype=float)
+            if self.p3_target_tolerance.shape != (6,):
+                raise ValueError(
+                    "p3_target_tolerance must have shape (6,), "
+                    "i.e. [rx, ry, vx, vy, psi, omegaz] tolerances."
+                )
+
+        # Corridor
+        self.corridor_radius = 5.0
+
+        # Alignment limits
+        self.psi_safe = np.deg2rad(3.0)
+        self.psi_unsafe = np.deg2rad(4.0)
+
+        self.omega_safe = np.deg2rad(0.15)
+        self.omega_unsafe = np.deg2rad(0.2)
+
+        # Velocity limits: closing
+        self.vp_safe_close = 0.25
+        self.vp_unsafe_close = 0.35
+        self.sdot_safe_close = 0.15
+        self.sdot_unsafe_close = 0.25
+
+        # Velocity limits: final approach
+        self.vp_safe_final = 0.15
+        self.vp_unsafe_final = 0.2
+        self.sdot_safe_final = 0.1
+        self.sdot_unsafe_final = 0.15
+
         self.state = None
         self.time = 0.0
         self.history = []
 
 
+    ### Helpers and transforms
     def wrap_to_pi(self, angle_rad):
+        """
+        Wraps an angle to the interval [-pi, pi).
+        """
         return (angle_rad + np.pi) % (2.0 * np.pi) - np.pi
-    
+
 
     def rotation_body_to_orbital_2d(self, psi):
         """
@@ -185,7 +254,7 @@ class Docking3DoFEnv:
             ],
             dtype=float,
         )
-    
+
 
     def clip_action(self, action):
         """
@@ -207,7 +276,7 @@ class Docking3DoFEnv:
             )
 
         return np.clip(action, self.action_low, self.action_high)
-    
+
 
     def transform_action_to_orbital_frame(self, action_body, psi):
         """
@@ -250,7 +319,7 @@ class Docking3DoFEnv:
         )
 
         return action_orbital
-    
+
 
     def get_port_relative_position(self, state):
         """
@@ -285,7 +354,7 @@ class Docking3DoFEnv:
         r_p = r_com + r_c_orbital - self.r_t_orbital
 
         return r_p
-    
+
 
     def get_port_relative_velocity(self, state):
         """
@@ -330,8 +399,344 @@ class Docking3DoFEnv:
         v_p = v_com + omega_cross_r_c
 
         return v_p
-    
 
+
+    def get_derived_quantities(self, state):
+        """
+        Computes the 3-DoF quantities used by the safety monitor.
+
+        In the reduced planar case:
+
+            r_p = r + R(psi) r_c - r_t
+            v_p = v + omega x (R(psi) r_c)
+
+            e_d = [1, 0]
+            s = dot(e_d, r_p) = r_p[0]
+            rho = |r_p[1]|
+
+        The sign convention is kept consistent with the current simulator:
+        the chaser approaches the docking point from positive x toward smaller x.
+        """
+
+        rx, ry, vx, vy, psi, omegaz = state
+
+        r_com = np.array([rx, ry], dtype=float)
+        v_com = np.array([vx, vy], dtype=float)
+
+        r_p = self.get_port_relative_position(state)
+        v_p = self.get_port_relative_velocity(state)
+
+        s = r_p[0]
+        rho = abs(r_p[1])
+
+        # Since e_d = [1, 0], s_dot is the x-component of port velocity.
+        s_dot = v_p[0]
+
+        q = {
+            "r_com": r_com,
+            "v_com": v_com,
+            "r_p": r_p,
+            "v_p": v_p,
+            "s": s,
+            "rho": rho,
+            "s_dot": s_dot,
+            "port_distance": np.linalg.norm(r_p),
+            "port_speed": np.linalg.norm(v_p),
+            "com_distance": np.linalg.norm(r_com),
+            "com_speed": np.linalg.norm(v_com),
+            "psi_e": self.wrap_to_pi(psi),
+            "omega": omegaz,
+        }
+
+        return q
+
+
+    ### Safety and termination helpers
+    def is_in_E_AE(self, q):
+        """
+        Checks membership in the approach ellipse E_AE in the V-H plane.
+        """
+        r = q["r_com"]
+        value = (r[0] / self.ae_x)**2 + (r[1] / self.ae_y)**2
+        return value <= 1.0
+
+
+    def is_in_S_KOS(self, q):
+        """
+        Checks membership in the keep-out sphere/circle S_KOS.
+        """
+        return q["com_distance"] <= self.r_kos
+
+
+    def is_in_C_dock(self, q):
+        """
+        Checks membership in the docking cone C_dock.
+        """
+        s = q["s"]
+        rho = q["rho"]
+
+        return (
+            0.0 <= s <= self.cone_length
+            and rho <= self.cone_slope * s
+        )
+
+
+    def is_in_C_corr(self, q):
+        """
+        Checks membership in the final-approach corridor C_corr.
+        """
+        s = q["s"]
+        rho = q["rho"]
+
+        return (
+            0.0 <= s <= self.d_P3
+            and rho <= self.corridor_radius
+        )
+
+
+    def classify_alignment(self, q):
+        """
+        Classifies attitude alignment as safe/warn/unsafe.
+        """
+        psi_abs = abs(q["psi_e"])
+        omega_abs = abs(q["omega"])
+
+        safe = (
+            psi_abs <= self.psi_safe
+            and omega_abs <= self.omega_safe
+        )
+
+        unsafe = (
+            psi_abs > self.psi_unsafe
+            or omega_abs > self.omega_unsafe
+        )
+
+        warn = (
+            not safe
+            and not unsafe
+        )
+
+        return {
+            "safe": safe,
+            "warn": warn,
+            "unsafe": unsafe,
+            "psi_abs": psi_abs,
+            "omega_abs": omega_abs,
+        }
+
+
+    def classify_velocity(self, q, phase):
+        """
+        Classifies relative velocity limits for the given phase.
+        """
+        vp_norm = q["port_speed"]
+        s_dot_abs = abs(q["s_dot"])
+
+        if phase == "closing":
+            vp_safe = self.vp_safe_close
+            vp_unsafe = self.vp_unsafe_close
+            sdot_safe = self.sdot_safe_close
+            sdot_unsafe = self.sdot_unsafe_close
+
+        elif phase == "final":
+            vp_safe = self.vp_safe_final
+            vp_unsafe = self.vp_unsafe_final
+            sdot_safe = self.sdot_safe_final
+            sdot_unsafe = self.sdot_unsafe_final
+
+        else:
+            raise ValueError("phase must be either 'closing' or 'final'.")
+
+        safe = (
+            vp_norm <= vp_safe
+            and s_dot_abs <= sdot_safe
+        )
+
+        unsafe = (
+            vp_norm > vp_unsafe
+            or s_dot_abs > sdot_unsafe
+        )
+
+        warn = (
+            not safe
+            and not unsafe
+        )
+
+        return {
+            "safe": safe,
+            "warn": warn,
+            "unsafe": unsafe,
+            "vp_norm": vp_norm,
+            "s_dot_abs": s_dot_abs,
+        }
+
+
+    def classify_geometry_closing(self, q):
+        """
+        Classifies closing-phase geometry as safe/warn/unsafe.
+        """
+        in_E = self.is_in_E_AE(q)
+        in_KOS = self.is_in_S_KOS(q)
+        in_cone = self.is_in_C_dock(q)
+
+        s = q["s"]
+
+        in_phase_axial_range = self.d_P3 <= s <= self.d_P2
+        passed_P3_region = s < self.d_P3
+
+        safe = (
+            in_E
+            and not in_KOS
+            and in_cone
+            and in_phase_axial_range
+        )
+
+        unsafe = (
+            (in_KOS and not in_cone)
+            or not in_E
+        )
+
+        warn = (
+            (
+                in_E
+                and not in_KOS
+                and not in_cone
+            )
+            or (
+                in_KOS
+                and in_cone
+            )
+            or (
+                in_E
+                and in_cone
+                and passed_P3_region
+            )
+        )
+
+        warn = warn and not unsafe
+
+        return {
+            "safe": safe,
+            "warn": warn,
+            "unsafe": unsafe,
+            "in_E_AE": in_E,
+            "in_S_KOS": in_KOS,
+            "in_C_dock": in_cone,
+            "in_phase_axial_range": in_phase_axial_range,
+            "passed_P3_region": passed_P3_region,
+        }
+
+
+    def classify_geometry_final(self, q):
+        """
+        Classifies final-approach geometry as safe/warn/unsafe.
+        """
+        in_cone = self.is_in_C_dock(q)
+        in_corr = self.is_in_C_corr(q)
+
+        # G_safe_final = C_dock ∩ C_corr
+        safe = in_cone and in_corr
+
+        # G_unsafe_final = C_dock_complement
+        unsafe = not in_cone
+
+        # G_warn_final = C_dock \ C_corr
+        warn = in_cone and not in_corr
+
+        return {
+            "safe": safe,
+            "warn": warn,
+            "unsafe": unsafe,
+            "in_C_dock": in_cone,
+            "in_C_corr": in_corr,
+        }
+
+
+    def monitor_safety(self, state):
+        """
+        Classifies the current state as safe, warning, or unsafe.
+
+        This implements:
+
+            Closing:
+                X_safe_close = G_safe_close ∩ V_safe_close
+                X_unsafe_close = G_unsafe_close ∪ V_unsafe_close
+                X_warn_close = (G_warn_close ∪ V_warn_close) minus X_unsafe_close
+
+            Final:
+                X_safe_final = G_safe_final ∩ V_safe_final ∩ A_safe
+                X_unsafe_final = G_unsafe_final ∪ V_unsafe_final ∪ A_unsafe
+                X_warn_final = (G_warn_final ∪ V_warn_final ∪ A_warn) minus X_unsafe_final
+        """
+
+        q = self.get_derived_quantities(state)
+
+        if self.phase == "closing":
+            geometry = self.classify_geometry_closing(q)
+            velocity = self.classify_velocity(q, phase="closing")
+            alignment = self.classify_alignment(q)
+
+            safe = geometry["safe"] and velocity["safe"]
+
+            unsafe = geometry["unsafe"] or velocity["unsafe"]
+
+            warn = (
+                geometry["warn"]
+                or velocity["warn"]
+            ) and not unsafe
+
+        elif self.phase == "final":
+            geometry = self.classify_geometry_final(q)
+            velocity = self.classify_velocity(q, phase="final")
+            alignment = self.classify_alignment(q)
+
+            safe = (
+                geometry["safe"]
+                and velocity["safe"]
+                and alignment["safe"]
+            )
+
+            unsafe = (
+                geometry["unsafe"]
+                or velocity["unsafe"]
+                or alignment["unsafe"]
+            )
+
+            warn = (
+                geometry["warn"]
+                or velocity["warn"]
+                or alignment["warn"]
+            ) and not unsafe
+
+        else:
+            raise ValueError("Unknown phase.")
+
+        violated_constraints = []
+
+        if geometry["unsafe"]:
+            violated_constraints.append("geometry")
+
+        if velocity["unsafe"]:
+            violated_constraints.append("velocity")
+
+        if self.phase == "final" and alignment["unsafe"]:
+            violated_constraints.append("alignment")
+
+        monitor = {
+            "safe": safe,
+            "warning": warn,
+            "unsafe": unsafe,
+            "violated_constraints": violated_constraints,
+            "derived": q,
+            "geometry": geometry,
+            "velocity": velocity,
+            "alignment": alignment,
+        }
+
+        return monitor
+
+
+    ### Dynamics and integration
     def dynamics(self, state, action):
         """
         Computes state derivative using the simplified nonlinear 3-DoF EoM.
@@ -385,7 +790,7 @@ class Docking3DoFEnv:
         )
 
         return state_dot
-    
+
 
     def integrate(self, state, action):
         """
@@ -406,8 +811,9 @@ class Docking3DoFEnv:
             return state + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
 
         raise ValueError("integrator must be either 'euler' or 'rk4'.")
-    
 
+
+    ### Sampling and terminal sets
     def sample_X_P2(self, mode):
         """
         Samples an initial state from the P2 initialization set.
@@ -461,7 +867,7 @@ class Docking3DoFEnv:
             [rx0, ry0, vx0, vy0, psi0, omegaz0],
             dtype=float,
         )
-    
+
 
     def sample_X_P3(self, mode):
         """
@@ -518,7 +924,7 @@ class Docking3DoFEnv:
             [rx0, ry0, vx0, vy0, psi0, omegaz0],
             dtype=float,
         )
-    
+
 
     def is_in_X_P3(self, state, mode="testing"):
         """
@@ -579,7 +985,22 @@ class Docking3DoFEnv:
             and abs(self.wrap_to_pi(psi)) <= psi_max
             and abs(omegaz) <= omega_max
         )
-    
+
+
+    def is_at_P3_target(self, state):
+        """
+        Checks whether the state is close to the specific sampled P3 target.
+        """
+
+        if self.p3_target is None:
+            raise RuntimeError("P3 target has not been sampled yet.")
+
+        state = np.asarray(state, dtype=float)
+
+        return np.all(
+            np.abs(state - self.p3_target) <= self.p3_target_tolerance
+        )
+
 
     def is_in_X_dock(self, state):
         """
@@ -612,8 +1033,9 @@ class Docking3DoFEnv:
             and abs(self.wrap_to_pi(psi)) <= np.deg2rad(4.0)
             and abs(omegaz) <= np.deg2rad(0.2)
         )
-    
 
+
+    ### Reset, step, and logging
     def reset(self, initial_state=None, mode="training"):
         """
         Resets the environment.
@@ -641,8 +1063,13 @@ class Docking3DoFEnv:
                 reset samples from X_P3
         """
 
+        self.p3_target = None
+        self.d_P2 = None
+        self.d_P3 = None
+
         self.time = 0.0
         self.history = []
+        self.mode = mode
 
         if initial_state is not None:
             initial_state = np.asarray(initial_state, dtype=float)
@@ -659,12 +1086,25 @@ class Docking3DoFEnv:
         else:
             if self.phase == "closing":
                 self.state = self.sample_X_P2(mode)
+                self.p3_target = self.sample_X_P3(mode)
 
             elif self.phase == "final":
                 self.state = self.sample_X_P3(mode)
+                self.p3_target = None
 
             else:
                 raise ValueError("Unknown phase.")
+
+        # Store phase distances as port-axial distance to the docking point.
+        q0 = self.get_derived_quantities(self.state)
+        if self.phase == "closing":
+            self.d_P2 = q0["s"]
+            if self.p3_target is None:
+                self.p3_target = self.sample_X_P3(mode)
+            q3 = self.get_derived_quantities(self.p3_target)
+            self.d_P3 = q3["s"]
+        elif self.phase == "final":
+            self.d_P3 = q0["s"]
 
         zero_action_body_raw = np.zeros(3)
         zero_action_body_clipped = self.clip_action(zero_action_body_raw)
@@ -695,7 +1135,7 @@ class Docking3DoFEnv:
         )
 
         return self.state.copy()
-    
+
 
     def step(self, action):
         """
@@ -785,109 +1225,97 @@ class Docking3DoFEnv:
         )
 
         return self.state.copy(), reward, done, info
-    
+
 
     def compute_reward(self, state, action):
         """
-        Preliminary reward function.
+        Placeholder reward function.
 
-        Here, action is the clipped chaser-body-frame action:
-
-            action = [ax_Bc, ay_Bc, alphaz_Bc]
-
-        This is intentionally still a placeholder. Reward shaping, terminal
-        bonuses, penalties, and safety-set penalties can be refined later.
+        The actual task-specific reward will be designed later when implementing
+        the controllers. For now, this keeps the environment API complete.
         """
+        return 0.0
 
-        rx, ry, vx, vy, psi, omegaz = state
-        ax_Bc, ay_Bc, alphaz_Bc = action
-
-        position_error = np.sqrt(rx**2 + ry**2)
-        velocity_error = np.sqrt(vx**2 + vy**2)
-        attitude_error = abs(self.wrap_to_pi(psi))
-        angular_rate_error = abs(omegaz)
-        control_effort = np.sqrt(ax_Bc**2 + ay_Bc**2 + alphaz_Bc**2)
-
-        reward = (
-            -1.0 * position_error
-            -10.0 * velocity_error
-            -5.0 * attitude_error
-            -2.0 * angular_rate_error
-            -0.1 * control_effort
-        )
-
-        return reward
-    
 
     def check_done(self, state):
         """
         Checks whether the episode should terminate.
 
-        Phase-dependent success logic:
+        Success:
+            closing phase: reach sampled P3 target without safety violation
+            final phase: satisfy docking conditions without safety violation
 
-            Closing phase:
-                success if state enters X_P3.
+        Failure:
+            hard safety violation
 
-            Final approach phase:
-                success if state enters X_dock.
-
-        Failure and safety-set logic are still placeholders and can be refined
-        later when X_safe_close and X_safe_final are implemented.
+        Warning sets do not terminate the episode.
         """
 
-        rx, ry, vx, vy, psi, omegaz = state
-
-        r_p = self.get_port_relative_position(state)
-        v_p = self.get_port_relative_velocity(state)
-
-        port_distance = np.linalg.norm(r_p)
-        port_speed = np.linalg.norm(v_p)
-
-        com_distance = np.sqrt(rx**2 + ry**2)
-        com_speed = np.sqrt(vx**2 + vy**2)
+        monitor = self.monitor_safety(state)
+        q = monitor["derived"]
 
         info = {
             "success": False,
             "failure": False,
             "time_limit": False,
+            "warning": monitor["warning"],
+            "safe": monitor["safe"],
+            "unsafe": monitor["unsafe"],
             "phase": self.phase,
-            "port_relative_position": r_p,
-            "port_relative_velocity": v_p,
-            "port_distance": port_distance,
-            "port_speed": port_speed,
-            "com_distance": com_distance,
-            "com_speed": com_speed,
+            "violated_constraints": monitor["violated_constraints"],
+
+            "port_relative_position": q["r_p"],
+            "port_relative_velocity": q["v_p"],
+            "port_distance": q["port_distance"],
+            "port_speed": q["port_speed"],
+            "com_distance": q["com_distance"],
+            "com_speed": q["com_speed"],
+            "s": q["s"],
+            "rho": q["rho"],
+            "s_dot": q["s_dot"],
+            "psi_e": q["psi_e"],
+            "omega": q["omega"],
+
+            "geometry": monitor["geometry"],
+            "velocity": monitor["velocity"],
+            "alignment": monitor["alignment"],
         }
 
+        # 1. Hard safety failure first
+        if monitor["unsafe"]:
+            info["failure"] = True
+            info["failure_reason"] = "safety_violation"
+            info["termination_reason"] = "safety_violation"
+            return True, info
+
+        # 2. Success only if no hard safety violation
         if self.phase == "closing":
-            if self.is_in_X_P3(state, mode="testing"):
+            if self.is_at_P3_target(state):
                 info["success"] = True
-                info["terminal_set"] = "X_P3"
+                info["terminal_set"] = "P3_target"
+                info["termination_reason"] = "success_P3_target"
                 return True, info
 
         elif self.phase == "final":
             if self.is_in_X_dock(state):
                 info["success"] = True
                 info["terminal_set"] = "X_dock"
+                info["termination_reason"] = "success_docking"
                 return True, info
 
         else:
             raise ValueError("Unknown phase.")
 
-        # Placeholder failure condition: too far from target.
-        # More realistic phase-dependent safety failures can be added later.
-        if com_distance > 5000.0:
-            info["failure"] = True
-            info["failure_reason"] = "too_far_from_target"
-            return True, info
-
-        # Time limit
+        # 3. Time limit
         if self.time >= self.max_time:
             info["time_limit"] = True
+            info["termination_reason"] = "timeout"
             return True, info
 
+        # 4. Continue episode
+        info["termination_reason"] = None
         return False, info
-    
+
 
     def log_step(
         self,
@@ -929,7 +1357,7 @@ class Docking3DoFEnv:
                 "info": info.copy(),
             }
         )
-        
+
 
     def get_history_arrays(self):
         """

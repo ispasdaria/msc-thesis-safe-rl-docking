@@ -816,16 +816,7 @@ class Docking3DoFEnv:
     ### Sampling and terminal sets
     def sample_X_P2(self, mode):
         """
-        Samples an initial state from the P2 initialization set.
-
-        Reduced 2D interpretation:
-
-            s          = rx
-            rho        = |ry|
-            v_parallel = vx
-            v_perp     = vy
-            psi_e      = psi
-            omega      = omegaz
+        Samples an initial state from the P2 initialization set, CoM-based distance.
         """
 
         if mode == "nominal":
@@ -871,18 +862,9 @@ class Docking3DoFEnv:
 
     def sample_X_P3(self, mode):
         """
-        Samples an initial state from the P3 initialization set.
+        Samples an initial state from the P3 initialization set, CoM-based distance. 
 
         Used as the reset set for the final approach phase.
-
-        Reduced 2D interpretation:
-
-            s          = rx
-            rho        = |ry|
-            v_parallel = vx
-            v_perp     = vy
-            psi_e      = psi
-            omega      = omegaz
         """
 
         if mode == "nominal":
@@ -896,24 +878,24 @@ class Docking3DoFEnv:
             omegaz0 = np.deg2rad(0.0)
 
         elif mode == "testing":
-            rx0 = self.rng.uniform(290.0, 310.0)
+            rx0 = self.rng.uniform(280.0, 320.0)
             ry0 = self.rng.uniform(-3.0, 3.0)
 
             vx0 = self.rng.uniform(-0.05, -0.01)
             vy0 = self.rng.uniform(-0.005, 0.005)
 
-            psi0 = np.deg2rad(self.rng.uniform(-2.0, 2.0))
-            omegaz0 = np.deg2rad(self.rng.uniform(-0.03, 0.03))
+            psi0 = np.deg2rad(self.rng.uniform(-1.0, 1.0))
+            omegaz0 = np.deg2rad(self.rng.uniform(-0.02, 0.02))
 
         elif mode == "training":
-            rx0 = self.rng.uniform(280.0, 320.0)
+            rx0 = self.rng.uniform(250.0, 350.0)
             ry0 = self.rng.uniform(-5.0, 5.0)
 
             vx0 = self.rng.uniform(-0.06, -0.01)
             vy0 = self.rng.uniform(-0.01, 0.01)
 
-            psi0 = np.deg2rad(self.rng.uniform(-3.0, 3.0))
-            omegaz0 = np.deg2rad(self.rng.uniform(-0.05, 0.05))
+            psi0 = np.deg2rad(self.rng.uniform(-2.0, 2.0))
+            omegaz0 = np.deg2rad(self.rng.uniform(-0.03, 0.03))
 
         else:
             raise ValueError(
@@ -929,8 +911,6 @@ class Docking3DoFEnv:
     def is_in_X_P3(self, state, mode="testing"):
         """
         Checks whether the state belongs to the P3 set.
-
-        For the closing phase, this is used as the successful terminal set.
 
         Reduced 2D interpretation:
 
@@ -955,24 +935,24 @@ class Docking3DoFEnv:
             omega_max = np.deg2rad(0.0)
 
         elif mode == "testing":
-            d_min = 290.0
-            d_max = 310.0
+            d_min = 280.0
+            d_max = 320.0
             rho_max = 3.0
             v_min = -0.05
             v_max = -0.01
             v_perp_max = 0.005
-            psi_max = np.deg2rad(2.0)
-            omega_max = np.deg2rad(0.03)
+            psi_max = np.deg2rad(1.0)
+            omega_max = np.deg2rad(0.02)
 
         elif mode == "training":
-            d_min = 280.0
-            d_max = 320.0
+            d_min = 250.0
+            d_max = 350.0
             rho_max = 5.0
             v_min = -0.06
             v_max = -0.01
             v_perp_max = 0.01
-            psi_max = np.deg2rad(3.0)
-            omega_max = np.deg2rad(0.05)
+            psi_max = np.deg2rad(2.0)
+            omega_max = np.deg2rad(0.03)
 
         else:
             raise ValueError("mode must be one of: 'nominal', 'testing', or 'training'.")
@@ -985,21 +965,21 @@ class Docking3DoFEnv:
             and abs(self.wrap_to_pi(psi)) <= psi_max
             and abs(omegaz) <= omega_max
         )
-
-
+    
+    
     def is_at_P3_target(self, state):
         """
         Checks whether the state is close to the specific sampled P3 target.
         """
-
         if self.p3_target is None:
             raise RuntimeError("P3 target has not been sampled yet.")
 
         state = np.asarray(state, dtype=float)
 
-        return np.all(
-            np.abs(state - self.p3_target) <= self.p3_target_tolerance
-        )
+        error = state - self.p3_target
+        error[4] = self.wrap_to_pi(state[4] - self.p3_target[4])
+
+        return np.all(np.abs(error) <= self.p3_target_tolerance)
 
 
     def is_in_X_dock(self, state):
@@ -1081,7 +1061,33 @@ class Docking3DoFEnv:
                 )
 
             self.state = initial_state.copy()
-            self.state[4] = self.wrap_to_pi(self.state[4])
+            if np.isfinite(self.state[4]):
+                self.state[4] = self.wrap_to_pi(self.state[4])
+
+            if not np.all(np.isfinite(self.state)):
+                zero_action_body_raw = np.zeros(3)
+                zero_action_body_clipped = self.clip_action(zero_action_body_raw)
+                zero_action_orbital = np.full(3, np.nan)
+
+                initial_info = {
+                    "phase": self.phase,
+                    "initial_set": "provided_initial_state",
+                    "port_relative_position": np.full(2, np.nan),
+                    "port_relative_velocity": np.full(2, np.nan),
+                    "port_distance": np.nan,
+                    "port_speed": np.nan,
+                }
+
+                self.log_step(
+                    action_body_raw=zero_action_body_raw,
+                    action_body_clipped=zero_action_body_clipped,
+                    action_orbital=zero_action_orbital,
+                    reward=0.0,
+                    done=False,
+                    info=initial_info,
+                )
+
+                return self.state.copy()
 
         else:
             if self.phase == "closing":
@@ -1118,7 +1124,11 @@ class Docking3DoFEnv:
 
         initial_info = {
             "phase": self.phase,
-            "initial_set": "X_P2" if self.phase == "closing" else "X_P3",
+            "initial_set": (
+                "provided_initial_state"
+                if initial_state is not None
+                else ("X_P2" if self.phase == "closing" else "X_P3")
+            ),
             "port_relative_position": self.get_port_relative_position(self.state),
             "port_relative_velocity": self.get_port_relative_velocity(self.state),
             "port_distance": np.linalg.norm(self.get_port_relative_position(self.state)),
@@ -1160,6 +1170,35 @@ class Docking3DoFEnv:
                 "i.e. [ax_Bc, ay_Bc, alphaz_Bc]."
             )
 
+        if not np.all(np.isfinite(self.state)):
+            reward = 0.0
+            done = True
+
+            action_body_clipped = self.clip_action(action)
+            action_orbital_before_step = np.full(3, np.nan)
+
+            info = {
+                "success": False,
+                "failure": True,
+                "time_limit": False,
+                "failure_reason": "non_finite_state",
+                "phase": self.phase,
+                "action_body_raw": action.copy(),
+                "action_body_clipped": action_body_clipped.copy(),
+                "action_orbital_before_step": action_orbital_before_step.copy(),
+            }
+
+            self.log_step(
+                action_body_raw=action,
+                action_body_clipped=action_body_clipped,
+                action_orbital=action_orbital_before_step,
+                reward=reward,
+                done=done,
+                info=info,
+            )
+
+            return self.state.copy(), reward, done, info
+
         # For logging and reward calculation at the start of the step
         psi_before = self.state[4]
 
@@ -1175,7 +1214,8 @@ class Docking3DoFEnv:
         self.state = self.integrate(self.state, action)
 
         # Keep attitude angle bounded for numerical clarity
-        self.state[4] = self.wrap_to_pi(self.state[4])
+        if np.isfinite(self.state[4]):
+            self.state[4] = self.wrap_to_pi(self.state[4])
 
         self.time += self.dt
 

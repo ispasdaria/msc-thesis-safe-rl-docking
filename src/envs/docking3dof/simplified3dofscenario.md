@@ -72,7 +72,9 @@ r_p = r + R(psi) * r_c - r_t
 Planar rotation matrix:
 
 ```
-R(psi) = [[cos(psi), -sin(psi)], [sin(psi), cos(psi)]]
+R(psi) = 
+[[-cos(psi),  sin(psi)],
+ [-sin(psi), -cos(psi)]]
 ```
 
 Docking contact condition:

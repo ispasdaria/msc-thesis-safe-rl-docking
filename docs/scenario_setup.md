@@ -661,7 +661,6 @@ Termination logic:
 - If `I_P3 = 1`: terminate closing episode successfully.
 - If `I_dock = 1`: terminate final-approach episode successfully.
 - If `I_fail = 1`: terminate episode unsuccessfully.
-- If admissible control bounds are violated: terminate episode unsuccessfully.
 
 ### 8.3 Failure Conditions (Preliminary)
 

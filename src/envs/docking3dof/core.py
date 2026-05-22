@@ -882,20 +882,20 @@ class Docking3DoFEnv:
             ry0 = self.rng.uniform(-3.0, 3.0)
 
             vx0 = self.rng.uniform(-0.05, -0.01)
-            vy0 = self.rng.uniform(-0.005, 0.005)
+            vy0 = self.rng.uniform(-0.01, 0.01)
 
             psi0 = np.deg2rad(self.rng.uniform(-1.0, 1.0))
-            omegaz0 = np.deg2rad(self.rng.uniform(-0.02, 0.02))
+            omegaz0 = np.deg2rad(self.rng.uniform(-0.05, 0.05))
 
         elif mode == "training":
             rx0 = self.rng.uniform(250.0, 350.0)
             ry0 = self.rng.uniform(-5.0, 5.0)
 
             vx0 = self.rng.uniform(-0.06, -0.01)
-            vy0 = self.rng.uniform(-0.01, 0.01)
+            vy0 = self.rng.uniform(-0.02, 0.02)
 
             psi0 = np.deg2rad(self.rng.uniform(-2.0, 2.0))
-            omegaz0 = np.deg2rad(self.rng.uniform(-0.03, 0.03))
+            omegaz0 = np.deg2rad(self.rng.uniform(-0.1, 0.1))
 
         else:
             raise ValueError(
@@ -940,9 +940,9 @@ class Docking3DoFEnv:
             rho_max = 3.0
             v_min = -0.05
             v_max = -0.01
-            v_perp_max = 0.005
+            v_perp_max = 0.01
             psi_max = np.deg2rad(1.0)
-            omega_max = np.deg2rad(0.02)
+            omega_max = np.deg2rad(0.05)
 
         elif mode == "training":
             d_min = 250.0
@@ -950,9 +950,9 @@ class Docking3DoFEnv:
             rho_max = 5.0
             v_min = -0.06
             v_max = -0.01
-            v_perp_max = 0.01
+            v_perp_max = 0.02
             psi_max = np.deg2rad(2.0)
-            omega_max = np.deg2rad(0.03)
+            omega_max = np.deg2rad(0.1)
 
         else:
             raise ValueError("mode must be one of: 'nominal', 'testing', or 'training'.")

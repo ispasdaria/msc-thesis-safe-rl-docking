@@ -262,12 +262,12 @@ Motivation: P2 bounds are chosen so the state remains close-range and controllab
   - `0 m` (3-DoF)
   - `-3 m` to `3 m` (6-DoF)
 - Axial relative velocity: `-0.05 m/s` to `-0.01 m/s`
-- Lateral relative velocity: `-0.005 m/s` to `0.005 m/s`
+- Lateral relative velocity: `-0.01 m/s` to `0.01 m/s`
 - Out-of-plane relative velocity:
   - `0 m/s` (3-DoF)
   - `-0.005 m/s` to `0.005 m/s` (6-DoF)
 - Attitude error: `-1 deg` to `1 deg` each axis
-- Angular velocity: `-0.02 deg/s` to `0.02 deg/s` each axis
+- Angular velocity: `-0.05 deg/s` to `0.05 deg/s` each axis
 
 #### P3 Training Range
 
@@ -277,12 +277,12 @@ Motivation: P2 bounds are chosen so the state remains close-range and controllab
   - `0 m` (3-DoF)
   - `-5 m` to `5 m` (6-DoF)
 - Axial relative velocity: `-0.06 m/s` to `-0.01 m/s`
-- Lateral relative velocity: `-0.01 m/s` to `0.01 m/s`
+- Lateral relative velocity: `-0.02 m/s` to `0.02 m/s`
 - Out-of-plane relative velocity:
   - `0 m/s` (3-DoF)
   - `-0.01 m/s` to `0.01 m/s` (6-DoF)
 - Attitude error: `-2 deg` to `2 deg` each axis
-- Angular velocity: `-0.03 deg/s` to `0.03 deg/s` each axis
+- Angular velocity: `-0.1 deg/s` to `0.1 deg/s` each axis
 
 Motivation: P3 ranges are intentionally tighter than P2 to preserve clear phase separation and enforce corridor-readiness before terminal docking.
 

@@ -1,3 +1,6 @@
+import os 
+import sys 
+
 # Allow imports from the repo's src/ directory when running pytest from the root.
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 SRC_PATH = os.path.join(REPO_ROOT, "src")

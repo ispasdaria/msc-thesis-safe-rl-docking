@@ -212,18 +212,8 @@ def build_linearized_3dof_matrices(env):
     Linearized orbital-frame input:
         u_O = [ax_O, ay_O, alphaz]
 
-    If input_frame == "body":
-        the LQR output is expressed in the chaser body frame:
-
-            u_B = [ax_Bc, ay_Bc, alphaz_Bc]
-
-        At nominal alignment psi = 0, the simulator transformation gives:
-
-            ax_O = -ax_Bc
-            ay_O = -ay_Bc
-            alphaz_O = alphaz_Bc
-
-        Therefore, the translational columns of B change sign.
+    The LQR is designed in the orbital frame, while the controller later
+    converts the command to the body frame before calling env.step().
     """
 
     n = env.n
@@ -299,7 +289,7 @@ def orbital_to_body_action(env, action_orbital, psi):
     )
 
 
-def compute_lqr_gain(A, B, Q, R):
+def compute_lqr_gain(A, B, Q, R, verbose=False):
     """
     Solves the continuous-time infinite-horizon LQR problem.
 
@@ -319,10 +309,11 @@ def compute_lqr_gain(A, B, Q, R):
     P = solve_continuous_are(A, B, Q, R)
     K = np.linalg.solve(R, B.T @ P)
 
-    print("Q_closing:\n", Q)
-    print("R_closing:\n", R)
-    print("K_closing:\n", K)
-    print("Closed-loop eigenvalues:\n", np.linalg.eigvals(A - B @ K))
+    if verbose:
+        print("Q_closing:\n", Q)
+        print("R_closing:\n", R)
+        print("K_closing:\n", K)
+        print("Closed-loop eigenvalues:\n", np.linalg.eigvals(A - B @ K))
 
     return K, P
 
@@ -375,6 +366,11 @@ class LQRClosingController:
                 "env.p3_target is None. Call env.reset() in closing phase before using the controller."
             )
 
+        state = np.asarray(state, dtype=float)
+
+        if state.shape != (6,):
+            raise ValueError("state must have shape (6,), i.e. [rx, ry, vx, vy, psi, omegaz].")
+
         x_ref_closing = env.p3_target
 
         e = closing_error(env, state, x_ref_closing)
@@ -390,6 +386,69 @@ class LQRClosingController:
         return action_body
     
 
+def analyze_saturation(env, atol=1e-12):
+    """
+    Checks how often the controller command was clipped by the environment.
+
+    Saturation occurs when the raw body-frame action requested by the controller
+    differs from the clipped body-frame action applied by the environment.
+
+    The environment logs both:
+        action_body_raw
+        action_body_clipped
+    """
+
+    _, _, actions_body_raw, actions_body_clipped, _, _ = env.get_history_arrays()
+
+    if actions_body_raw.size == 0 or actions_body_clipped.size == 0:
+        print("\nActuator saturation analysis")
+        print("----------------------------")
+        print("No action history available to analyze.")
+        return {
+            "saturation_fraction_total": 0.0,
+            "saturation_fraction_channels": np.zeros(3, dtype=float),
+            "max_raw": np.zeros(3, dtype=float),
+            "max_clipped": np.zeros(3, dtype=float),
+        }
+
+    diff = actions_body_raw - actions_body_clipped
+
+    saturated_per_channel = np.abs(diff) > atol
+    saturated_any = np.any(saturated_per_channel, axis=1)
+
+    saturation_fraction_total = np.mean(saturated_any)
+    saturation_fraction_channels = np.mean(saturated_per_channel, axis=0)
+
+    max_raw = np.max(np.abs(actions_body_raw), axis=0)
+    max_clipped = np.max(np.abs(actions_body_clipped), axis=0)
+
+    print("\nActuator saturation analysis")
+    print("----------------------------")
+    print(f"Fraction of timesteps with any saturation: {100.0 * saturation_fraction_total:.2f}%")
+
+    print("\nSaturation fraction per channel:")
+    print(f"  ax_Bc:     {100.0 * saturation_fraction_channels[0]:.2f}%")
+    print(f"  ay_Bc:     {100.0 * saturation_fraction_channels[1]:.2f}%")
+    print(f"  alphaz_Bc: {100.0 * saturation_fraction_channels[2]:.2f}%")
+
+    print("\nMaximum absolute raw command:")
+    print(f"  ax_Bc:     {max_raw[0]:.6f} m/s^2")
+    print(f"  ay_Bc:     {max_raw[1]:.6f} m/s^2")
+    print(f"  alphaz_Bc: {max_raw[2]:.6f} rad/s^2")
+
+    print("\nMaximum absolute clipped command:")
+    print(f"  ax_Bc:     {max_clipped[0]:.6f} m/s^2")
+    print(f"  ay_Bc:     {max_clipped[1]:.6f} m/s^2")
+    print(f"  alphaz_Bc: {max_clipped[2]:.6f} rad/s^2")
+
+    return {
+        "saturation_fraction_total": saturation_fraction_total,
+        "saturation_fraction_channels": saturation_fraction_channels,
+        "max_raw": max_raw,
+        "max_clipped": max_clipped,
+    }
+
+
 def main():
     env = Docking3DoFEnv(
         phase="closing",
@@ -402,15 +461,14 @@ def main():
     Q_closing = build_Q_closing()
     R_closing = build_R_closing(env)
 
-    A_closing, B_closing = build_linearized_3dof_matrices(
-        env
-    )
+    A_closing, B_closing = build_linearized_3dof_matrices(env)
 
     K_closing, P_closing = compute_lqr_gain(
         A=A_closing,
         B=B_closing,
         Q=Q_closing,
         R=R_closing,
+        verbose=True,
     )
 
     controller = LQRClosingController(K_closing)
@@ -427,6 +485,8 @@ def main():
     print("Final state:", state)
     print("P3 target:", env.p3_target)
     print("Final error:", closing_error(env, state, env.p3_target))
+
+    saturation_stats = analyze_saturation(env)
 
 
 if __name__ == "__main__":

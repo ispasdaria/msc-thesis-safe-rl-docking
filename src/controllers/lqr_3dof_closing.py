@@ -306,6 +306,10 @@ def compute_lqr_gain(A, B, Q, R, verbose=False):
         u = -K e
     """
 
+    _check_psd(Q)
+    _check_pd(R)
+    _check_stabilizable_detectable(A, B, Q)
+
     P = solve_continuous_are(A, B, Q, R)
     K = np.linalg.solve(R, B.T @ P)
 
@@ -316,6 +320,58 @@ def compute_lqr_gain(A, B, Q, R, verbose=False):
         print("Closed-loop eigenvalues:\n", np.linalg.eigvals(A - B @ K))
 
     return K, P
+
+
+def _sqrt_psd(M, tol=1e-12):
+    M = 0.5 * (M + M.T)
+    eigvals, eigvecs = np.linalg.eigh(M)
+    eigvals = np.clip(eigvals, 0.0, None)
+    return (eigvecs * np.sqrt(eigvals)) @ eigvecs.T
+
+
+def _check_psd(M, tol=1e-12):
+    M = np.asarray(M, dtype=float)
+    M = 0.5 * (M + M.T)
+    eigvals = np.linalg.eigvalsh(M)
+    if np.min(eigvals) < -tol:
+        raise ValueError(
+            "Q must be positive semidefinite (found eigenvalue below tolerance)."
+        )
+
+
+def _check_pd(M, tol=1e-12):
+    M = np.asarray(M, dtype=float)
+    M = 0.5 * (M + M.T)
+    eigvals = np.linalg.eigvalsh(M)
+    if np.min(eigvals) <= tol:
+        raise ValueError(
+            "R must be positive definite (found eigenvalue at/below tolerance)."
+        )
+
+
+def _check_stabilizable_detectable(A, B, Q, tol=1e-9):
+    A = np.asarray(A, dtype=float)
+    B = np.asarray(B, dtype=float)
+    Q = np.asarray(Q, dtype=float)
+
+    n = A.shape[0]
+    eigvals = np.linalg.eigvals(A)
+    unstable = [lam for lam in eigvals if np.real(lam) >= -tol]
+
+    for lam in unstable:
+        mat = np.hstack([A - lam * np.eye(n), B]).astype(complex)
+        if np.linalg.matrix_rank(mat, tol=tol) < n:
+            raise ValueError(
+                f"(A, B) is not stabilizable: rank([A-λI, B]) < n at λ={lam}."
+            )
+
+    C = _sqrt_psd(Q, tol=tol)
+    for lam in unstable:
+        mat = np.vstack([A - lam * np.eye(n), C]).astype(complex)
+        if np.linalg.matrix_rank(mat, tol=tol) < n:
+            raise ValueError(
+                f"(A, Q) is not detectable: rank([A-λI; C]) < n at λ={lam}."
+            )
 
 
 class LQRClosingController:

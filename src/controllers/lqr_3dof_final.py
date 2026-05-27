@@ -15,6 +15,44 @@ if SRC_PATH not in sys.path:
 from envs.docking3dof.core import Docking3DoFEnv
 
 
+def build_port_error_mapping(env):
+    """
+    Builds linearized mapping from CoM state error to docking-port error.
+
+    x = [rx, ry, vx, vy, psi, omega]
+    z = [r_px, r_py, v_px, v_py, psi, omega]
+
+    Linearized around psi = 0 and omega = 0.
+    """
+
+    x_c, y_c = env.r_c_body
+
+    H = np.array(
+        [
+            # r_px ≈ rx + y_c * psi + constant
+            [1.0, 0.0, 0.0, 0.0,  y_c, 0.0],
+
+            # r_py ≈ ry - x_c * psi + constant
+            [0.0, 1.0, 0.0, 0.0, -x_c, 0.0],
+
+            # v_px ≈ vx + y_c * omega
+            [0.0, 0.0, 1.0, 0.0, 0.0,  y_c],
+
+            # v_py ≈ vy - x_c * omega
+            [0.0, 0.0, 0.0, 1.0, 0.0, -x_c],
+
+            # psi
+            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+
+            # omega
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+        ],
+        dtype=float,
+    )
+
+    return H
+
+
 def build_Q_final():
     """
     Builds the state weighting matrix Q for the final-approach LQR.
@@ -28,16 +66,16 @@ def build_Q_final():
     """
 
     final_design_scale = np.array(
-    [
-        20.0,              # r_px scale [m]
-        1.0,               # r_py scale [m]
-        0.03,              # v_px scale [m/s]
-        0.01,              # v_py scale [m/s]
-        np.deg2rad(1.0),   # psi scale [rad]
-        np.deg2rad(0.05),  # omega scale [rad/s]
-    ],
-    dtype=float,
-)
+        [
+            20.0,              # r_px scale [m]
+            1.0,               # r_py scale [m]
+            0.03,              # v_px scale [m/s]
+            0.01,              # v_py scale [m/s]
+            np.deg2rad(1.0),   # psi scale [rad]
+            np.deg2rad(0.05),  # omega scale [rad/s]
+        ],
+        dtype=float,
+    )
 
     importance = np.array(
         [
@@ -110,21 +148,27 @@ def project_vector_to_ball(x, radius):
     return radius * x / norm_x
 
 
-def final_set_error(env, state):
+def final_error(env, state):
     """
-    Computes final-approach error relative to the docking set, not relative
-    to the exact origin.
+    Computes final-approach port-level set error.
 
-    Desired terminal set:
-        ||r_p|| <= 0.1 m
-        ||v_p|| <= 0.1 m/s
-        |psi_e| <= 4 deg
-        |omega| <= 0.2 deg/s
+    Position objective:
+        enter ||r_p|| <= 0.1 m
 
-    Error is zero for a quantity once it is inside its allowed bound.
+    Velocity objective:
+        enter ||v_p|| <= 0.1 m/s
+
+    Attitude objective:
+        stay within |psi_e| <= 4 deg
+
+    Angular-rate objective:
+        stay within |omega| <= 0.2 deg/s
     """
 
     state = np.asarray(state, dtype=float)
+
+    if state.shape != (6,):
+        raise ValueError("state must have shape (6,).")
 
     r_p = env.get_port_relative_position(state)
     v_p = env.get_port_relative_velocity(state)
@@ -132,16 +176,27 @@ def final_set_error(env, state):
     psi_e = env.wrap_to_pi(state[4])
     omega = state[5]
 
-    # Position set error
+    # Position set error: zero once ||r_p|| <= 0.1
     r_p_projection = project_vector_to_ball(r_p, radius=0.1)
     r_error = r_p - r_p_projection
 
-    # Velocity set error
+    # Velocity set error: zero once ||v_p|| <= 0.1
     v_p_projection = project_vector_to_ball(v_p, radius=0.1)
     v_error = v_p - v_p_projection
 
-    psi_error = psi_e
-    omega_error = omega
+    # Attitude set error: zero once |psi_e| <= 4 deg
+    psi_limit = np.deg2rad(4.0)
+    if abs(psi_e) <= psi_limit:
+        psi_error = 0.0
+    else:
+        psi_error = psi_e - np.sign(psi_e) * psi_limit
+
+    # Angular-rate set error: zero once |omega| <= 0.2 deg/s
+    omega_limit = np.deg2rad(0.2)
+    if abs(omega) <= omega_limit:
+        omega_error = 0.0
+    else:
+        omega_error = omega - np.sign(omega) * omega_limit
 
     e = np.array(
         [
@@ -157,10 +212,9 @@ def final_set_error(env, state):
 
     return e
 
-
 def build_linearized_3dof_matrices(env):
     """
-    Builds the linearized 3-DoF model used for the closing-phase LQR.
+    Builds the linearized 3-DoF model used for the final-approach phase LQR.
 
     The nonlinear simulator dynamics are:
 
@@ -282,68 +336,104 @@ def compute_lqr_gain(A, B, Q, R, verbose=False):
     Solves the continuous-time infinite-horizon LQR problem.
 
     Cost:
-        J = integral( e.T Q e + u.T R u ) dt
-
-    Riccati equation:
-        A.T P + P A - P B R^-1 B.T P + Q = 0
-
-    Feedback gain:
-        K = R^-1 B.T P
+        J = integral( x.T Q x + u.T R u ) dt
 
     Control law:
-        u = -K e
+        u = -K x
     """
+
+    _check_psd(Q)
+    _check_pd(R)
+    _check_stabilizable_detectable(A, B, Q)
 
     P = solve_continuous_are(A, B, Q, R)
     K = np.linalg.solve(R, B.T @ P)
 
     if verbose:
-        print("Q_final:\n", Q)
-        print("R_final:\n", R)
-        print("K_final:\n", K)
+        print("Q:\n", Q)
+        print("R:\n", R)
+        print("K:\n", K)
         print("Closed-loop eigenvalues:\n", np.linalg.eigvals(A - B @ K))
 
     return K, P
 
 
+def _sqrt_psd(M, tol=1e-12):
+    M = 0.5 * (M + M.T)
+    eigvals, eigvecs = np.linalg.eigh(M)
+    eigvals = np.clip(eigvals, 0.0, None)
+    return (eigvecs * np.sqrt(eigvals)) @ eigvecs.T
+
+
+def _check_psd(M, tol=1e-12):
+    M = np.asarray(M, dtype=float)
+    M = 0.5 * (M + M.T)
+    eigvals = np.linalg.eigvalsh(M)
+    if np.min(eigvals) < -tol:
+        raise ValueError(
+            "Q must be positive semidefinite (found eigenvalue below tolerance)."
+        )
+
+
+def _check_pd(M, tol=1e-12):
+    M = np.asarray(M, dtype=float)
+    M = 0.5 * (M + M.T)
+    eigvals = np.linalg.eigvalsh(M)
+    if np.min(eigvals) <= tol:
+        raise ValueError(
+            "R must be positive definite (found eigenvalue at/below tolerance)."
+        )
+
+
+def _check_stabilizable_detectable(A, B, Q, tol=1e-9):
+    A = np.asarray(A, dtype=float)
+    B = np.asarray(B, dtype=float)
+    Q = np.asarray(Q, dtype=float)
+
+    n = A.shape[0]
+    eigvals = np.linalg.eigvals(A)
+    unstable = [lam for lam in eigvals if np.real(lam) >= -tol]
+
+    for lam in unstable:
+        mat = np.hstack([A - lam * np.eye(n), B]).astype(complex)
+        if np.linalg.matrix_rank(mat, tol=tol) < n:
+            raise ValueError(
+                f"(A, B) is not stabilizable: rank([A-λI, B]) < n at λ={lam}."
+            )
+
+    C = _sqrt_psd(Q, tol=tol)
+    for lam in unstable:
+        mat = np.vstack([A - lam * np.eye(n), C]).astype(complex)
+        if np.linalg.matrix_rank(mat, tol=tol) < n:
+            raise ValueError(
+                f"(A, Q) is not detectable: rank([A-λI; C]) < n at λ={lam}."
+            )
+
+
 class LQRFinalController:
     """
-    Final-approach LQR controller.
+    Final-approach LQR controller using port-error shaping.
 
-    The controller drives the docking-port relative position and velocity
-    toward the docking condition:
+    The LQR gain is designed on the CoM state, but Q is shaped using the
+    linearized port-error mapping:
 
-        r_p -> 0
-        v_p -> v_p_ref
-        psi -> 0
-        omega -> 0
+        Q_com = H.T @ Q_port @ H
 
-    The LQR gain K is designed for orbital-frame accelerations:
-
-        action_orbital = [ax_O, ay_O, alphaz]
-
-    The returned command is converted to the chaser body frame before being
-    sent to the environment.
+    During feedback, the nonlinear port error is approximately mapped back
+    into an equivalent CoM-state error using H^{-1}.
     """
 
-    def __init__(self, K, v_p_ref=None):
+    def __init__(self, K, H):
         self.K = np.asarray(K, dtype=float)
+        self.H = np.asarray(H, dtype=float)
 
         if self.K.shape != (3, 6):
             raise ValueError("K must have shape (3, 6).")
 
-        if v_p_ref is None:
-            self.v_p_ref = np.zeros(2, dtype=float)
-        else:
-            self.v_p_ref = np.asarray(v_p_ref, dtype=float)
-            if self.v_p_ref.shape != (2,):
-                raise ValueError("v_p_ref must have shape (2,).")
+        if self.H.shape != (6, 6):
+            raise ValueError("H must have shape (6, 6).")
 
     def compute_action(self, env, state):
-        """
-        Computes the final-approach LQR action.
-        """
-
         if env.phase != "final":
             raise ValueError("LQRFinalController should only be used in final phase.")
 
@@ -354,8 +444,11 @@ class LQRFinalController:
                 "state must have shape (6,), i.e. [rx, ry, vx, vy, psi, omegaz]."
             )
 
-        e = final_set_error(env, state)
-        action_orbital = -self.K @ e
+        e_port = final_error(env, state)
+
+        e_com_equiv = np.linalg.solve(self.H, e_port)
+
+        action_orbital = -self.K @ e_com_equiv
 
         action_body = orbital_to_body_action(
             env,
@@ -438,20 +531,26 @@ def main():
 
     state = env.reset(mode="testing")
 
-    Q_final = build_Q_final()
+    Q_port = build_Q_final()
     R_final = build_R_final(env)
 
     A_final, B_final = build_linearized_3dof_matrices(env)
 
+    H = build_port_error_mapping(env)
+    Q_com = H.T @ Q_port @ H
+
     K_final, P_final = compute_lqr_gain(
         A=A_final,
         B=B_final,
-        Q=Q_final,
+        Q=Q_com,
         R=R_final,
         verbose=True,
     )
 
-    controller = LQRFinalController(K_final)
+    controller = LQRFinalController(
+        K=K_final,
+        H=H,
+    )
 
     done = False
 

@@ -67,7 +67,7 @@ def build_Q_final():
 
     final_design_scale = np.array(
         [
-            20.0,              # r_px scale [m]
+            2.0,              # r_px scale [m]
             1.0,               # r_py scale [m]
             0.03,              # v_px scale [m/s]
             0.01,              # v_py scale [m/s]
@@ -128,41 +128,12 @@ def build_R_final(env):
     return R_final
 
 
-def project_vector_to_ball(x, radius):
-    """
-    Returns the closest point to x inside/on a ball of given radius.
-
-    If ||x|| <= radius:
-        projection = x
-
-    If ||x|| > radius:
-        projection = radius * x / ||x||
-    """
-
-    x = np.asarray(x, dtype=float)
-    norm_x = np.linalg.norm(x)
-
-    if norm_x <= radius or norm_x == 0.0:
-        return x.copy()
-
-    return radius * x / norm_x
-
-
 def final_error(env, state):
     """
-    Computes final-approach port-level set error.
+    Computes final-approach port-level error w.r.t. a zero reference.
 
-    Position objective:
-        enter ||r_p|| <= 0.1 m
-
-    Velocity objective:
-        enter ||v_p|| <= 0.1 m/s
-
-    Attitude objective:
-        stay within |psi_e| <= 4 deg
-
-    Angular-rate objective:
-        stay within |omega| <= 0.2 deg/s
+    The environment handles terminal success by checking the corresponding
+    port position, port velocity, attitude, and angular-rate requirements.
     """
 
     state = np.asarray(state, dtype=float)
@@ -176,27 +147,10 @@ def final_error(env, state):
     psi_e = env.wrap_to_pi(state[4])
     omega = state[5]
 
-    # Position set error: zero once ||r_p|| <= 0.1
-    r_p_projection = project_vector_to_ball(r_p, radius=0.1)
-    r_error = r_p - r_p_projection
-
-    # Velocity set error: zero once ||v_p|| <= 0.1
-    v_p_projection = project_vector_to_ball(v_p, radius=0.1)
-    v_error = v_p - v_p_projection
-
-    # Attitude set error: zero once |psi_e| <= 4 deg
-    psi_limit = np.deg2rad(4.0)
-    if abs(psi_e) <= psi_limit:
-        psi_error = 0.0
-    else:
-        psi_error = psi_e - np.sign(psi_e) * psi_limit
-
-    # Angular-rate set error: zero once |omega| <= 0.2 deg/s
-    omega_limit = np.deg2rad(0.2)
-    if abs(omega) <= omega_limit:
-        omega_error = 0.0
-    else:
-        omega_error = omega - np.sign(omega) * omega_limit
+    r_error = r_p
+    v_error = v_p
+    psi_error = psi_e
+    omega_error = omega
 
     e = np.array(
         [
@@ -211,6 +165,7 @@ def final_error(env, state):
     )
 
     return e
+
 
 def build_linearized_3dof_matrices(env):
     """
@@ -426,6 +381,10 @@ class LQRFinalController:
     def __init__(self, K, H):
         self.K = np.asarray(K, dtype=float)
         self.H = np.asarray(H, dtype=float)
+
+        cond_H = np.linalg.cond(self.H)
+        if cond_H > 1e8:
+            raise ValueError(f"H is ill-conditioned: cond(H) = {cond_H:.3e}")
 
         if self.K.shape != (3, 6):
             raise ValueError("K must have shape (3, 6).")

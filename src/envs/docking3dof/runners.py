@@ -19,6 +19,20 @@ class DockingMissionRunner:
 
     The environments remain phase-specific, so each phase can have its own
     controller, reward, history, and performance metrics.
+
+    Usage example (register controllers once and run):
+
+        runner = DockingMissionRunner(env_kwargs={"integrator": "rk4", "seed": 42})
+
+        runner.set_controller("closing", closing_controller)
+        runner.set_controller("final", final_controller)
+
+        closing_result = runner.run_phase_with_registered(
+            phase="closing",
+            mode="testing",
+        )
+
+        mission_result = runner.run_mission_with_registered(mode="testing")
     """
 
     def __init__(self, env_kwargs=None):
@@ -37,7 +51,53 @@ class DockingMissionRunner:
             **env_kwargs,
         )
 
+        self.controllers = {
+            "closing": None,
+            "final": None,
+        }
+
         self.last_results = None
+
+    def set_controller(self, phase, controller):
+        """
+        Registers a controller for a phase.
+
+        controller can be:
+          - a callable(state) -> action
+          - an object with compute_action(env, state)
+        """
+
+        if phase not in ("closing", "final"):
+            raise ValueError("phase must be either 'closing' or 'final'.")
+
+        if controller is None:
+            raise ValueError("controller must not be None.")
+
+        self.controllers[phase] = controller
+
+    def _get_env(self, phase):
+        if phase == "closing":
+            return self.closing_env
+        if phase == "final":
+            return self.final_env
+        raise ValueError("phase must be either 'closing' or 'final'.")
+
+    def _policy_for_phase(self, phase):
+        controller = self.controllers.get(phase)
+        if controller is None:
+            raise RuntimeError(f"No controller registered for phase '{phase}'.")
+
+        env = self._get_env(phase)
+
+        if callable(controller):
+            return controller
+
+        if hasattr(controller, "compute_action"):
+            return lambda state: controller.compute_action(env, state)
+
+        raise TypeError(
+            "controller must be callable or implement compute_action(env, state)."
+        )
 
     def run_phase(
         self,
@@ -72,12 +132,7 @@ class DockingMissionRunner:
             Optional extra step cap for debugging.
         """
 
-        if phase == "closing":
-            env = self.closing_env
-        elif phase == "final":
-            env = self.final_env
-        else:
-            raise ValueError("phase must be either 'closing' or 'final'.")
+        env = self._get_env(phase)
 
         state = env.reset(
             initial_state=initial_state,
@@ -120,6 +175,27 @@ class DockingMissionRunner:
         }
 
         return result
+
+    def run_phase_with_registered(
+        self,
+        phase,
+        mode="training",
+        initial_state=None,
+        max_steps=None,
+    ):
+        """
+        Runs one episode using the registered controller for the phase.
+        """
+
+        policy = self._policy_for_phase(phase)
+
+        return self.run_phase(
+            phase=phase,
+            controller=policy,
+            mode=mode,
+            initial_state=initial_state,
+            max_steps=max_steps,
+        )
 
     def run_many_phase_episodes(
         self,
@@ -216,6 +292,27 @@ class DockingMissionRunner:
 
         self.last_results = mission_result
         return mission_result
+
+    def run_mission_with_registered(
+        self,
+        mode="testing",
+        max_steps_closing=None,
+        max_steps_final=None,
+    ):
+        """
+        Runs a full mission using the registered closing/final controllers.
+        """
+
+        closing_policy = self._policy_for_phase("closing")
+        final_policy = self._policy_for_phase("final")
+
+        return self.run_mission(
+            closing_controller=closing_policy,
+            final_controller=final_policy,
+            mode=mode,
+            max_steps_closing=max_steps_closing,
+            max_steps_final=max_steps_final,
+        )
 
     def run_many_missions(
         self,

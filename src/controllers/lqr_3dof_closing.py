@@ -39,12 +39,12 @@ def build_Q_closing():
 
     closing_design_scale = np.array(
         [
-            50.0,
+            100.0,
             # rx error scale [m]
             # This is the axial position error relative to the sampled P3 target.
             # It is much larger than the 1 m terminal tolerance because the
             # closing phase starts hundreds/thousands of metres away from P3.
-            # It tells the LQR that an axial error of about 50 m is already
+            # It tells the LQR that an axial error of about 100 m is already
             # significant near the end of closing, without forcing terminal-level
             # accuracy throughout the whole maneuver.
 
@@ -256,6 +256,76 @@ def build_linearized_3dof_matrices(env):
     return A, B
 
 
+def _sqrt_psd(M, tol=1e-12):
+    M = np.asarray(M, dtype=float)
+    M = 0.5 * (M + M.T)
+
+    eigvals, eigvecs = np.linalg.eigh(M)
+
+    if np.min(eigvals) < -tol:
+        raise ValueError("Matrix is not positive semidefinite.")
+
+    eigvals = np.clip(eigvals, 0.0, None)
+
+    return (eigvecs * np.sqrt(eigvals)) @ eigvecs.T
+
+
+def _check_psd(M, tol=1e-12):
+    M = np.asarray(M, dtype=float)
+    M = 0.5 * (M + M.T)
+    eigvals = np.linalg.eigvalsh(M)
+    if np.min(eigvals) < -tol:
+        raise ValueError(
+            "Q must be positive semidefinite (found eigenvalue below tolerance)."
+        )
+
+
+def _check_pd(M, tol=1e-12):
+    M = np.asarray(M, dtype=float)
+    M = 0.5 * (M + M.T)
+    eigvals = np.linalg.eigvalsh(M)
+    if np.min(eigvals) <= tol:
+        raise ValueError(
+            "R must be positive definite (found eigenvalue at/below tolerance)."
+        )
+
+
+def _check_stabilizable_detectable(A, B, Q, tol=1e-9):
+    A = np.asarray(A, dtype=float)
+    B = np.asarray(B, dtype=float)
+    Q = np.asarray(Q, dtype=float)
+
+    if A.ndim != 2 or A.shape[0] != A.shape[1]:
+        raise ValueError("A must be a square 2D matrix.")
+
+    n = A.shape[0]
+
+    if B.ndim != 2 or B.shape[0] != n:
+        raise ValueError("B must be a 2D matrix with the same number of rows as A.")
+
+    if Q.shape != (n, n):
+        raise ValueError("Q must have shape (n, n).")
+
+    eigvals = np.linalg.eigvals(A)
+    unstable = [lam for lam in eigvals if np.real(lam) >= -tol]
+
+    for lam in unstable:
+        mat = np.hstack([A - lam * np.eye(n), B]).astype(complex)
+        if np.linalg.matrix_rank(mat, tol=tol) < n:
+            raise ValueError(
+                f"(A, B) is not stabilizable: rank([A-λI, B]) < n at λ={lam}."
+            )
+
+    C = _sqrt_psd(Q, tol=tol)
+
+    for lam in unstable:
+        mat = np.vstack([A - lam * np.eye(n), C]).astype(complex)
+        if np.linalg.matrix_rank(mat, tol=tol) < n:
+            raise ValueError(
+                f"(A, Q) is not detectable: rank([A-λI; C]) < n at λ={lam}."
+            )
+
+
 def orbital_to_body_action(env, action_orbital, psi):
     """
     Converts an orbital-frame action to the chaser body frame.
@@ -306,6 +376,16 @@ def compute_lqr_gain(A, B, Q, R, verbose=False):
         u = -K e
     """
 
+    A = np.asarray(A, dtype=float)
+    B = np.asarray(B, dtype=float)
+    Q = np.asarray(Q, dtype=float)
+    R = np.asarray(R, dtype=float)
+
+    m = B.shape[1]
+
+    if R.shape != (m, m):
+        raise ValueError(f"R must have shape {(m, m)}, got {R.shape}.")
+
     _check_psd(Q)
     _check_pd(R)
     _check_stabilizable_detectable(A, B, Q)
@@ -313,65 +393,26 @@ def compute_lqr_gain(A, B, Q, R, verbose=False):
     P = solve_continuous_are(A, B, Q, R)
     K = np.linalg.solve(R, B.T @ P)
 
+    cl_eigs = np.linalg.eigvals(A - B @ K)
+
+    expected_shape = (B.shape[1], A.shape[0])
+
+    if K.shape != expected_shape:
+        raise ValueError(f"K has wrong shape: expected {expected_shape}, got {K.shape}.")
+
+    if not np.all(np.isfinite(K)):
+        raise ValueError("LQR gain K contains non-finite values.")
+
+    if not np.all(np.real(cl_eigs) < 0.0):
+        raise ValueError(f"Closed-loop system is not stable. Eigenvalues: {cl_eigs}")
+
     if verbose:
         print("Q_closing:\n", Q)
         print("R_closing:\n", R)
         print("K_closing:\n", K)
-        print("Closed-loop eigenvalues:\n", np.linalg.eigvals(A - B @ K))
+        print("Closed-loop eigenvalues:\n", cl_eigs)
 
     return K, P
-
-
-def _sqrt_psd(M, tol=1e-12):
-    M = 0.5 * (M + M.T)
-    eigvals, eigvecs = np.linalg.eigh(M)
-    eigvals = np.clip(eigvals, 0.0, None)
-    return (eigvecs * np.sqrt(eigvals)) @ eigvecs.T
-
-
-def _check_psd(M, tol=1e-12):
-    M = np.asarray(M, dtype=float)
-    M = 0.5 * (M + M.T)
-    eigvals = np.linalg.eigvalsh(M)
-    if np.min(eigvals) < -tol:
-        raise ValueError(
-            "Q must be positive semidefinite (found eigenvalue below tolerance)."
-        )
-
-
-def _check_pd(M, tol=1e-12):
-    M = np.asarray(M, dtype=float)
-    M = 0.5 * (M + M.T)
-    eigvals = np.linalg.eigvalsh(M)
-    if np.min(eigvals) <= tol:
-        raise ValueError(
-            "R must be positive definite (found eigenvalue at/below tolerance)."
-        )
-
-
-def _check_stabilizable_detectable(A, B, Q, tol=1e-9):
-    A = np.asarray(A, dtype=float)
-    B = np.asarray(B, dtype=float)
-    Q = np.asarray(Q, dtype=float)
-
-    n = A.shape[0]
-    eigvals = np.linalg.eigvals(A)
-    unstable = [lam for lam in eigvals if np.real(lam) >= -tol]
-
-    for lam in unstable:
-        mat = np.hstack([A - lam * np.eye(n), B]).astype(complex)
-        if np.linalg.matrix_rank(mat, tol=tol) < n:
-            raise ValueError(
-                f"(A, B) is not stabilizable: rank([A-λI, B]) < n at λ={lam}."
-            )
-
-    C = _sqrt_psd(Q, tol=tol)
-    for lam in unstable:
-        mat = np.vstack([A - lam * np.eye(n), C]).astype(complex)
-        if np.linalg.matrix_rank(mat, tol=tol) < n:
-            raise ValueError(
-                f"(A, Q) is not detectable: rank([A-λI; C]) < n at λ={lam}."
-            )
 
 
 class LQRClosingController:

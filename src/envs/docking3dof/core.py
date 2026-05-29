@@ -60,7 +60,7 @@ class Docking3DoFEnv:
     def __init__(
         self,
         dt=1.0,
-        max_time=3600.0,
+        max_time=10800.0,
         mu=3.986004418e14,
         r0=6_778_000.0,
         ax_max=0.01,

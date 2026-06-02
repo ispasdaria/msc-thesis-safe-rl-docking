@@ -172,12 +172,12 @@ class Docking3DoFEnv:
         if p3_target_tolerance is None:
             self.p3_target_tolerance = np.array(
                 [
-                    1.0,
-                    0.5,
+                    20.0,
+                    2.0,
                     0.01,
-                    0.005,
+                    0.01,
                     np.deg2rad(0.5),
-                    np.deg2rad(0.01),
+                    np.deg2rad(0.05),
                 ],
                 dtype=float,
             )

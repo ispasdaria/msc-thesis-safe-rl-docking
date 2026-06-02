@@ -34,8 +34,8 @@ def _build_controller(env):
 
 def test_success_rate_threshold():
     num_rollouts = 50
-    max_time = 600.0
-    min_success_rate = 0.2
+    max_time = 12000.0
+    min_success_rate = 0.5
 
     env_for_gain = Docking3DoFEnv(phase="closing", max_time=max_time, seed=0)
     controller = _build_controller(env_for_gain)

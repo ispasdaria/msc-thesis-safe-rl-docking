@@ -17,112 +17,80 @@ from envs.docking3dof.core import Docking3DoFEnv
 
 def build_Q_closing():
     """
-    Builds the state weighting matrix Q for the closing-phase LQR.
+    Builds the tuned state weighting matrix Q for the closing-phase LQR.
 
     The closing phase objective is:
 
         sampled P2 state  --->  sampled P3 target state
 
-    The P3 target tolerance used inside the environment is the terminal
-    success condition. It answers:
+    The matrix is first based on Bryson-style normalization using physical
+    design scales. These scales are not terminal tolerances; they represent
+    the error magnitudes at which the controller should begin penalizing each
+    state significantly.
 
-        "Am I close enough to P3 to terminate successfully?"
-
-    The values below are different. They are LQR design scales.
-    They answer:
-
-        "Over what state-error size should the controller start caring
-         strongly about this state?"
-
-    Therefore, these values are not terminal tolerances.
+    The final tuned matrix also includes the selected global Q scale and
+    per-state multipliers obtained from the closing-phase Q/R sweep.
     """
 
     closing_design_scale = np.array(
         [
-            100.0,
-            # rx error scale [m]
-            # This is the axial position error relative to the sampled P3 target.
-            # It is much larger than the 1 m terminal tolerance because the
-            # closing phase starts hundreds/thousands of metres away from P3.
-            # It tells the LQR that an axial error of about 100 m is already
-            # significant near the end of closing, without forcing terminal-level
-            # accuracy throughout the whole maneuver.
-
-            5.0,
-            # ry error scale [m]
-            # Lateral offset is safety-relevant because the vehicle should enter
-            # the approach corridor near P3. A 5 m scale is chosen to reflect
-            # corridor-level accuracy, while the actual terminal tolerance can
-            # still be stricter, e.g. 0.5 m.
-
-            0.02,
-            # vx error scale [m/s]
-            # This is the approach-speed error relative to the sampled P3 target.
-            # It is comparable to the P3 velocity sampling range and encourages
-            # the chaser to arrive at P3 with approximately the desired closing speed.
-
-            0.01,
-            # vy error scale [m/s]
-            # Lateral velocity should be small when reaching P3, otherwise the
-            # vehicle may drift away from the corridor. This is weighted more
-            # strongly than vx through the importance factor below.
-
-            np.deg2rad(2.0),
-            # psi error scale [rad]
-            # During closing, attitude should be roughly aligned, but it does
-            # not need to satisfy the final docking alignment requirement yet.
-            # A 2 deg scale is therefore reasonable for the closing controller.
-
-            np.deg2rad(0.05),
-            # omegaz error scale [rad/s]
-            # Angular-rate error should be controlled, but it is less important
-            # than position and lateral-velocity errors in the closing phase.
-            # This value is comparable to the P3 testing angular-rate range.
+            100.0,              # rx error scale [m]
+            5.0,                # ry error scale [m]
+            0.02,               # vx error scale [m/s]
+            0.01,               # vy error scale [m/s]
+            np.deg2rad(2.0),    # psi error scale [rad]
+            np.deg2rad(0.05),   # omegaz error scale [rad/s]
         ],
         dtype=float,
     )
 
     importance = np.array(
         [
-            1.0,    # rx: medium/high
-            4.0,    # ry: high
-            1.0,    # vx: medium
-            2.0,    # vy: medium/high
-            1.0,    # psi: medium
-            0.25,   # omegaz: low/medium
+            1.0,     # rx
+            4.0,     # ry
+            1.0,     # vx
+            2.0,     # vy
+            1.0,     # psi
+            0.25,    # omegaz
         ],
         dtype=float,
     )
 
-    # Bryson-style weighting:
-    #
-    #     Q_i = gamma_i / scale_i^2
-    #
-    # This means that the contribution of each state to the cost is:
-    #
-    #     gamma_i * (error_i / scale_i)^2
-    #
-    # So the error is already normalized by its design scale.
-    Q_closing = np.diag(importance / closing_design_scale**2)
+    # Selected tuning from the closing-phase sweep.
+    q_scale = 6.5
+
+    q_multipliers = np.array(
+        [
+            3.5,     # rx
+            6.5,     # ry
+            25.0,    # vx
+            6.5,     # vy
+            2.0,     # psi
+            0.5,     # omegaz
+        ],
+        dtype=float,
+    )
+
+    Q_closing = np.diag(
+        q_scale * q_multipliers * importance / closing_design_scale**2
+    )
 
     return Q_closing
 
 
 def build_R_closing(env):
     """
-    Builds the input weighting matrix R for the closing-phase LQR.
+    Builds the tuned input weighting matrix R for the closing-phase LQR.
 
     The LQR is designed in the target-centered orbital frame.
 
     LQR input:
         u_O = [ax_O, ay_O, alphaz]
 
-    R penalizes the orbital-frame acceleration command produced by the LQR.
-    The command is later transformed into the chaser body frame before being
-    passed to the simulation environment.
-
-    The design scales are chosen below the hard action limits. They are not
-    clipping limits; they are Bryson-style control-effort scales.
+    The matrix is first based on Bryson-style control-effort scales, selected
+    as fractions of the available acceleration limits. The final matrix also
+    includes the selected global R scale and per-input multipliers from the
+    closing-phase Q/R sweep.
     """
 
     control_design_scale = np.array(
@@ -136,14 +104,28 @@ def build_R_closing(env):
 
     control_importance = np.array(
         [
-            1.0,
-            1.0,
-            1.0,
+            1.0,  # ax_O
+            1.0,  # ay_O
+            1.0,  # alphaz
         ],
         dtype=float,
     )
 
-    R_closing = np.diag(control_importance / control_design_scale**2)
+    # Selected tuning from the closing-phase sweep.
+    r_scale = 0.25
+
+    r_multipliers = np.array(
+        [
+            1.0,  # ax_O
+            1.0,  # ay_O
+            5.0,  # alphaz
+        ],
+        dtype=float,
+    )
+
+    R_closing = np.diag(
+        r_scale * r_multipliers * control_importance / control_design_scale**2
+    )
 
     return R_closing
 
@@ -429,11 +411,18 @@ class LQRClosingController:
     where x_ref is the sampled P3 target.
     """
 
-    def __init__(self, K):
+    def __init__(self, K, v_fast=-0.08, d_fast=150.0, d_slow=5.0):
         self.K = np.asarray(K, dtype=float)
+
+        self.v_fast = float(v_fast)
+        self.d_fast = float(d_fast)
+        self.d_slow = float(d_slow)
 
         if self.K.shape != (3, 6):
             raise ValueError("K must have shape (3, 6).")
+
+        if self.d_fast <= self.d_slow:
+            raise ValueError("d_fast must be greater than d_slow.")
 
     def compute_action(self, env, state):
         """
@@ -468,7 +457,19 @@ class LQRClosingController:
         if state.shape != (6,):
             raise ValueError("state must have shape (6,), i.e. [rx, ry, vx, vy, psi, omegaz].")
 
-        x_ref_closing = env.p3_target
+        x_ref_closing = env.p3_target.copy()
+
+        delta_rx = abs(state[0] - x_ref_closing[0])
+
+        if delta_rx <= self.d_slow:
+            vx_ref = x_ref_closing[2]
+        elif delta_rx >= self.d_fast:
+            vx_ref = self.v_fast
+        else:
+            alpha = (delta_rx - self.d_slow) / (self.d_fast - self.d_slow)
+            vx_ref = (1.0 - alpha) * x_ref_closing[2] + alpha * self.v_fast
+
+        x_ref_closing[2] = vx_ref
 
         e = closing_error(env, state, x_ref_closing)
 

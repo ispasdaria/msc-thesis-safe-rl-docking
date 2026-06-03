@@ -411,7 +411,7 @@ class LQRClosingController:
     where x_ref is the sampled P3 target.
     """
 
-    def __init__(self, K, v_fast=-0.08, d_fast=150.0, d_slow=5.0):
+    def __init__(self, K, v_fast=-0.08, d_fast=100.0, d_slow=10.0):
         self.K = np.asarray(K, dtype=float)
 
         self.v_fast = float(v_fast)
@@ -425,25 +425,6 @@ class LQRClosingController:
             raise ValueError("d_fast must be greater than d_slow.")
 
     def compute_action(self, env, state):
-        """
-        Computes the raw LQR action for the current state.
-
-        The LQR gain K is designed for orbital-frame accelerations:
-
-            action_orbital = [ax_O, ay_O, alphaz]
-
-        The environment expects body-frame commands:
-
-            action_body = [ax_Bc, ay_Bc, alphaz_Bc]
-
-        Therefore, this method first computes the orbital-frame LQR command and
-        then transforms it to the chaser body frame using the current attitude psi.
-
-        The returned action is intentionally not clipped here. The environment
-        clips the body-frame command internally and logs both the raw and clipped
-        actions.
-        """
-
         if env.phase != "closing":
             raise ValueError("LQRClosingController should only be used in closing phase.")
 
@@ -455,19 +436,23 @@ class LQRClosingController:
         state = np.asarray(state, dtype=float)
 
         if state.shape != (6,):
-            raise ValueError("state must have shape (6,), i.e. [rx, ry, vx, vy, psi, omegaz].")
+            raise ValueError(
+                "state must have shape (6,), i.e. [rx, ry, vx, vy, psi, omegaz]."
+            )
 
         x_ref_closing = env.p3_target.copy()
 
         delta_rx = abs(state[0] - x_ref_closing[0])
 
-        if delta_rx <= self.d_slow:
-            vx_ref = x_ref_closing[2]
-        elif delta_rx >= self.d_fast:
+        v_p3 = x_ref_closing[2]
+
+        if delta_rx >= self.d_fast:
             vx_ref = self.v_fast
+        elif delta_rx <= self.d_slow:
+            vx_ref = v_p3
         else:
             alpha = (delta_rx - self.d_slow) / (self.d_fast - self.d_slow)
-            vx_ref = (1.0 - alpha) * x_ref_closing[2] + alpha * self.v_fast
+            vx_ref = (1.0 - alpha) * v_p3 + alpha * self.v_fast
 
         x_ref_closing[2] = vx_ref
 

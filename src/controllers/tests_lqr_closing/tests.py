@@ -168,6 +168,55 @@ def test_compute_lqr_gain_rejects_non_psd_Q():
         compute_lqr_gain(A, B, Q_bad, R)
 
 
+def test_linearized_pair_is_controllable():
+    env = Docking3DoFEnv(phase="closing")
+    A, B = build_linearized_3dof_matrices(env)
+
+    n = A.shape[0]
+
+    controllability = B
+    for i in range(1, n):
+        controllability = np.hstack((controllability, np.linalg.matrix_power(A, i) @ B))
+
+    rank = np.linalg.matrix_rank(controllability)
+
+    assert rank == n
+
+
+def test_linearized_pair_is_stabilizable_pbh():
+    env = Docking3DoFEnv(phase="closing")
+    A, B = build_linearized_3dof_matrices(env)
+
+    n = A.shape[0]
+    eigvals = np.linalg.eigvals(A)
+
+    tol = 1e-9
+
+    for lam in eigvals:
+        if np.real(lam) >= -tol:
+            pbh = np.hstack((A - lam * np.eye(n), B)).astype(complex)
+            assert np.linalg.matrix_rank(pbh, tol=tol) == n
+
+
+def test_linearized_pair_is_detectable_from_Q_pbh():
+    env = Docking3DoFEnv(phase="closing")
+    A, _ = build_linearized_3dof_matrices(env)
+    Q = build_Q_closing()
+
+    n = A.shape[0]
+    eigvals = np.linalg.eigvals(A)
+
+    # For diagonal positive definite Q, this is simply sqrt of diagonal.
+    C = np.diag(np.sqrt(np.diag(Q)))
+
+    tol = 1e-9
+
+    for lam in eigvals:
+        if np.real(lam) >= -tol:
+            pbh = np.vstack((A - lam * np.eye(n), C)).astype(complex)
+            assert np.linalg.matrix_rank(pbh, tol=tol) == n
+
+
 def test_controller_rejects_wrong_phase():
     controller = LQRClosingController(np.zeros((3, 6)))
     env = Docking3DoFEnv(phase="final")
@@ -235,6 +284,30 @@ def test_analyze_saturation_detects_clipping(capsys):
 
     assert stats["saturation_fraction_total"] > 0.0
     assert np.all(stats["max_raw"] >= stats["max_clipped"])
+
+
+def test_saturation_analysis_returns_finite_values_after_rollout(capsys):
+    env = Docking3DoFEnv(phase="closing", max_time=300.0, seed=0)
+    state = env.reset(mode="testing")
+
+    Q = build_Q_closing()
+    R = build_R_closing(env)
+    A, B = build_linearized_3dof_matrices(env)
+    K, _ = compute_lqr_gain(A, B, Q, R)
+    controller = LQRClosingController(K)
+
+    for _ in range(10):
+        action = controller.compute_action(env, state)
+        state, _, done, _ = env.step(action)
+        if done:
+            break
+
+    stats = analyze_saturation(env)
+    capsys.readouterr()
+
+    assert np.isfinite(stats["saturation_fraction_total"])
+    assert stats["saturation_fraction_total"] >= 0.0
+    assert stats["saturation_fraction_total"] <= 1.0
 
 
 def test_monte_carlo_rollouts_terminate():

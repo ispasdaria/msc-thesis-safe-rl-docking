@@ -67,6 +67,35 @@ def test_success_rate_threshold():
     assert success_rate >= min_success_rate
 
 
+def test_nominal_closing_rollout_succeeds():
+    max_time = 12000.0
+
+    env = Docking3DoFEnv(
+        phase="closing",
+        max_time=max_time,
+        seed=0,
+    )
+    state = env.reset(mode="nominal")
+
+    Q = build_Q_closing()
+    R = build_R_closing(env)
+    A, B = build_linearized_3dof_matrices(env)
+    K, _ = compute_lqr_gain(A, B, Q, R)
+    controller = LQRClosingController(K)
+
+    done = False
+    steps = 0
+    max_steps = int(max_time / env.dt) + 1
+
+    while not done and steps < max_steps:
+        action = controller.compute_action(env, state)
+        state, _, done, info = env.step(action)
+        steps += 1
+
+    assert done
+    assert info["success"]
+
+
 def test_qr_scaling_keeps_closed_loop_stable():
     env = Docking3DoFEnv(phase="closing")
     A, B = build_linearized_3dof_matrices(env)

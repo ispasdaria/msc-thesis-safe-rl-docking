@@ -40,7 +40,7 @@ def _build_final_controller(env):
 @pytest.mark.slow
 def test_final_lqr_monte_carlo_rollouts_terminate():
     num_rollouts = 20
-    max_time = 3000.0
+    max_time = 5000.0
 
     env_for_gain = Docking3DoFEnv(phase="final", max_time=max_time, seed=0)
     controller = _build_final_controller(env_for_gain)
@@ -77,8 +77,8 @@ def test_final_lqr_safety_rate_threshold_initial():
     After tuning, increase the threshold or add a separate success-rate test.
     """
     num_rollouts = 30
-    max_time = 3000.0
-    max_safety_rate = 0.5
+    max_time = 5000.0
+    max_safety_rate = 0.0
 
     env_for_gain = Docking3DoFEnv(phase="final", max_time=max_time, seed=0)
     controller = _build_final_controller(env_for_gain)
@@ -120,8 +120,8 @@ def test_final_lqr_success_rate_threshold_after_tuning():
     meaningful, e.g. 0.3, 0.5, or higher depending on the achieved performance.
     """
     num_rollouts = 30
-    max_time = 3000.0
-    min_success_rate = 0.0
+    max_time = 5000.0
+    min_success_rate = 0.8
 
     env_for_gain = Docking3DoFEnv(phase="final", max_time=max_time, seed=0)
     controller = _build_final_controller(env_for_gain)
@@ -155,7 +155,7 @@ def test_final_lqr_success_rate_threshold_after_tuning():
 
 
 def test_final_lqr_deterministic_rollout_with_fixed_seed():
-    max_time = 300.0
+    max_time = 5000.0
     seed = 7
 
     env_a = Docking3DoFEnv(phase="final", max_time=max_time, seed=seed)

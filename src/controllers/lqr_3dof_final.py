@@ -55,54 +55,78 @@ def build_port_error_mapping(env):
 
 def build_Q_final():
     """
-    Builds the state weighting matrix Q for the final-approach LQR.
+    Builds the tuned port-error weighting matrix Q for the final-approach LQR.
 
     Error state:
         e = [r_px, r_py, v_px, v_py, psi_e, omega]
 
-    The design scales are stricter than or comparable to the final docking
-    requirements, because the controller should regulate the state before
-    reaching the terminal boundary.
+    The design scales below are LQR design scales, not terminal docking
+    tolerances. They define the error magnitudes at which the controller
+    should begin penalizing each port-error component significantly.
+
+    The final approach starts from the P3 set, roughly 280-320 m from the
+    docking interface, so the position design scales must be larger than the
+    final docking tolerance. The strict docking tolerances are still checked
+    by the environment termination condition.
     """
 
     final_design_scale = np.array(
         [
-            2.0,              # r_px scale [m]
-            1.0,               # r_py scale [m]
-            0.03,              # v_px scale [m/s]
-            0.01,              # v_py scale [m/s]
-            np.deg2rad(1.0),   # psi scale [rad]
-            np.deg2rad(0.05),  # omega scale [rad/s]
+            100.0,             # r_px scale [m]
+            5.0,               # r_py scale [m]
+            0.05,              # v_px scale [m/s]
+            0.02,              # v_py scale [m/s]
+            np.deg2rad(2.0),   # psi scale [rad]
+            np.deg2rad(0.1),   # omega scale [rad/s]
         ],
         dtype=float,
     )
 
     importance = np.array(
         [
-            4.0,   # r_px: very important
-            8.0,   # r_py: very important, corridor/alignment sensitive
-            2.0,   # v_px
-            4.0,   # v_py
-            4.0,   # psi
-            2.0,   # omega
+            1.0,   # r_px
+            4.0,   # r_py
+            4.0,   # v_px
+            6.0,   # v_py
+            2.0,   # psi
+            1.0,   # omega
         ],
         dtype=float,
     )
 
-    Q_final = np.diag(importance / final_design_scale**2)
+    # Selected tuning from the final-approach sweep.
+    q_scale = 1.0
+
+    q_multipliers = np.array(
+        [
+            2.0,   # r_px
+            4.0,   # r_py
+            3.0,   # v_px
+            6.0,   # v_py
+            3.0,   # psi
+            1.0,   # omega
+        ],
+        dtype=float,
+    )
+
+    Q_final = np.diag(
+        q_scale * q_multipliers * importance / final_design_scale**2
+    )
 
     return Q_final
 
 
 def build_R_final(env):
     """
-    Builds the input weighting matrix R for the final-approach LQR.
+    Builds the tuned input weighting matrix R for the final-approach LQR.
 
     LQR input:
         u_O = [ax_O, ay_O, alphaz]
 
-    The design scales are below the hard action limits, but not too low,
-    because final approach requires precise regulation.
+    The design scales are Bryson-style control-effort scales based on the
+    available acceleration limits. They are not clipping limits; clipping is
+    still handled by the environment. The final matrix includes the selected
+    global R scale and per-input multipliers from the final-approach sweep.
     """
 
     control_design_scale = np.array(
@@ -116,14 +140,28 @@ def build_R_final(env):
 
     control_importance = np.array(
         [
-            1.0,
-            1.0,
-            1.0,
+            1.0,   # ax_O
+            1.0,   # ay_O
+            1.0,   # alphaz
         ],
         dtype=float,
     )
 
-    R_final = np.diag(control_importance / control_design_scale**2)
+    # Selected tuning from the final-approach sweep.
+    r_scale = 5.0
+
+    r_multipliers = np.array(
+        [
+            2.0,   # ax_O
+            2.0,   # ay_O
+            5.0,   # alphaz
+        ],
+        dtype=float,
+    )
+
+    R_final = np.diag(
+        r_scale * r_multipliers * control_importance / control_design_scale**2
+    )
 
     return R_final
 
@@ -404,6 +442,27 @@ class LQRFinalController:
             )
 
         e_port = final_error(env, state)
+
+        r_px = e_port[0]
+
+        v_far = -0.09      # safe approach speed
+        d_fast = 30.0     # above this, use v_far
+        d_slow = 1.0       # below this, slow toward zero
+        v_creep = -0.005 # m/s
+
+        distance = abs(r_px)
+
+        if distance >= d_fast:
+            vpx_ref = v_far
+        elif distance <= d_slow:
+            vpx_ref = v_creep
+        else:
+            alpha = (distance - d_slow) / (d_fast - d_slow)
+            vpx_ref = (1.0 - alpha) * v_creep + alpha * v_far
+
+        # e_port[2] currently equals v_px - 0
+        # change it to v_px - vpx_ref
+        e_port[2] = e_port[2] - vpx_ref
 
         e_com_equiv = np.linalg.solve(self.H, e_port)
 

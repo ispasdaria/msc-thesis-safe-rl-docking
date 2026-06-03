@@ -292,7 +292,7 @@ def main():
         description="Sweep Q/R scales for final-approach LQR and report success/saturation."
     )
     parser.add_argument("--rollouts", type=int, default=50)
-    parser.add_argument("--max-time", type=float, default=3000.0)
+    parser.add_argument("--max-time", type=float, default=5000.0)
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--mode", type=str, default="testing", choices=["nominal", "testing", "training"])
 

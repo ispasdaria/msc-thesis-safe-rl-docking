@@ -301,11 +301,11 @@ def inspect_final_failures(mission_results):
 
 if __name__ == "__main__":
     # 1. Check that closing-only inside the runner matches the closing sweep.
-    run_runner_closing_only(num_episodes=100, mode="testing")
+    run_runner_closing_only(num_episodes=300, mode="testing")
 
     # 2. Inspect one detailed full mission.
     run_one_mission(seed=0, mode="testing")
 
     # 3. Run 100 full missions and inspect final-phase failures.
-    mission_results, summary = run_many_missions(num_missions=100, mode="testing")
+    mission_results, summary = run_many_missions(num_missions=300, mode="testing")
     inspect_final_failures(mission_results)

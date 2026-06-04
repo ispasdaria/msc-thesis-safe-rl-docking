@@ -445,7 +445,7 @@ class LQRFinalController:
 
         r_px = e_port[0]
 
-        v_far = -0.09      # safe approach speed
+        v_far = -0.07      # safe approach speed
         d_fast = 30.0     # above this, use v_far
         d_slow = 1.0       # below this, slow toward zero
         v_creep = -0.005 # m/s

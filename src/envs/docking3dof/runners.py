@@ -10,45 +10,23 @@ if SRC_PATH not in sys.path:
 from envs.docking3dof.core import Docking3DoFEnv
 
 class DockingMissionRunner:
-    """
-    Utility class for running:
+    def __init__(self, closing_env_kwargs=None, final_env_kwargs=None):
+        if closing_env_kwargs is None:
+            closing_env_kwargs = {}
+        if final_env_kwargs is None:
+            final_env_kwargs = {}
 
-        1. closing-only episodes
-        2. final-approach-only episodes
-        3. full two-phase missions
-
-    The environments remain phase-specific, so each phase can have its own
-    controller, reward, history, and performance metrics.
-
-    Usage example (register controllers once and run):
-
-        runner = DockingMissionRunner(env_kwargs={"integrator": "rk4", "seed": 42})
-
-        runner.set_controller("closing", closing_controller)
-        runner.set_controller("final", final_controller)
-
-        closing_result = runner.run_phase_with_registered(
-            phase="closing",
-            mode="testing",
-        )
-
-        mission_result = runner.run_mission_with_registered(mode="testing")
-    """
-
-    def __init__(self, env_kwargs=None):
-        if env_kwargs is None:
-            env_kwargs = {}
-
-        self.env_kwargs = env_kwargs
+        self.closing_env_kwargs = closing_env_kwargs
+        self.final_env_kwargs = final_env_kwargs
 
         self.closing_env = Docking3DoFEnv(
             phase="closing",
-            **env_kwargs,
+            **closing_env_kwargs,
         )
 
         self.final_env = Docking3DoFEnv(
             phase="final",
-            **env_kwargs,
+            **final_env_kwargs,
         )
 
         self.controllers = {

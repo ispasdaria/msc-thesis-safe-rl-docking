@@ -399,7 +399,7 @@ def compute_lqr_gain(A, B, Q, R, verbose=False):
     return K, P
 
 
-class LQRClosingController:
+class LQRClosingControllerErrorSat:
     """
     Closing-phase LQR controller with velocity scheduling and optional error limiting.
 

@@ -10,8 +10,8 @@ SRC_PATH = os.path.join(REPO_ROOT, "src")
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 
-from controllers.lqr_3dof_closing import (
-    LQRClosingController,
+from controllers.lqr_3dof_closing_error_sat import (
+    LQRClosingControllerErrorSat,
     build_linearized_3dof_matrices,
     build_Q_closing,
     build_R_closing,
@@ -673,7 +673,7 @@ def main():
 
             K, _ = compute_lqr_gain(A, B, Q, R)
 
-            controller = LQRClosingController(
+            controller = LQRClosingControllerErrorSat(
                 K,
                 v_fast=args.v_fast,
                 d_fast=args.d_fast,

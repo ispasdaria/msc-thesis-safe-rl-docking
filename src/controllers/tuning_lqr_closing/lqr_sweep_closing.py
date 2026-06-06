@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 
@@ -81,6 +82,244 @@ def trajectory_mean_vx(env):
     return float(np.mean(states[:, 2]))
 
 
+def make_json_safe(value):
+    """
+    Converts NumPy values/arrays to JSON-serializable Python objects.
+    """
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, (np.floating, np.integer)):
+        return value.item()
+    if isinstance(value, (list, tuple)):
+        return [make_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(k): make_json_safe(v) for k, v in value.items()}
+    return value
+
+
+def rollout_status(info):
+    if info.get("success"):
+        return "success"
+    return str(info.get("termination_reason", "unknown"))
+
+
+def compute_final_error(env, state):
+    """
+    Computes final error relative to the sampled P3 target.
+    Returns (norm, component_error). If no target exists, returns NaNs.
+    """
+    if env.p3_target is None:
+        return float("nan"), np.full(6, np.nan)
+
+    e = state - env.p3_target
+    e[4] = env.wrap_to_pi(state[4] - env.p3_target[4])
+    return float(np.linalg.norm(e)), e
+
+
+def run_single_rollout(controller, max_time, seed, mode="testing"):
+    """
+    Runs one closing-phase rollout and returns the completed environment,
+    final state, final info dictionary, and number of integration steps.
+    """
+    env = Docking3DoFEnv(
+        phase="closing",
+        max_time=max_time,
+        seed=seed,
+    )
+
+    state = env.reset(mode=mode)
+
+    done = False
+    info = {}
+    steps = 0
+    max_steps = int(max_time / env.dt) + 1
+
+    while not done and steps < max_steps:
+        action = controller.compute_action(env, state)
+        state, _, done, info = env.step(action)
+        steps += 1
+
+    return env, state, info, steps
+
+
+def build_rollout_record(env, state, info, seed, steps):
+    """
+    Builds a lightweight per-rollout record used for selecting representative
+    histories. This record does not contain the full trajectory.
+    """
+    final_error, component_error = compute_final_error(env, state)
+    status = rollout_status(info)
+    sat = saturation_fraction(env)
+
+    violated_constraints = info.get("violated_constraints", [])
+    if violated_constraints is None:
+        violated_constraints = []
+
+    return {
+        "seed": int(seed),
+        "status": status,
+        "success": bool(info.get("success", False)),
+        "termination_reason": str(info.get("termination_reason", status)),
+        "violated_constraints": list(violated_constraints),
+        "steps": int(steps),
+        "elapsed_time": float(env.time),
+        "saturation_fraction": float(sat),
+        "final_error": float(final_error),
+        "abs_final_ex": float(abs(component_error[0])) if component_error.size else float("nan"),
+        "abs_final_ey": float(abs(component_error[1])) if component_error.size else float("nan"),
+        "abs_final_evx": float(abs(component_error[2])) if component_error.size else float("nan"),
+        "abs_final_evy": float(abs(component_error[3])) if component_error.size else float("nan"),
+        "abs_final_epsi": float(abs(component_error[4])) if component_error.size else float("nan"),
+        "abs_final_eomega": float(abs(component_error[5])) if component_error.size else float("nan"),
+    }
+
+
+def select_representative_rollouts(records):
+    """
+    Selects representative rollouts without saving all histories:
+      - first successful rollout
+      - median successful rollout, if at least 3 successes exist
+      - typical timeout rollout
+      - worst final-error rollout
+      - highest-saturation rollout
+      - first safety-failure rollout, if any exists
+
+    Returns a list of (label, record). If two categories point to the same seed,
+    the labels are combined and only one history is saved.
+    """
+    selected_by_seed = {}
+
+    def add(label, record):
+        if record is None:
+            return
+        seed = record["seed"]
+        if seed not in selected_by_seed:
+            selected_by_seed[seed] = {"labels": [label], "record": record}
+        else:
+            selected_by_seed[seed]["labels"].append(label)
+
+    finite_error_records = [
+        r for r in records if np.isfinite(r.get("final_error", float("nan")))
+    ]
+
+    success_records = [r for r in records if r["success"]]
+    timeout_records = [r for r in records if r["termination_reason"] == "timeout"]
+    safety_records = [r for r in records if r["termination_reason"] == "safety_violation"]
+
+    if success_records:
+        add("first_success", success_records[0])
+
+        if len(success_records) >= 3:
+            ordered_success = sorted(success_records, key=lambda r: r["final_error"])
+            add("median_success", ordered_success[len(ordered_success) // 2])
+
+    if timeout_records:
+        ordered_timeout = sorted(timeout_records, key=lambda r: r["final_error"])
+        add("typical_timeout", ordered_timeout[len(ordered_timeout) // 2])
+
+    if finite_error_records:
+        add("worst_final_error", max(finite_error_records, key=lambda r: r["final_error"]))
+
+    if records:
+        add("highest_saturation", max(records, key=lambda r: r["saturation_fraction"]))
+
+    if safety_records:
+        add("first_safety_failure", safety_records[0])
+
+    selected = []
+    for item in selected_by_seed.values():
+        label = "__".join(item["labels"])
+        selected.append((label, item["record"]))
+
+    return selected
+
+
+def save_rollout_history(
+    controller,
+    q_scale,
+    r_scale,
+    Q,
+    R,
+    args,
+    record,
+    label,
+    output_dir,
+):
+    """
+    Re-runs one selected rollout and saves its full history as a compressed .npz.
+
+    The re-run avoids storing every rollout trajectory during the sweep. Since the
+    seed and controller are identical, the saved history corresponds to the same
+    rollout selected from the sweep.
+    """
+    env, final_state, info, steps = run_single_rollout(
+        controller=controller,
+        max_time=args.max_time,
+        seed=record["seed"],
+        mode=args.mode,
+    )
+
+    times, states, actions_body_raw, actions_body_clipped, actions_orbital_raw, actions_orbital_clipped = (
+        env.get_history_arrays()
+    )
+
+    final_error, component_error = compute_final_error(env, final_state)
+
+    metadata = {
+        "label": label,
+        "seed": int(record["seed"]),
+        "status": rollout_status(info),
+        "success": bool(info.get("success", False)),
+        "termination_reason": str(info.get("termination_reason", "")),
+        "violated_constraints": list(info.get("violated_constraints", []) or []),
+        "steps": int(steps),
+        "elapsed_time": float(env.time),
+        "saturation_fraction": saturation_fraction(env),
+        "final_error": float(final_error),
+        "final_error_components": component_error.tolist(),
+        "q_scale": float(q_scale),
+        "r_scale": float(r_scale),
+        "q_multipliers": None if args.q_mults == "" else args.q_mults,
+        "r_multipliers": None if args.r_mults == "" else args.r_mults,
+        "v_fast": make_json_safe(getattr(controller, "v_fast", None)),
+        "d_fast": make_json_safe(getattr(controller, "d_fast", None)),
+        "d_slow": make_json_safe(getattr(controller, "d_slow", None)),
+        "max_time": float(args.max_time),
+        "mode": args.mode,
+        "dt": float(env.dt),
+        "phase": "closing",
+        "selected_from_record": record,
+    }
+
+    safe_label = label.replace("/", "_").replace(" ", "_")
+    filename = (
+        f"q{q_scale:g}_r{r_scale:g}_seed{record['seed']:04d}_{safe_label}.npz"
+    )
+    path = os.path.join(output_dir, filename)
+
+    np.savez_compressed(
+        path,
+        times=times,
+        states=states,
+        actions_body_raw=actions_body_raw,
+        actions_body_clipped=actions_body_clipped,
+        actions_orbital_raw=actions_orbital_raw,
+        actions_orbital_clipped=actions_orbital_clipped,
+        p3_target=np.asarray(env.p3_target, dtype=float)
+        if env.p3_target is not None
+        else np.full(6, np.nan),
+        p3_target_tolerance=np.asarray(env.p3_target_tolerance, dtype=float)
+        if env.p3_target_tolerance is not None
+        else np.full(6, np.nan),
+        final_state=np.asarray(final_state, dtype=float),
+        Q=np.asarray(Q, dtype=float),
+        R=np.asarray(R, dtype=float),
+        metadata_json=json.dumps(make_json_safe(metadata), indent=2),
+    )
+
+    return path
+
+
 def run_rollouts(
     controller,
     num_rollouts,
@@ -103,6 +342,7 @@ def run_rollouts(
     fail_omega = 0
 
     sat_fractions = []
+    rollout_records = []
 
     # Final error diagnostics relative to the sampled P3 target.
     final_errors = []
@@ -210,6 +450,8 @@ def run_rollouts(
         elapsed_times.append(env.time)
         mean_vx_trajectory.append(trajectory_mean_vx(env))
 
+        rollout_records.append(build_rollout_record(env, state, info, seed, steps))
+
     success_rate = successes / float(num_rollouts)
     timeout_rate = timeouts / float(num_rollouts)
     safety_rate = safety_violations / float(num_rollouts)
@@ -255,7 +497,7 @@ def run_rollouts(
     else:
         est_time_from_mean_vx = float("nan")
 
-    return {
+    result = {
         "success_rate": success_rate,
         "timeout_rate": timeout_rate,
         "safety_rate": safety_rate,
@@ -293,13 +535,15 @@ def run_rollouts(
         "fail_omega_rate": fail_omega / float(num_rollouts),
     }
 
+    return result, rollout_records
+
 
 def print_header():
     header = (
         "q_scale r_scale success timeout safety unsafe0 geom vel align sat "
         "final_err ex ey evx evy epsi eomega "
         "vport vport_dist com_dist rho psi_abs omega_abs vy vy_abs sdot "
-        "vx_final vx_mean elapsed est_final_vx est_mean_vx"
+        "vx_final vx_mean elapsed est_final_vx est_mean_vx "
         "fail_rx fail_ry fail_vx fail_vy fail_psi fail_omega"
     )
     print(header)
@@ -356,8 +600,8 @@ def main():
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--mode", type=str, default="testing", choices=["nominal", "testing", "training"])
 
-    parser.add_argument("--q-scales", type=str, default="0.5,1.0,2.0")
-    parser.add_argument("--r-scales", type=str, default="1.0,2.0,4.0")
+    parser.add_argument("--q-scales", type=str, default="1.0")
+    parser.add_argument("--r-scales", type=str, default="1.0")
     parser.add_argument(
         "--q-mults",
         type=str,
@@ -367,14 +611,30 @@ def main():
     parser.add_argument(
         "--r-mults",
         type=str,
-        default="50,50,50",
+        default="",
         help="Per-input R multipliers in order ax,ay,alpha. Three comma-separated values.",
     )
 
     # Controller schedule parameters.
-    parser.add_argument("--v-fast", type=float, default=-0.12)
-    parser.add_argument("--d-fast", type=float, default=200.0)
-    parser.add_argument("--d-slow", type=float, default=30.0)
+    # parser.add_argument("--v-fast", type=float, default=-0.12)
+    # parser.add_argument("--d-fast", type=float, default=200.0)
+    # parser.add_argument("--d-slow", type=float, default=30.0)
+
+    # Optional rollout-history saving for later diagnostic plotting.
+    parser.add_argument(
+        "--save-rollout-histories",
+        action="store_true",
+        help=(
+            "Save only selected representative rollout histories per tuning. "
+            "The sweep still prints summary statistics as before."
+        ),
+    )
+    parser.add_argument(
+        "--history-dir",
+        type=str,
+        default=os.path.join("results", "lqr_closing", "rollout_histories"),
+        help="Directory where selected rollout .npz histories are saved.",
+    )
 
     args = parser.parse_args()
 
@@ -393,10 +653,14 @@ def main():
     if r_mults is not None:
         print("r_multipliers:", r_mults)
 
-    print(
-        "controller schedule: "
-        f"v_fast={args.v_fast}, d_fast={args.d_fast}, d_slow={args.d_slow}"
-    )
+    #print(
+        #"controller schedule: "
+        #f"v_fast={args.v_fast}, d_fast={args.d_fast}, d_slow={args.d_slow}"
+    #)
+
+    if args.save_rollout_histories:
+        os.makedirs(args.history_dir, exist_ok=True)
+        print(f"selected rollout histories will be saved to: {args.history_dir}")
 
     print_header()
 
@@ -408,14 +672,9 @@ def main():
             R = R_base * r_scale
 
             K, _ = compute_lqr_gain(A, B, Q, R)
-            controller = LQRClosingController(
-                K,
-                v_fast=args.v_fast,
-                d_fast=args.d_fast,
-                d_slow=args.d_slow,
-            )
+            controller = LQRClosingController(K)
 
-            result = run_rollouts(
+            result, rollout_records = run_rollouts(
                 controller,
                 num_rollouts=args.rollouts,
                 max_time=args.max_time,
@@ -424,6 +683,31 @@ def main():
             )
 
             print_result_row(q_scale, r_scale, result)
+
+            if args.save_rollout_histories:
+                selected = select_representative_rollouts(rollout_records)
+                saved_paths = []
+                for label, record in selected:
+                    path = save_rollout_history(
+                        controller=controller,
+                        q_scale=q_scale,
+                        r_scale=r_scale,
+                        Q=Q,
+                        R=R,
+                        args=args,
+                        record=record,
+                        label=label,
+                        output_dir=args.history_dir,
+                    )
+                    saved_paths.append(path)
+
+                if saved_paths:
+                    print(
+                        f"  saved {len(saved_paths)} selected histories for "
+                        f"q_scale={q_scale:g}, r_scale={r_scale:g}"
+                    )
+                    for path in saved_paths:
+                        print(f"    {path}")
 
             if result["safety_rate"] == 0.0:
                 safe_candidates.append((q_scale, r_scale, result))

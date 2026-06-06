@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 
@@ -112,6 +113,261 @@ def angular_effort_proxy(env):
     return float(np.sum(np.abs(actions_body_clipped[:, 2])) * dt)
 
 
+def make_json_safe(value):
+    """
+    Converts NumPy values/arrays to JSON-serializable Python objects.
+    """
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, (np.floating, np.integer)):
+        return value.item()
+    if isinstance(value, (list, tuple)):
+        return [make_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(k): make_json_safe(v) for k, v in value.items()}
+    return value
+
+
+def rollout_status(info):
+    if info.get("success"):
+        return "success"
+    return str(info.get("termination_reason", "unknown"))
+
+
+def compute_final_metrics(env, state):
+    """
+    Computes final port-level error metrics for final approach.
+
+    final_error(env, state) is assumed to return:
+      [r_px, r_py, v_px, v_py, psi_e, omega]
+    """
+    e = np.asarray(final_error(env, state), dtype=float)
+    port_distance = float(np.linalg.norm(e[:2]))
+    port_speed = float(np.linalg.norm(e[2:4]))
+    error_norm = float(np.linalg.norm(e))
+    return e, port_distance, port_speed, error_norm
+
+
+def run_single_rollout(controller, max_time, seed, mode="testing"):
+    """
+    Runs one final-approach rollout and returns the completed environment,
+    final state, final info dictionary, and number of integration steps.
+    """
+    env = Docking3DoFEnv(
+        phase="final",
+        max_time=max_time,
+        seed=seed,
+    )
+
+    state = env.reset(mode=mode)
+
+    done = False
+    info = {}
+    steps = 0
+    max_steps = int(max_time / env.dt) + 1
+
+    while not done and steps < max_steps:
+        action = controller.compute_action(env, state)
+        state, _, done, info = env.step(action)
+        steps += 1
+
+    return env, state, info, steps
+
+
+def build_rollout_record(env, state, info, seed, steps):
+    """
+    Builds a lightweight per-rollout record used for selecting representative
+    histories. This record does not contain the full trajectory.
+    """
+    e, port_distance, port_speed, error_norm = compute_final_metrics(env, state)
+    status = rollout_status(info)
+    sat = saturation_fraction(env)
+
+    violated_constraints = info.get("violated_constraints", [])
+    if violated_constraints is None:
+        violated_constraints = []
+
+    return {
+        "seed": int(seed),
+        "status": status,
+        "success": bool(info.get("success", False)),
+        "termination_reason": str(info.get("termination_reason", status)),
+        "violated_constraints": list(violated_constraints),
+        "steps": int(steps),
+        "elapsed_time": float(env.time),
+        "saturation_fraction": float(sat),
+        "final_error_norm": float(error_norm),
+        "port_distance": float(port_distance),
+        "port_speed": float(port_speed),
+        "abs_final_rpx": float(abs(e[0])),
+        "abs_final_rpy": float(abs(e[1])),
+        "abs_final_vpx": float(abs(e[2])),
+        "abs_final_vpy": float(abs(e[3])),
+        "abs_final_psi": float(abs(e[4])),
+        "abs_final_omega": float(abs(e[5])),
+    }
+
+
+def select_representative_rollouts(records):
+    """
+    Selects representative rollouts without saving all histories:
+      - first successful rollout
+      - median successful rollout, if at least 3 successes exist
+      - typical timeout rollout
+      - worst final-error rollout
+      - highest-saturation rollout
+      - first safety-failure rollout, if any exists
+
+    Returns a list of (label, record). If two categories point to the same seed,
+    the labels are combined and only one history is saved.
+    """
+    selected_by_seed = {}
+
+    def add(label, record):
+        if record is None:
+            return
+        seed = record["seed"]
+        if seed not in selected_by_seed:
+            selected_by_seed[seed] = {"labels": [label], "record": record}
+        else:
+            selected_by_seed[seed]["labels"].append(label)
+
+    finite_error_records = [
+        r for r in records if np.isfinite(r.get("final_error_norm", float("nan")))
+    ]
+
+    success_records = [r for r in records if r["success"]]
+    timeout_records = [r for r in records if r["termination_reason"] == "timeout"]
+    safety_records = [r for r in records if r["termination_reason"] == "safety_violation"]
+
+    if success_records:
+        add("first_success", success_records[0])
+
+        if len(success_records) >= 3:
+            ordered_success = sorted(success_records, key=lambda r: r["final_error_norm"])
+            add("median_success", ordered_success[len(ordered_success) // 2])
+
+    if timeout_records:
+        ordered_timeout = sorted(timeout_records, key=lambda r: r["final_error_norm"])
+        add("typical_timeout", ordered_timeout[len(ordered_timeout) // 2])
+
+    if finite_error_records:
+        add("worst_final_error", max(finite_error_records, key=lambda r: r["final_error_norm"]))
+
+    if records:
+        add("highest_saturation", max(records, key=lambda r: r["saturation_fraction"]))
+
+    if safety_records:
+        add("first_safety_failure", safety_records[0])
+
+    selected = []
+    for item in selected_by_seed.values():
+        label = "__".join(item["labels"])
+        selected.append((label, item["record"]))
+
+    return selected
+
+
+def compute_final_error_history(env, states):
+    """
+    Computes final_error(env, state) for every stored state.
+    This makes the plotting script independent of the simulator/controller code.
+    """
+    if states.size == 0:
+        return np.empty((0, 6), dtype=float)
+
+    return np.asarray([final_error(env, state) for state in states], dtype=float)
+
+
+def save_rollout_history(
+    controller,
+    q_scale,
+    r_scale,
+    Q_port,
+    Q_com,
+    R,
+    args,
+    record,
+    label,
+    output_dir,
+):
+    """
+    Re-runs one selected rollout and saves its full history as a compressed .npz.
+
+    The re-run avoids storing every rollout trajectory during the sweep. Since the
+    seed and controller are identical, the saved history corresponds to the same
+    rollout selected from the sweep.
+    """
+    env, final_state, info, steps = run_single_rollout(
+        controller=controller,
+        max_time=args.max_time,
+        seed=record["seed"],
+        mode=args.mode,
+    )
+
+    times, states, actions_body_raw, actions_body_clipped, actions_orbital_raw, actions_orbital_clipped = (
+        env.get_history_arrays()
+    )
+
+    final_error_components, port_distance, port_speed, final_error_norm = compute_final_metrics(
+        env, final_state
+    )
+    final_error_history = compute_final_error_history(env, states)
+
+    metadata = {
+        "label": label,
+        "seed": int(record["seed"]),
+        "status": rollout_status(info),
+        "success": bool(info.get("success", False)),
+        "termination_reason": str(info.get("termination_reason", "")),
+        "violated_constraints": list(info.get("violated_constraints", []) or []),
+        "steps": int(steps),
+        "elapsed_time": float(env.time),
+        "saturation_fraction": saturation_fraction(env),
+        "final_error_norm": float(final_error_norm),
+        "final_error_components": final_error_components.tolist(),
+        "port_distance": float(port_distance),
+        "port_speed": float(port_speed),
+        "q_scale": float(q_scale),
+        "r_scale": float(r_scale),
+        "q_multipliers": None if args.q_mults == "" else args.q_mults,
+        "r_multipliers": None if args.r_mults == "" else args.r_mults,
+        "max_time": float(args.max_time),
+        "mode": args.mode,
+        "dt": float(env.dt),
+        "phase": "final",
+        "dock_dist_tol": float(args.dock_dist),
+        "dock_speed_tol": float(args.dock_speed),
+        "psi_tol_deg": float(args.psi_tol_deg),
+        "omega_tol_deg": float(args.omega_tol_deg),
+        "selected_from_record": record,
+    }
+
+    safe_label = label.replace("/", "_").replace(" ", "_")
+    filename = (
+        f"q{q_scale:g}_r{r_scale:g}_seed{record['seed']:04d}_{safe_label}.npz"
+    )
+    path = os.path.join(output_dir, filename)
+
+    np.savez_compressed(
+        path,
+        times=times,
+        states=states,
+        actions_body_raw=actions_body_raw,
+        actions_body_clipped=actions_body_clipped,
+        actions_orbital_raw=actions_orbital_raw,
+        actions_orbital_clipped=actions_orbital_clipped,
+        final_error_history=final_error_history,
+        final_state=np.asarray(final_state, dtype=float),
+        Q_port=np.asarray(Q_port, dtype=float),
+        Q_com=np.asarray(Q_com, dtype=float),
+        R=np.asarray(R, dtype=float),
+        metadata_json=json.dumps(make_json_safe(metadata), indent=2),
+    )
+
+    return path
+
+
 def run_rollouts(
     controller,
     num_rollouts,
@@ -140,6 +396,7 @@ def run_rollouts(
     elapsed_times = []
     delta_v_proxies = []
     angular_effort_proxies = []
+    rollout_records = []
 
     final_port_distances = []
     final_port_speeds = []
@@ -188,11 +445,8 @@ def run_rollouts(
                 violation_alignment += 1
 
         # Final port-level error diagnostics.
-        e = final_error(env, state)
+        e, port_distance, port_speed, _ = compute_final_metrics(env, state)
         rpx, rpy, vpx, vpy, psi_e, omega = e
-
-        port_distance = float(np.linalg.norm(e[:2]))
-        port_speed = float(np.linalg.norm(e[2:4]))
 
         final_port_distances.append(port_distance)
         final_port_speeds.append(port_speed)
@@ -212,6 +466,7 @@ def run_rollouts(
         elapsed_times.append(env.time)
         delta_v_proxies.append(translational_delta_v_proxy(env))
         angular_effort_proxies.append(angular_effort_proxy(env))
+        rollout_records.append(build_rollout_record(env, state, info, seed, steps))
 
     success_rate = successes / float(num_rollouts)
     timeout_rate = timeouts / float(num_rollouts)
@@ -221,7 +476,7 @@ def run_rollouts(
     violation_velocity_rate = violation_velocity / float(num_rollouts)
     violation_alignment_rate = violation_alignment / float(num_rollouts)
 
-    return {
+    result = {
         "success_rate": success_rate,
         "timeout_rate": timeout_rate,
         "safety_rate": safety_rate,
@@ -246,6 +501,8 @@ def run_rollouts(
         "fail_psi_rate": fail_psi / float(num_rollouts),
         "fail_omega_rate": fail_omega / float(num_rollouts),
     }
+
+    return result, rollout_records
 
 
 def print_header():
@@ -296,8 +553,11 @@ def main():
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--mode", type=str, default="testing", choices=["nominal", "testing", "training"])
 
-    parser.add_argument("--q-scales", type=str, default="0.5,1.0,2.0")
-    parser.add_argument("--r-scales", type=str, default="1.0,2.0,5.0")
+    # Defaults are intentionally 1.0 / empty so the script uses the tuned
+    # Q/R definitions in build_Q_final() and build_R_final() unchanged unless
+    # you explicitly request a sweep from the command line.
+    parser.add_argument("--q-scales", type=str, default="1.0")
+    parser.add_argument("--r-scales", type=str, default="1.0")
     parser.add_argument(
         "--q-mults",
         type=str,
@@ -314,10 +574,27 @@ def main():
         help="Per-input R multipliers in order ax,ay,alpha. Three comma-separated values.",
     )
 
+    # These are evaluation/printing tolerances only. They do not configure the controller.
     parser.add_argument("--dock-dist", type=float, default=0.1)
     parser.add_argument("--dock-speed", type=float, default=0.1)
     parser.add_argument("--psi-tol-deg", type=float, default=4.0)
     parser.add_argument("--omega-tol-deg", type=float, default=0.2)
+
+    # Optional rollout-history saving for later diagnostic plotting.
+    parser.add_argument(
+        "--save-rollout-histories",
+        action="store_true",
+        help=(
+            "Save only selected representative rollout histories per tuning. "
+            "The sweep still prints summary statistics as before."
+        ),
+    )
+    parser.add_argument(
+        "--history-dir",
+        type=str,
+        default=os.path.join("results", "lqr_final", "rollout_histories"),
+        help="Directory where selected rollout .npz histories are saved.",
+    )
 
     args = parser.parse_args()
 
@@ -339,10 +616,14 @@ def main():
         print("r_multipliers:", r_mults)
 
     print(
-        "terminal tolerances: "
+        "terminal tolerances used for diagnostics: "
         f"dock_dist={args.dock_dist}, dock_speed={args.dock_speed}, "
         f"psi_tol={args.psi_tol_deg} deg, omega_tol={args.omega_tol_deg} deg/s"
     )
+
+    if args.save_rollout_histories:
+        os.makedirs(args.history_dir, exist_ok=True)
+        print(f"selected rollout histories will be saved to: {args.history_dir}")
 
     print_header()
 
@@ -355,9 +636,12 @@ def main():
             R = R_base * r_scale
 
             K, _ = compute_lqr_gain(A, B, Q_com, R)
+
+            # Do not pass optional controller parameters here. This preserves
+            # whatever defaults are already defined inside LQRFinalController.
             controller = LQRFinalController(K=K, H=H)
 
-            result = run_rollouts(
+            result, rollout_records = run_rollouts(
                 controller,
                 num_rollouts=args.rollouts,
                 max_time=args.max_time,
@@ -370,6 +654,32 @@ def main():
             )
 
             print_result_row(q_scale, r_scale, result)
+
+            if args.save_rollout_histories:
+                selected = select_representative_rollouts(rollout_records)
+                saved_paths = []
+                for label, record in selected:
+                    path = save_rollout_history(
+                        controller=controller,
+                        q_scale=q_scale,
+                        r_scale=r_scale,
+                        Q_port=Q_port,
+                        Q_com=Q_com,
+                        R=R,
+                        args=args,
+                        record=record,
+                        label=label,
+                        output_dir=args.history_dir,
+                    )
+                    saved_paths.append(path)
+
+                if saved_paths:
+                    print(
+                        f"  saved {len(saved_paths)} selected histories for "
+                        f"q_scale={q_scale:g}, r_scale={r_scale:g}"
+                    )
+                    for path in saved_paths:
+                        print(f"    {path}")
 
             if result["safety_rate"] == 0.0:
                 safe_candidates.append((q_scale, r_scale, result))

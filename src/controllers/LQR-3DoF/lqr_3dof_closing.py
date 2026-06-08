@@ -3,12 +3,17 @@ import sys
 import numpy as np
 from scipy.linalg import solve_continuous_are
 
-# Allow imports from the repo's src/ directory when running from the project root.
-REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..")
-)
-SRC_PATH = os.path.join(REPO_ROOT, "src")
+# Allow imports from the repo's src/ directory when running the script directly.
+LQR_ROOT = os.path.dirname(__file__)
+while not os.path.exists(os.path.join(LQR_ROOT, "lqr_3dof_closing.py")):
+    parent_dir = os.path.dirname(LQR_ROOT)
+    if parent_dir == LQR_ROOT:
+        break
+    LQR_ROOT = parent_dir
 
+SRC_PATH = os.path.abspath(os.path.join(LQR_ROOT, "..", ".."))
+if LQR_ROOT not in sys.path:
+    sys.path.insert(0, LQR_ROOT)
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 

@@ -4,14 +4,19 @@ import sys
 import numpy as np
 import pytest
 
-REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..")
-)
-SRC_PATH = os.path.join(REPO_ROOT, "src")
+LQR_ROOT = os.path.dirname(__file__)
+while not os.path.exists(os.path.join(LQR_ROOT, "lqr_3dof_final.py")):
+    parent_dir = os.path.dirname(LQR_ROOT)
+    if parent_dir == LQR_ROOT:
+        break
+    LQR_ROOT = parent_dir
+SRC_PATH = os.path.abspath(os.path.join(LQR_ROOT, "..", ".."))
+if LQR_ROOT not in sys.path:
+    sys.path.insert(0, LQR_ROOT)
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 
-from controllers.lqr_3dof_final import (
+from lqr_3dof_final import (
     LQRFinalController,
     build_linearized_3dof_matrices,
     build_port_error_mapping,

@@ -6,16 +6,22 @@ from collections import Counter
 
 import numpy as np
 
-REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..")
-)
-SRC_PATH = os.path.join(REPO_ROOT, "src")
+LQR_ROOT = os.path.dirname(__file__)
+while not os.path.exists(os.path.join(LQR_ROOT, "lqr_3dof_closing.py")):
+    parent_dir = os.path.dirname(LQR_ROOT)
+    if parent_dir == LQR_ROOT:
+        break
+    LQR_ROOT = parent_dir
+
+SRC_PATH = os.path.abspath(os.path.join(LQR_ROOT, "..", ".."))
+if LQR_ROOT not in sys.path:
+    sys.path.insert(0, LQR_ROOT)
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 
 from envs.docking3dof.runners import DockingMissionRunner
 
-from controllers.lqr_3dof_closing import (
+from lqr_3dof_closing import (
     LQRClosingController,
     build_Q_closing,
     build_R_closing,
@@ -24,7 +30,7 @@ from controllers.lqr_3dof_closing import (
     analyze_saturation as analyze_closing_saturation,
 )
 
-from controllers.lqr_3dof_final import (
+from lqr_3dof_final import (
     LQRFinalController,
     build_Q_final,
     build_R_final,

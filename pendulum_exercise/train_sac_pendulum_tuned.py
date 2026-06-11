@@ -1,6 +1,9 @@
 import gymnasium as gym
+from pathlib import Path
 from stable_baselines3 import SAC
 from stable_baselines3.common.monitor import Monitor
+
+BASE_DIR = Path(__file__).resolve().parent
 
 env = gym.make("Pendulum-v1")
 env = Monitor(env)
@@ -35,7 +38,7 @@ model = SAC(
 
     # Your logging / display choices
     verbose=1,
-    tensorboard_log="./sac_pendulum_logs/",
+    tensorboard_log=str(BASE_DIR / "sac_pendulum_logs"),
 )
 
 model.learn(
@@ -43,5 +46,5 @@ model.learn(
     tb_log_name="SAC_Pendulum_Default_3e-4"
 )
 
-model.save("sac_pendulum_default_3e-4")
+model.save(BASE_DIR / "models" / "sac_pendulum_default_3e-4")
 env.close()

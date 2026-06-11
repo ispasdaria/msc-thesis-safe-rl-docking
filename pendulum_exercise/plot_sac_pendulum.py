@@ -1,7 +1,10 @@
 import gymnasium as gym
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 from stable_baselines3 import SAC
+
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def angle_from_obs(obs):
@@ -11,7 +14,7 @@ def angle_from_obs(obs):
 
 
 env = gym.make("Pendulum-v1")
-model = SAC.load("sac_pendulum_default_3e-4")
+model = SAC.load(BASE_DIR / "models" / "sac_pendulum_default_3e-4")
 
 obs, info = env.reset(seed=0)
 

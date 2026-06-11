@@ -7,11 +7,11 @@ from stable_baselines3 import SAC
 
 
 ENV_ID = "MountainCarContinuous-v0"
-MODEL_PATH = "mountain_car_exercise/models/sac_mountain_car_100k_lr3e4_bs256.zip"
+MODEL_PATH = "mountain_car_exercise/models/sac_mountain_car_zoo_params_best/best_model.zip"
 
 
 def main():
-    os.makedirs("mountain_car_exercise/figures/sac_mountain_car_100k_lr3e4_bs256", exist_ok=True)
+    os.makedirs("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best", exist_ok=True)
 
     env = gym.make(ENV_ID)
     model = SAC.load(MODEL_PATH)
@@ -60,7 +60,7 @@ def main():
     plt.ylabel("Position")
     plt.title("SAC on MountainCarContinuous-v0: Position")
     plt.grid(True)
-    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_100k_lr3e4_bs256/position.png", dpi=200, bbox_inches="tight")
+    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best/position.png", dpi=200, bbox_inches="tight")
 
     plt.figure()
     plt.plot(time, velocity_history)
@@ -68,7 +68,7 @@ def main():
     plt.ylabel("Velocity")
     plt.title("SAC on MountainCarContinuous-v0: Velocity")
     plt.grid(True)
-    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_100k_lr3e4_bs256/velocity.png", dpi=200, bbox_inches="tight")
+    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best/velocity.png", dpi=200, bbox_inches="tight")
 
     plt.figure()
     plt.plot(time, action_history)
@@ -76,7 +76,7 @@ def main():
     plt.ylabel("Action / Force")
     plt.title("SAC on MountainCarContinuous-v0: Action")
     plt.grid(True)
-    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_100k_lr3e4_bs256/action.png", dpi=200, bbox_inches="tight")
+    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best/action.png", dpi=200, bbox_inches="tight")
 
     plt.figure()
     plt.plot(time, np.cumsum(reward_history))
@@ -84,7 +84,7 @@ def main():
     plt.ylabel("Cumulative reward")
     plt.title("SAC on MountainCarContinuous-v0: Cumulative Reward")
     plt.grid(True)
-    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_100k_lr3e4_bs256/cumulative_reward.png", dpi=200, bbox_inches="tight")
+    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best/cumulative_reward.png", dpi=200, bbox_inches="tight")
 
 
 if __name__ == "__main__":

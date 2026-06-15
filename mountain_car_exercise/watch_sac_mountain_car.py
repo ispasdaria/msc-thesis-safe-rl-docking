@@ -3,7 +3,7 @@ from stable_baselines3 import SAC
 
 
 ENV_ID = "MountainCarContinuous-v0"
-MODEL_PATH = "mountain_car_exercise/models/sac_mountain_car_zoo_params_bs256_best/best_model.zip"
+MODEL_PATH = "mountain_car_exercise/models/sac_mountain_car_zoo_params_best/best_model.zip"
 
 
 def main():

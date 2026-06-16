@@ -38,7 +38,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv1_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_rewardv5_50ksteps_seed0"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -121,8 +121,13 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     total_reward = 0.0
     final_info = reset_info
 
-    # Extra diagnostics saved from info at each step
+    # -----------------------------------------------------------------
+    # Diagnostics saved from info at each step
+    # -----------------------------------------------------------------
+
     sac_rewards = []
+
+    # Physical / safety diagnostics
     port_distances = []
     port_speeds = []
     s_values = []
@@ -131,6 +136,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     psi_e_values = []
     omega_values = []
 
+    # General reward components
     reward_totals = []
     reward_positions = []
     reward_velocities = []
@@ -142,6 +148,20 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     reward_successes = []
     reward_timeouts = []
 
+    # Reward specific diagnostics
+    desired_s_dot_values = []
+    s_dot_error_values = []
+    too_fast_values = []
+    moving_away_values = []
+    v_lateral_values = []
+
+    reward_s_dot_values = []
+    reward_too_fast_values = []
+    reward_moving_away_values = []
+    reward_lateral_values = []
+    reward_lateral_speed_values = []
+
+    # Action diagnostics
     normalized_actions = []
     physical_actions = []
 
@@ -162,8 +182,14 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
 
         rc = info.get("reward_components", {})
 
+        # -------------------------------------------------------------
+        # Returned SAC reward
+        # -------------------------------------------------------------
         sac_rewards.append(float(reward))
 
+        # -------------------------------------------------------------
+        # Physical / safety diagnostics
+        # -------------------------------------------------------------
         port_distances.append(info.get("port_distance", np.nan))
         port_speeds.append(info.get("port_speed", np.nan))
         s_values.append(info.get("s", np.nan))
@@ -172,6 +198,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         psi_e_values.append(info.get("psi_e", np.nan))
         omega_values.append(info.get("omega", np.nan))
 
+        # -------------------------------------------------------------
+        # General reward components
+        # -------------------------------------------------------------
         reward_totals.append(rc.get("reward_total", np.nan))
         reward_positions.append(rc.get("reward_position", np.nan))
         reward_velocities.append(rc.get("reward_velocity", np.nan))
@@ -183,6 +212,24 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         reward_successes.append(rc.get("reward_success", np.nan))
         reward_timeouts.append(rc.get("reward_timeout", np.nan))
 
+        # -------------------------------------------------------------
+        # Reward specific diagnostics
+        # -------------------------------------------------------------
+        desired_s_dot_values.append(rc.get("desired_s_dot", np.nan))
+        s_dot_error_values.append(rc.get("s_dot_error", np.nan))
+        too_fast_values.append(rc.get("too_fast", np.nan))
+        moving_away_values.append(rc.get("moving_away", np.nan))
+        v_lateral_values.append(rc.get("v_lateral", np.nan))
+
+        reward_s_dot_values.append(rc.get("reward_s_dot", np.nan))
+        reward_too_fast_values.append(rc.get("reward_too_fast", np.nan))
+        reward_moving_away_values.append(rc.get("reward_moving_away", np.nan))
+        reward_lateral_values.append(rc.get("reward_lateral", np.nan))
+        reward_lateral_speed_values.append(rc.get("reward_lateral_speed", np.nan))
+
+        # -------------------------------------------------------------
+        # Action diagnostics
+        # -------------------------------------------------------------
         normalized_actions.append(info.get("normalized_action", np.full(3, np.nan)))
         physical_actions.append(info.get("physical_action", np.full(3, np.nan)))
 
@@ -205,6 +252,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "termination_reason": final_info.get("termination_reason"),
         "violated_constraints": final_info.get("violated_constraints", []),
 
+        # Core history arrays
         "times": times,
         "states": states,
         "actions_raw": actions_raw,
@@ -212,6 +260,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "actions_orbital": actions_orbital,
         "core_rewards": core_rewards,
 
+        # Step-based SAC diagnostics
         "sac_rewards": np.array(sac_rewards),
         "port_distances": np.array(port_distances),
         "port_speeds": np.array(port_speeds),
@@ -221,6 +270,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "psi_e_values": np.array(psi_e_values),
         "omega_values": np.array(omega_values),
 
+        # General reward components
         "reward_totals": np.array(reward_totals),
         "reward_positions": np.array(reward_positions),
         "reward_velocities": np.array(reward_velocities),
@@ -232,6 +282,20 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "reward_successes": np.array(reward_successes),
         "reward_timeouts": np.array(reward_timeouts),
 
+        # Reward specific diagnostics
+        "desired_s_dot_values": np.array(desired_s_dot_values),
+        "s_dot_error_values": np.array(s_dot_error_values),
+        "too_fast_values": np.array(too_fast_values),
+        "moving_away_values": np.array(moving_away_values),
+        "v_lateral_values": np.array(v_lateral_values),
+
+        "reward_s_dot_values": np.array(reward_s_dot_values),
+        "reward_too_fast_values": np.array(reward_too_fast_values),
+        "reward_moving_away_values": np.array(reward_moving_away_values),
+        "reward_lateral_values": np.array(reward_lateral_values),
+        "reward_lateral_speed_values": np.array(reward_lateral_speed_values),
+
+        # Action diagnostics
         "normalized_actions": np.array(normalized_actions),
         "physical_actions": np.array(physical_actions),
     }
@@ -256,6 +320,7 @@ def save_rollout(result, rollout_id):
         termination_reason=str(result["termination_reason"]),
         violated_constraints=np.array(result["violated_constraints"], dtype=object),
 
+        # Core history arrays
         times=result["times"],
         states=result["states"],
         actions_raw=result["actions_raw"],
@@ -263,6 +328,7 @@ def save_rollout(result, rollout_id):
         actions_orbital=result["actions_orbital"],
         core_rewards=result["core_rewards"],
 
+        # Step-based SAC diagnostics
         sac_rewards=result["sac_rewards"],
         port_distances=result["port_distances"],
         port_speeds=result["port_speeds"],
@@ -271,7 +337,9 @@ def save_rollout(result, rollout_id):
         s_dot_values=result["s_dot_values"],
         psi_e_values=result["psi_e_values"],
         omega_values=result["omega_values"],
+        
 
+        # General reward components
         reward_totals=result["reward_totals"],
         reward_positions=result["reward_positions"],
         reward_velocities=result["reward_velocities"],
@@ -283,6 +351,20 @@ def save_rollout(result, rollout_id):
         reward_successes=result["reward_successes"],
         reward_timeouts=result["reward_timeouts"],
 
+        # Reward specific diagnostics
+        desired_s_dot_values=result["desired_s_dot_values"],
+        s_dot_error_values=result["s_dot_error_values"],
+        too_fast_values=result["too_fast_values"],
+        moving_away_values=result["moving_away_values"],
+        v_lateral_values=result["v_lateral_values"],
+
+        reward_s_dot_values=result["reward_s_dot_values"],
+        reward_too_fast_values=result["reward_too_fast_values"],
+        reward_moving_away_values=result["reward_moving_away_values"],
+        reward_lateral_values=result["reward_lateral_values"],
+        reward_lateral_speed_values=result["reward_lateral_speed_values"],
+
+        # Action diagnostics
         normalized_actions=result["normalized_actions"],
         physical_actions=result["physical_actions"],
     )
@@ -351,6 +433,11 @@ def main():
 
     reasons = Counter(r["termination_reason"] for r in results)
 
+    constraint_counter = Counter()
+    for result in results:
+        for constraint in result["violated_constraints"]:
+            constraint_counter[constraint] += 1
+
     print(f"Number of rollouts: {len(results)}")
     print(f"Success rate:       {success_rate:.2f}")
     print(f"Failure rate:       {failure_rate:.2f}")
@@ -360,6 +447,10 @@ def main():
     print("\nTermination reasons:")
     for reason, count in reasons.items():
         print(f"  {reason}: {count}")
+
+    print("\nViolated constraints:")
+    for constraint, count in constraint_counter.items():
+        print(f"  {constraint}: {count}")
 
     print("\nDone.")
 

@@ -289,15 +289,27 @@ class Docking3DoFGymEnv(gym.Env):
             "rho": float(q["rho"]),
             "s_dot": float(q["s_dot"]),
 
-            # Error diagnostics, mainly used for closing.
+            # Error diagnostics
             "pos_error": None,
             "vel_error": None,
             "attitude_error": None,
             "rate_error": None,
 
+            # Final-approach-specific diagnostics
+            "desired_s_dot": None,
+            "s_dot_error": None,
+            "too_fast": None,
+            "moving_away": None,
+            "v_lateral": None, 
+
             # Reward terms
             "reward_position": 0.0,
             "reward_velocity": 0.0,
+            "reward_s_dot": 0.0,
+            "reward_too_fast": 0.0,
+            "reward_moving_away": 0.0,
+            "reward_lateral": 0.0,
+            "reward_lateral_speed": 0.0,
             "reward_attitude": 0.0,
             "reward_rate": 0.0,
             "reward_action": 0.0,
@@ -330,6 +342,8 @@ class Docking3DoFGymEnv(gym.Env):
             reward_attitude = -0.5 * attitude_error
             reward_rate = -0.1 * rate_error
             reward_action = -0.01 * action_norm
+            v_lateral = abs(q["v_p"][1])
+            reward_lateral_speed = -10.0 * v_lateral
 
             reward = (
                 reward_position
@@ -337,6 +351,7 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_attitude
                 + reward_rate
                 + reward_action
+                + reward_lateral_speed
             )
 
             reward_components.update(
@@ -350,37 +365,120 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_attitude": float(reward_attitude),
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
+                    "reward_lateral_speed": float(reward_lateral_speed),
                 }
             )
 
         elif self.phase == "final":
-            reward_position = -2.0 * port_distance
-            reward_velocity = -1.0 * port_speed
-            reward_attitude = -0.5 * psi_abs
-            reward_rate = -0.1 * omega_abs
+            # ------------------------------------------------------------
+            # Reward v2 for final approach
+            # ------------------------------------------------------------
+            #
+            # Main design idea:
+            #   Reward v1 encouraged reducing port_distance, but this term dominated
+            #   the reward and led to unsafe velocity/alignment behaviour.
+            #
+            # Reward v2 therefore:
+            #   - reduces the dominance of the distance term
+            #   - adds desired closing-speed shaping using s_dot
+            #   - penalizes lateral offset rho
+            #   - strengthens attitude/alignment penalties
+            #   - keeps action effort penalty small
+            # ------------------------------------------------------------
+
+            s = q["s"]
+            rho = q["rho"]
+            s_dot = q["s_dot"]
+            v_lateral = abs(q["v_p"][1])
+
+            # Distance-dependent desired axial closing speed.
+            # Convention: s_dot < 0 means approaching the docking point.
+            #
+            # Far away: allow a slightly faster approach.
+            # Closer in: require slower approach.
+            if s > 200.0:
+                desired_s_dot = -0.035
+            elif s > 100.0:
+                desired_s_dot = -0.025
+            elif s > 30.0:
+                desired_s_dot = -0.015
+            else:
+                desired_s_dot = -0.005
+
+            s_dot_error = abs(s_dot - desired_s_dot)
+
+            # Extra penalty only when approaching too fast.
+            # If s_dot is more negative than desired, the vehicle is closing too quickly.
+            too_fast = max(0.0, desired_s_dot - s_dot)
+
+            # Extra penalty if moving away from the docking point.
+            # If s_dot > 0, the vehicle is increasing axial distance.
+            moving_away = max(0.0, s_dot)
+
+            # Reward terms.
+            #
+            # Compared to v1:
+            #   - position coefficient reduced from 2.0 to 0.5
+            #   - port speed coefficient increased from 1.0 to 5.0
+            #   - attitude coefficient increased from 0.5 to 5.0
+            #   - rate coefficient increased from 0.1 to 1.0
+            #   - added s_dot tracking
+            #   - added too-fast penalty
+            #   - added moving-away penalty
+            #   - added lateral rho penalty
+            reward_position = -0.5 * port_distance
+            reward_velocity = -5.0 * port_speed
+            reward_s_dot = -20.0 * s_dot_error
+            reward_too_fast = -50.0 * too_fast
+            reward_moving_away = -20.0 * moving_away
+            reward_lateral = -1.0 * rho - 0.05 * rho**2
+            reward_attitude = -15.0 * psi_abs
+            reward_rate = -3.0 * omega_abs
             reward_action = -0.01 * action_norm
+            reward_lateral_speed = -10.0 * v_lateral
 
             reward = (
                 reward_position
                 + reward_velocity
+                + reward_s_dot
+                + reward_too_fast
+                + reward_moving_away
+                + reward_lateral
                 + reward_attitude
                 + reward_rate
                 + reward_action
+                + reward_lateral_speed 
             )
 
             reward_components.update(
                 {
-                    # For final approach, these are interpreted as docking-port
-                    # position/speed and attitude/rate errors.
+                    # Error diagnostics
                     "pos_error": float(port_distance),
                     "vel_error": float(port_speed),
                     "attitude_error": float(psi_abs),
                     "rate_error": float(omega_abs),
+
+                    # Final-approach-specific diagnostics
+                    "desired_s_dot": float(desired_s_dot),
+                    "s_dot_error": float(s_dot_error),
+                    "too_fast": float(too_fast),
+                    "moving_away": float(moving_away),
+                    "rho": float(rho),
+                    "s": float(s),
+                    "s_dot": float(s_dot),
+                    "v_lateral": float(v_lateral),
+
+                    # Reward components
                     "reward_position": float(reward_position),
                     "reward_velocity": float(reward_velocity),
+                    "reward_s_dot": float(reward_s_dot),
+                    "reward_too_fast": float(reward_too_fast),
+                    "reward_moving_away": float(reward_moving_away),
+                    "reward_lateral": float(reward_lateral),
                     "reward_attitude": float(reward_attitude),
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
+                    "reward_lateral_speed": float(reward_lateral_speed),
                 }
             )
 
@@ -388,7 +486,7 @@ class Docking3DoFGymEnv(gym.Env):
             raise ValueError("Unknown phase.")
 
         if info.get("warning", False):
-            reward_warning = -1.0
+            reward_warning = -10.0
             reward += reward_warning
             reward_components["reward_warning"] = float(reward_warning)
 

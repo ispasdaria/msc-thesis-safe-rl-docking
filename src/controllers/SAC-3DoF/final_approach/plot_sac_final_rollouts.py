@@ -7,12 +7,16 @@ This script reads .npz rollout histories saved by evaluate_sac_final.py.
 import os
 import glob
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv1_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_rewardv5_50ksteps_seed0"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -31,8 +35,28 @@ PLOT_DIR = os.path.join(
 os.makedirs(PLOT_DIR, exist_ok=True)
 
 
+def get_array(data, key, length=None, default=np.nan):
+    """
+    Safely loads an array from the .npz file.
+
+    If the key does not exist, returns an array filled with NaN.
+    This makes the plotting script robust while reward diagnostics evolve.
+    """
+
+    if key in data.files:
+        return data[key]
+
+    if length is None:
+        return np.array([])
+
+    return np.full(length, default, dtype=float)
+
+
 def load_rollout(filepath):
     data = np.load(filepath, allow_pickle=True)
+
+    states = data["states"]
+    n_steps = len(states) - 1
 
     return {
         "filepath": filepath,
@@ -46,35 +70,53 @@ def load_rollout(filepath):
         "violated_constraints": data["violated_constraints"],
 
         "times": data["times"],
-        "states": data["states"],
+        "states": states,
         "actions_raw": data["actions_raw"],
         "actions_clipped": data["actions_clipped"],
         "actions_orbital": data["actions_orbital"],
 
-        # New SAC diagnostics saved by evaluate_sac_final.py
-        "sac_rewards": data["sac_rewards"],
-        "port_distances": data["port_distances"],
-        "port_speeds": data["port_speeds"],
-        "s_values": data["s_values"],
-        "rho_values": data["rho_values"],
-        "s_dot_values": data["s_dot_values"],
-        "psi_e_values": data["psi_e_values"],
-        "omega_values": data["omega_values"],
+        "sac_rewards": get_array(data, "sac_rewards", n_steps),
+        "port_distances": get_array(data, "port_distances", n_steps),
+        "port_speeds": get_array(data, "port_speeds", n_steps),
+        "s_values": get_array(data, "s_values", n_steps),
+        "rho_values": get_array(data, "rho_values", n_steps),
+        "s_dot_values": get_array(data, "s_dot_values", n_steps),
+        "psi_e_values": get_array(data, "psi_e_values", n_steps),
+        "omega_values": get_array(data, "omega_values", n_steps),
 
-        "reward_totals": data["reward_totals"],
-        "reward_positions": data["reward_positions"],
-        "reward_velocities": data["reward_velocities"],
-        "reward_attitudes": data["reward_attitudes"],
-        "reward_rates": data["reward_rates"],
-        "reward_actions": data["reward_actions"],
-        "reward_warnings": data["reward_warnings"],
-        "reward_failures": data["reward_failures"],
-        "reward_successes": data["reward_successes"],
-        "reward_timeouts": data["reward_timeouts"],
+        # Standard reward terms
+        "reward_totals": get_array(data, "reward_totals", n_steps),
+        "reward_positions": get_array(data, "reward_positions", n_steps),
+        "reward_velocities": get_array(data, "reward_velocities", n_steps),
+        "reward_attitudes": get_array(data, "reward_attitudes", n_steps),
+        "reward_rates": get_array(data, "reward_rates", n_steps),
+        "reward_actions": get_array(data, "reward_actions", n_steps),
+        "reward_warnings": get_array(data, "reward_warnings", n_steps),
+        "reward_failures": get_array(data, "reward_failures", n_steps),
+        "reward_successes": get_array(data, "reward_successes", n_steps),
+        "reward_timeouts": get_array(data, "reward_timeouts", n_steps),
+
+        # Reward specific terms
+        "desired_s_dot": get_array(data, "desired_s_dot_values", n_steps),
+        "s_dot_error": get_array(data, "s_dot_error_values", n_steps),
+        "too_fast": get_array(data, "too_fast_values", n_steps),
+        "moving_away": get_array(data, "moving_away_values", n_steps),
+        "v_lateral": get_array(data, "v_lateral_values", n_steps),
+        "reward_s_dot": get_array(data, "reward_s_dot_values", n_steps),
+        "reward_too_fast": get_array(data, "reward_too_fast_values", n_steps),
+        "reward_moving_away": get_array(data, "reward_moving_away_values", n_steps),
+        "reward_lateral": get_array(data, "reward_lateral_values", n_steps),
+        "reward_lateral_speed": get_array(data, "reward_lateral_speed_values", n_steps),
 
         "normalized_actions": data["normalized_actions"],
         "physical_actions": data["physical_actions"],
     }
+
+
+def save_plot(filename):
+    plt.tight_layout()
+    plt.savefig(os.path.join(PLOT_DIR, filename), dpi=150)
+    plt.close()
 
 
 def plot_one_rollout(result, rollout_id):
@@ -83,12 +125,22 @@ def plot_one_rollout(result, rollout_id):
 
     actions_raw = result["actions_raw"]
     actions_clipped = result["actions_clipped"]
-
     normalized_actions = result["normalized_actions"]
     physical_actions = result["physical_actions"]
 
-    sac_rewards = result["sac_rewards"]
+    # State components
+    rx = states[:, 0]
+    ry = states[:, 1]
+    vx = states[:, 2]
+    vy = states[:, 3]
+    psi = states[:, 4]
+    omega = states[:, 5]
 
+    com_distance = np.sqrt(rx**2 + ry**2)
+    com_speed = np.sqrt(vx**2 + vy**2)
+
+    # Step-based diagnostics
+    sac_rewards = result["sac_rewards"]
     port_distances = result["port_distances"]
     port_speeds = result["port_speeds"]
     s_values = result["s_values"]
@@ -108,22 +160,23 @@ def plot_one_rollout(result, rollout_id):
     reward_successes = result["reward_successes"]
     reward_timeouts = result["reward_timeouts"]
 
-    # State components
-    rx = states[:, 0]
-    ry = states[:, 1]
-    vx = states[:, 2]
-    vy = states[:, 3]
-    psi = states[:, 4]
-    omega = states[:, 5]
-
-    com_distance = np.sqrt(rx**2 + ry**2)
-    com_speed = np.sqrt(vx**2 + vy**2)
+    desired_s_dot = result["desired_s_dot"]
+    s_dot_error = result["s_dot_error"]
+    too_fast = result["too_fast"]
+    moving_away = result["moving_away"]
+    v_lateral = result["v_lateral"]
+    reward_s_dot = result["reward_s_dot"]
+    reward_too_fast = result["reward_too_fast"]
+    reward_moving_away = result["reward_moving_away"]
+    reward_lateral = result["reward_lateral"]
+    reward_lateral_speed = result["reward_lateral_speed"]
 
     # History convention:
-    # states has length N+1 because it includes the reset state.
+    # states has length N+1 because it includes reset state.
     # step-based arrays have length N.
     t_states = times[: len(states)]
-    t_steps = times[1 : 1 + len(port_distances)]
+    n_steps = len(port_distances)
+    t_steps = times[1 : 1 + n_steps]
 
     title_suffix = (
         f"seed={result['seed']}, "
@@ -144,9 +197,7 @@ def plot_one_rollout(result, rollout_id):
     plt.legend()
     plt.grid(True)
     plt.axis("equal")
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_trajectory.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_trajectory.png")
 
     # ------------------------------------------------------------
     # 2. Position states
@@ -159,9 +210,7 @@ def plot_one_rollout(result, rollout_id):
     plt.title(f"SAC Final Approach Position\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_position.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_position.png")
 
     # ------------------------------------------------------------
     # 3. Velocity states
@@ -175,9 +224,7 @@ def plot_one_rollout(result, rollout_id):
     plt.title(f"SAC Final Approach Velocity States\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_velocity_states.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_velocity_states.png")
 
     # ------------------------------------------------------------
     # 4. Docking-port distance and speed
@@ -189,9 +236,7 @@ def plot_one_rollout(result, rollout_id):
     plt.title(f"SAC Final Approach Port Distance\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_port_distance.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_port_distance.png")
 
     plt.figure()
     plt.plot(t_steps, port_speeds, label="port speed")
@@ -200,12 +245,10 @@ def plot_one_rollout(result, rollout_id):
     plt.title(f"SAC Final Approach Port Speed\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_port_speed.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_port_speed.png")
 
     # ------------------------------------------------------------
-    # 5. Final-approach geometry: s, rho, s_dot
+    # 5. Geometry: s and rho
     # ------------------------------------------------------------
     plt.figure()
     plt.plot(t_steps, s_values, label="s")
@@ -215,24 +258,55 @@ def plot_one_rollout(result, rollout_id):
     plt.title(f"SAC Final Approach Geometry\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_geometry_s_rho.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_geometry_s_rho.png")
+
+    # Separate rho plot, because s is much larger and can hide rho.
+    plt.figure()
+    plt.plot(t_steps, rho_values, label="rho")
+    plt.xlabel("Time [s]")
+    plt.ylabel("rho [m]")
+    plt.title(f"SAC Final Approach Lateral Offset rho\n{title_suffix}")
+    plt.legend()
+    plt.grid(True)
+    save_plot(f"rollout_{rollout_id:03d}_rho.png")
 
     plt.figure()
-    plt.plot(t_steps, s_dot_values, label="s_dot")
-    plt.axhline(0.0, linestyle="--", linewidth=1)
+    plt.plot(t_steps, rho_values, label="rho")
+    plt.plot(t_steps, v_lateral, label="v_lateral")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Lateral diagnostic")
+    plt.title(f"SAC Final Approach Lateral Offset and Velocity\n{title_suffix}")
+    plt.legend()
+    plt.grid(True)
+    save_plot(f"rollout_{rollout_id:03d}_lateral_diagnostics.png")
+
+    # ------------------------------------------------------------
+    # 6. Axial closing speed and desired s_dot
+    # ------------------------------------------------------------
+    plt.figure()
+    plt.plot(t_steps, s_dot_values, label="actual s_dot")
+    plt.plot(t_steps, desired_s_dot, linestyle="--", label="desired s_dot")
+    plt.axhline(0.0, linestyle=":", linewidth=1, label="zero")
     plt.xlabel("Time [s]")
     plt.ylabel("s_dot [m/s]")
     plt.title(f"SAC Final Approach Axial Closing Speed\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_s_dot.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_s_dot_vs_desired.png")
+
+    plt.figure()
+    plt.plot(t_steps, s_dot_error, label="s_dot error")
+    plt.plot(t_steps, too_fast, label="too fast")
+    plt.plot(t_steps, moving_away, label="moving away")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Speed diagnostic [m/s]")
+    plt.title(f"SAC Final Approach Speed Diagnostics\n{title_suffix}")
+    plt.legend()
+    plt.grid(True)
+    save_plot(f"rollout_{rollout_id:03d}_speed_diagnostics.png")
 
     # ------------------------------------------------------------
-    # 6. Attitude diagnostics
+    # 7. Attitude diagnostics
     # ------------------------------------------------------------
     plt.figure()
     plt.plot(t_steps, np.rad2deg(psi_e_values), label="psi_e")
@@ -242,11 +316,8 @@ def plot_one_rollout(result, rollout_id):
     plt.title(f"SAC Final Approach Alignment Diagnostics\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_alignment.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_alignment.png")
 
-    # Also plot raw states psi and omega, just in case you want direct state values.
     plt.figure()
     plt.plot(t_states, np.rad2deg(psi), label="psi state")
     plt.plot(t_states, np.rad2deg(omega), label="omega state")
@@ -255,46 +326,52 @@ def plot_one_rollout(result, rollout_id):
     plt.title(f"SAC Final Approach Attitude States\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_attitude_states.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_attitude_states.png")
 
     # ------------------------------------------------------------
-    # 7. Physical body-frame actions
+    # 8. Physical and normalized actions
     # ------------------------------------------------------------
     labels = ["ax_Bc", "ay_Bc", "alphaz_Bc"]
 
     plt.figure()
     for i, label in enumerate(labels):
         plt.plot(t_steps, physical_actions[:, i], label=label)
-
     plt.xlabel("Time [s]")
     plt.ylabel("Physical action")
     plt.title(f"SAC Final Approach Physical Actions\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_physical_actions.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_physical_actions.png")
 
-    # ------------------------------------------------------------
-    # 8. Normalized SAC actions
-    # ------------------------------------------------------------
     plt.figure()
     for i, label in enumerate(labels):
         plt.plot(t_steps, normalized_actions[:, i], label=label)
-
     plt.xlabel("Time [s]")
     plt.ylabel("Normalized action [-1, 1]")
     plt.title(f"SAC Final Approach Normalized Actions\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_normalized_actions.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_normalized_actions.png")
 
     # ------------------------------------------------------------
-    # 9. Raw vs clipped actions from core environment
+    # 9. Action smoothness / action changes
+    # ------------------------------------------------------------
+    if len(physical_actions) > 1:
+        delta_actions = np.diff(physical_actions, axis=0)
+        t_delta = t_steps[1:]
+
+        plt.figure()
+        for i, label in enumerate(labels):
+            plt.plot(t_delta, delta_actions[:, i], label=f"delta {label}")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Action change")
+        plt.title(f"SAC Final Approach Action Changes\n{title_suffix}")
+        plt.legend()
+        plt.grid(True)
+        save_plot(f"rollout_{rollout_id:03d}_action_changes.png")
+
+    # ------------------------------------------------------------
+    # 10. Raw vs clipped actions from core environment
     # ------------------------------------------------------------
     t_core_actions = times[: len(actions_clipped)]
 
@@ -302,18 +379,15 @@ def plot_one_rollout(result, rollout_id):
     for i, label in enumerate(labels):
         plt.plot(t_core_actions, actions_raw[:, i], linestyle="--", label=f"{label} raw")
         plt.plot(t_core_actions, actions_clipped[:, i], label=f"{label} clipped")
-
     plt.xlabel("Time [s]")
     plt.ylabel("Action")
     plt.title(f"SAC Final Approach Core Actions: Raw vs Clipped\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_raw_vs_clipped_actions.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_raw_vs_clipped_actions.png")
 
     # ------------------------------------------------------------
-    # 10. Total SAC reward
+    # 11. Total reward
     # ------------------------------------------------------------
     plt.figure()
     plt.plot(t_steps, sac_rewards, label="returned SAC reward")
@@ -323,37 +397,41 @@ def plot_one_rollout(result, rollout_id):
     plt.title(f"SAC Final Approach Reward\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_reward_total.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_reward_total.png")
 
     # ------------------------------------------------------------
-    # 11. Reward components
+    # 12. Main reward components
     # ------------------------------------------------------------
     plt.figure()
     plt.plot(t_steps, reward_positions, label="position")
     plt.plot(t_steps, reward_velocities, label="velocity")
+    plt.plot(t_steps, reward_s_dot, label="s_dot tracking")
+    plt.plot(t_steps, reward_too_fast, label="too fast")
+    plt.plot(t_steps, reward_moving_away, label="moving away")
+    plt.plot(t_steps, reward_lateral, label="lateral")
+    plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_attitudes, label="attitude")
     plt.plot(t_steps, reward_rates, label="rate")
     plt.plot(t_steps, reward_actions, label="action")
     plt.plot(t_steps, reward_warnings, label="warning")
     plt.plot(t_steps, reward_failures, label="failure")
-    plt.plot(t_steps, reward_successes, label="success")
-    plt.plot(t_steps, reward_timeouts, label="timeout")
     plt.xlabel("Time [s]")
     plt.ylabel("Reward component")
-    plt.title(f"SAC Final Approach Reward Components\n{title_suffix}")
+    plt.title(f"SAC Final Approach Reward Components \n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_reward_components.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_reward_components_v2.png")
 
     # ------------------------------------------------------------
-    # 12. Reward components without dominant position term
+    # 13. Reward components without position term
     # ------------------------------------------------------------
     plt.figure()
     plt.plot(t_steps, reward_velocities, label="velocity")
+    plt.plot(t_steps, reward_s_dot, label="s_dot tracking")
+    plt.plot(t_steps, reward_too_fast, label="too fast")
+    plt.plot(t_steps, reward_moving_away, label="moving away")
+    plt.plot(t_steps, reward_lateral, label="lateral")
+    plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_attitudes, label="attitude")
     plt.plot(t_steps, reward_rates, label="rate")
     plt.plot(t_steps, reward_actions, label="action")
@@ -361,17 +439,13 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_failures, label="failure")
     plt.xlabel("Time [s]")
     plt.ylabel("Reward component")
-    plt.title(f"SAC Reward Components Without Position Term\n{title_suffix}")
+    plt.title(f"SAC Reward Components Without Position\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(
-        os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_reward_components_no_position.png")
-    )
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_reward_components_v2_no_position.png")
 
     # ------------------------------------------------------------
-    # 13. Distance and speed summary
+    # 14. Final-approach diagnostics summary
     # ------------------------------------------------------------
     plt.figure()
     plt.plot(t_states, com_distance, label="COM distance")
@@ -383,9 +457,7 @@ def plot_one_rollout(result, rollout_id):
     plt.title(f"SAC Final Approach Distance and Speed Summary\n{title_suffix}")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, f"rollout_{rollout_id:03d}_distance_speed_summary.png"))
-    plt.close()
+    save_plot(f"rollout_{rollout_id:03d}_distance_speed_summary.png")
 
 
 def main():

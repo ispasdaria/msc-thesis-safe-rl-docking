@@ -79,7 +79,7 @@ class Docking3DoFGymEnv(gym.Env):
             dtype=np.float32,
         )
 
-        # SAC output actions in [-1, 1], then scale them to the physical
+        # SAC outputs actions in [-1, 1], then they are scaled to the physical
         # acceleration limits from the core environment.
         if self.normalize_action:
             self.action_space = spaces.Box(
@@ -224,7 +224,7 @@ class Docking3DoFGymEnv(gym.Env):
 
         truncated = bool(info.get("time_limit", False))
 
-        reward = self._compute_sac_reward(
+        reward, reward_components = self._compute_sac_reward(
             state=self.core_env.state,
             physical_action=physical_action,
             info=info,
@@ -234,6 +234,10 @@ class Docking3DoFGymEnv(gym.Env):
 
         info["normalized_action"] = np.asarray(action, dtype=np.float32)
         info["physical_action"] = physical_action.astype(np.float32)
+
+        # Reward diagnostics for plotting/debugging.
+        # These are not part of the observation; SAC does not directly use them.
+        info["reward_components"] = reward_components
 
         return obs, float(reward), terminated, truncated, info
 
@@ -246,16 +250,11 @@ class Docking3DoFGymEnv(gym.Env):
         truncated,
     ):
         """
-        First SAC reward version.
+        First SAC reward version with diagnostic reward components.
 
-        This is intentionally simple and stable:
-        - penalize distance/error to the target
-        - penalize velocity
-        - penalize attitude error
-        - penalize control effort
-        - penalize warning regions
-        - strongly penalize failure
-        - strongly reward success
+        The total reward is unchanged compared to the previous version.
+        This function now also returns a dictionary with individual reward terms
+        so that reward behavior can be inspected during rollouts.
         """
 
         q = self.core_env.get_derived_quantities(state)
@@ -276,6 +275,39 @@ class Docking3DoFGymEnv(gym.Env):
 
         action_norm = np.linalg.norm(physical_action / action_scale)
 
+        # Initialize diagnostics with default values.
+        reward_components = {
+            "phase": self.phase,
+
+            # Raw diagnostic quantities
+            "port_distance": float(port_distance),
+            "port_speed": float(port_speed),
+            "psi_abs": float(psi_abs),
+            "omega_abs": float(omega_abs),
+            "action_norm": float(action_norm),
+            "s": float(q["s"]),
+            "rho": float(q["rho"]),
+            "s_dot": float(q["s_dot"]),
+
+            # Error diagnostics, mainly used for closing.
+            "pos_error": None,
+            "vel_error": None,
+            "attitude_error": None,
+            "rate_error": None,
+
+            # Reward terms
+            "reward_position": 0.0,
+            "reward_velocity": 0.0,
+            "reward_attitude": 0.0,
+            "reward_rate": 0.0,
+            "reward_action": 0.0,
+            "reward_warning": 0.0,
+            "reward_failure": 0.0,
+            "reward_success": 0.0,
+            "reward_timeout": 0.0,
+            "reward_total": 0.0,
+        }
+
         if self.phase == "closing":
             if self.core_env.p3_target is not None:
                 target = self.core_env.p3_target
@@ -293,39 +325,91 @@ class Docking3DoFGymEnv(gym.Env):
                 attitude_error = psi_abs
                 rate_error = omega_abs
 
+            reward_position = -0.002 * pos_error
+            reward_velocity = -0.5 * vel_error
+            reward_attitude = -0.5 * attitude_error
+            reward_rate = -0.1 * rate_error
+            reward_action = -0.01 * action_norm
+
             reward = (
-                -0.002 * pos_error
-                -0.5 * vel_error
-                -0.5 * attitude_error
-                -0.1 * rate_error
-                -0.01 * action_norm
+                reward_position
+                + reward_velocity
+                + reward_attitude
+                + reward_rate
+                + reward_action
+            )
+
+            reward_components.update(
+                {
+                    "pos_error": float(pos_error),
+                    "vel_error": float(vel_error),
+                    "attitude_error": float(attitude_error),
+                    "rate_error": float(rate_error),
+                    "reward_position": float(reward_position),
+                    "reward_velocity": float(reward_velocity),
+                    "reward_attitude": float(reward_attitude),
+                    "reward_rate": float(reward_rate),
+                    "reward_action": float(reward_action),
+                }
             )
 
         elif self.phase == "final":
+            reward_position = -2.0 * port_distance
+            reward_velocity = -1.0 * port_speed
+            reward_attitude = -0.5 * psi_abs
+            reward_rate = -0.1 * omega_abs
+            reward_action = -0.01 * action_norm
+
             reward = (
-                -2.0 * port_distance
-                -1.0 * port_speed
-                -0.5 * psi_abs
-                -0.1 * omega_abs
-                -0.01 * action_norm
+                reward_position
+                + reward_velocity
+                + reward_attitude
+                + reward_rate
+                + reward_action
+            )
+
+            reward_components.update(
+                {
+                    # For final approach, these are interpreted as docking-port
+                    # position/speed and attitude/rate errors.
+                    "pos_error": float(port_distance),
+                    "vel_error": float(port_speed),
+                    "attitude_error": float(psi_abs),
+                    "rate_error": float(omega_abs),
+                    "reward_position": float(reward_position),
+                    "reward_velocity": float(reward_velocity),
+                    "reward_attitude": float(reward_attitude),
+                    "reward_rate": float(reward_rate),
+                    "reward_action": float(reward_action),
+                }
             )
 
         else:
             raise ValueError("Unknown phase.")
 
         if info.get("warning", False):
-            reward -= 1.0
+            reward_warning = -1.0
+            reward += reward_warning
+            reward_components["reward_warning"] = float(reward_warning)
 
         if info.get("failure", False):
-            reward -= 100.0
+            reward_failure = -100.0
+            reward += reward_failure
+            reward_components["reward_failure"] = float(reward_failure)
 
         if info.get("success", False):
-            reward += 200.0
+            reward_success = 200.0
+            reward += reward_success
+            reward_components["reward_success"] = float(reward_success)
 
         if truncated:
-            reward -= 10.0
+            reward_timeout = -10.0
+            reward += reward_timeout
+            reward_components["reward_timeout"] = float(reward_timeout)
 
-        return reward
+        reward_components["reward_total"] = float(reward)
+
+        return reward, reward_components
 
     def render(self):
         """

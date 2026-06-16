@@ -1,10 +1,6 @@
 """
 Basic Gymnasium / Stable-Baselines3 compatibility test for Docking3DoFGymEnv.
 
-Run from the repository root with:
-
-    python ./src/envs/docking3dof/tests_gym/test_gym_wrapper.py
-
 This script checks:
     - environment creation
     - observation_space and action_space
@@ -17,9 +13,8 @@ import os
 import sys
 import numpy as np
 
-# Make sure the src folder is available when running from repo root.
 REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
 )
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 

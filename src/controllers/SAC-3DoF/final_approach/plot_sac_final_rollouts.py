@@ -6,6 +6,7 @@ This script reads .npz rollout histories saved by evaluate_sac_final.py.
 
 import os
 import glob
+from unittest import result
 import numpy as np
 import matplotlib
 
@@ -16,7 +17,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv5_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_rewardv7_50ksteps_seed0"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -102,11 +103,14 @@ def load_rollout(filepath):
         "too_fast": get_array(data, "too_fast_values", n_steps),
         "moving_away": get_array(data, "moving_away_values", n_steps),
         "v_lateral": get_array(data, "v_lateral_values", n_steps),
+        "progress_port": get_array(data, "progress_port_values", n_steps),
+        "progress_s": get_array(data, "progress_s_values", n_steps),
         "reward_s_dot": get_array(data, "reward_s_dot_values", n_steps),
         "reward_too_fast": get_array(data, "reward_too_fast_values", n_steps),
         "reward_moving_away": get_array(data, "reward_moving_away_values", n_steps),
         "reward_lateral": get_array(data, "reward_lateral_values", n_steps),
         "reward_lateral_speed": get_array(data, "reward_lateral_speed_values", n_steps),
+        "reward_progress": get_array(data, "reward_progress_values", n_steps),
 
         "normalized_actions": data["normalized_actions"],
         "physical_actions": data["physical_actions"],
@@ -165,11 +169,14 @@ def plot_one_rollout(result, rollout_id):
     too_fast = result["too_fast"]
     moving_away = result["moving_away"]
     v_lateral = result["v_lateral"]
+    progress_port = result["progress_port"]
+    progress_s = result["progress_s"]
     reward_s_dot = result["reward_s_dot"]
     reward_too_fast = result["reward_too_fast"]
     reward_moving_away = result["reward_moving_away"]
     reward_lateral = result["reward_lateral"]
     reward_lateral_speed = result["reward_lateral_speed"]
+    reward_progress = result["reward_progress"]
 
     # History convention:
     # states has length N+1 because it includes reset state.
@@ -306,6 +313,20 @@ def plot_one_rollout(result, rollout_id):
     save_plot(f"rollout_{rollout_id:03d}_speed_diagnostics.png")
 
     # ------------------------------------------------------------
+    # Progress diagnostics
+    # ------------------------------------------------------------
+    plt.figure()
+    plt.plot(t_steps, progress_port, label="progress_port")
+    plt.plot(t_steps, progress_s, label="progress_s")
+    plt.axhline(0.0, linestyle=":", linewidth=1, label="zero")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Progress per step [m]")
+    plt.title(f"SAC Final Approach Progress Diagnostics\n{title_suffix}")
+    plt.legend()
+    plt.grid(True)
+    save_plot(f"rollout_{rollout_id:03d}_progress_diagnostics.png")
+
+    # ------------------------------------------------------------
     # 7. Attitude diagnostics
     # ------------------------------------------------------------
     plt.figure()
@@ -409,6 +430,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_too_fast, label="too fast")
     plt.plot(t_steps, reward_moving_away, label="moving away")
     plt.plot(t_steps, reward_lateral, label="lateral")
+    plt.plot(t_steps, reward_progress, label="progress")
     plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_attitudes, label="attitude")
     plt.plot(t_steps, reward_rates, label="rate")
@@ -432,6 +454,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_moving_away, label="moving away")
     plt.plot(t_steps, reward_lateral, label="lateral")
     plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
+    plt.plot(t_steps, reward_progress, label="progress")
     plt.plot(t_steps, reward_attitudes, label="attitude")
     plt.plot(t_steps, reward_rates, label="rate")
     plt.plot(t_steps, reward_actions, label="action")

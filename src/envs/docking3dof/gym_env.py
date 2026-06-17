@@ -195,6 +195,10 @@ class Docking3DoFGymEnv(gym.Env):
             mode=mode,
         )
 
+        q = self.core_env.get_derived_quantities(self.core_env.state)
+        self.prev_port_distance = q["port_distance"]
+        self.prev_s = q["s"]
+
         obs = self._get_obs()
         info = self._get_reset_info()
 
@@ -301,6 +305,8 @@ class Docking3DoFGymEnv(gym.Env):
             "too_fast": None,
             "moving_away": None,
             "v_lateral": None, 
+            "progress_port": None,
+            "progress_s": None,
 
             # Reward terms
             "reward_position": 0.0,
@@ -318,6 +324,7 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_success": 0.0,
             "reward_timeout": 0.0,
             "reward_total": 0.0,
+            "reward_progress": 0.0,
         }
 
         if self.phase == "closing":
@@ -342,8 +349,6 @@ class Docking3DoFGymEnv(gym.Env):
             reward_attitude = -0.5 * attitude_error
             reward_rate = -0.1 * rate_error
             reward_action = -0.01 * action_norm
-            v_lateral = abs(q["v_p"][1])
-            reward_lateral_speed = -10.0 * v_lateral
 
             reward = (
                 reward_position
@@ -351,7 +356,6 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_attitude
                 + reward_rate
                 + reward_action
-                + reward_lateral_speed
             )
 
             reward_components.update(
@@ -365,7 +369,6 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_attitude": float(reward_attitude),
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
-                    "reward_lateral_speed": float(reward_lateral_speed),
                 }
             )
 
@@ -426,6 +429,17 @@ class Docking3DoFGymEnv(gym.Env):
             #   - added too-fast penalty
             #   - added moving-away penalty
             #   - added lateral rho penalty
+
+            progress_port = 0.0
+            progress_s = 0.0
+
+            if hasattr(self, "prev_port_distance"):
+                progress_port = self.prev_port_distance - port_distance
+
+            if hasattr(self, "prev_s"):
+                progress_s = self.prev_s - s
+
+            reward_progress = 10.0 * progress_port
             reward_position = -0.5 * port_distance
             reward_velocity = -5.0 * port_speed
             reward_s_dot = -20.0 * s_dot_error
@@ -448,7 +462,11 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_rate
                 + reward_action
                 + reward_lateral_speed 
+                + reward_progress
             )
+
+            self.prev_port_distance = port_distance
+            self.prev_s = s
 
             reward_components.update(
                 {
@@ -479,6 +497,9 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
                     "reward_lateral_speed": float(reward_lateral_speed),
+                    "progress_port": float(progress_port),
+                    "progress_s": float(progress_s),
+                    "reward_progress": float(reward_progress),
                 }
             )
 

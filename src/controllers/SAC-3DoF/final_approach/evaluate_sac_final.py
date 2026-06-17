@@ -38,7 +38,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv5_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_rewardv7_50ksteps_seed0"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -154,12 +154,15 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     too_fast_values = []
     moving_away_values = []
     v_lateral_values = []
+    progress_port_values = []
+    progress_s_values = []
 
     reward_s_dot_values = []
     reward_too_fast_values = []
     reward_moving_away_values = []
     reward_lateral_values = []
     reward_lateral_speed_values = []
+    reward_progress_values = []
 
     # Action diagnostics
     normalized_actions = []
@@ -220,7 +223,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         too_fast_values.append(rc.get("too_fast", np.nan))
         moving_away_values.append(rc.get("moving_away", np.nan))
         v_lateral_values.append(rc.get("v_lateral", np.nan))
-
+        progress_port_values.append(rc.get("progress_port", np.nan))
+        progress_s_values.append(rc.get("progress_s", np.nan))
+        reward_progress_values.append(rc.get("reward_progress", np.nan))
         reward_s_dot_values.append(rc.get("reward_s_dot", np.nan))
         reward_too_fast_values.append(rc.get("reward_too_fast", np.nan))
         reward_moving_away_values.append(rc.get("reward_moving_away", np.nan))
@@ -288,12 +293,15 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "too_fast_values": np.array(too_fast_values),
         "moving_away_values": np.array(moving_away_values),
         "v_lateral_values": np.array(v_lateral_values),
+        "progress_port_values": np.array(progress_port_values),
+        "progress_s_values": np.array(progress_s_values),
 
         "reward_s_dot_values": np.array(reward_s_dot_values),
         "reward_too_fast_values": np.array(reward_too_fast_values),
         "reward_moving_away_values": np.array(reward_moving_away_values),
         "reward_lateral_values": np.array(reward_lateral_values),
         "reward_lateral_speed_values": np.array(reward_lateral_speed_values),
+        "reward_progress_values": np.array(reward_progress_values),
 
         # Action diagnostics
         "normalized_actions": np.array(normalized_actions),
@@ -357,12 +365,15 @@ def save_rollout(result, rollout_id):
         too_fast_values=result["too_fast_values"],
         moving_away_values=result["moving_away_values"],
         v_lateral_values=result["v_lateral_values"],
+        progress_port_values=result["progress_port_values"],
+        progress_s_values=result["progress_s_values"],
 
         reward_s_dot_values=result["reward_s_dot_values"],
         reward_too_fast_values=result["reward_too_fast_values"],
         reward_moving_away_values=result["reward_moving_away_values"],
         reward_lateral_values=result["reward_lateral_values"],
         reward_lateral_speed_values=result["reward_lateral_speed_values"],
+        reward_progress_values=result["reward_progress_values"],
 
         # Action diagnostics
         normalized_actions=result["normalized_actions"],

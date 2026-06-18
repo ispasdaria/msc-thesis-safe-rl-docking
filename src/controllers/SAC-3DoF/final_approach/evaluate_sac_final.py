@@ -38,7 +38,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv7_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_rewardv10_50ksteps_seed0"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -156,6 +156,11 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     v_lateral_values = []
     progress_port_values = []
     progress_s_values = []
+    rho_gate_values = []
+    psi_gate_values = []
+    progress_gate_values = []
+    safe_progress_values = []
+    unsafe_forward_progress_values = []
 
     reward_s_dot_values = []
     reward_too_fast_values = []
@@ -225,6 +230,13 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         v_lateral_values.append(rc.get("v_lateral", np.nan))
         progress_port_values.append(rc.get("progress_port", np.nan))
         progress_s_values.append(rc.get("progress_s", np.nan))
+        rho_gate_values.append(rc.get("rho_gate", np.nan))
+        psi_gate_values.append(rc.get("psi_gate", np.nan))
+        progress_gate_values.append(rc.get("progress_gate", np.nan))
+        safe_progress_values.append(rc.get("safe_progress", np.nan))
+        unsafe_forward_progress_values.append(
+            rc.get("unsafe_forward_progress", np.nan)
+        )
         reward_progress_values.append(rc.get("reward_progress", np.nan))
         reward_s_dot_values.append(rc.get("reward_s_dot", np.nan))
         reward_too_fast_values.append(rc.get("reward_too_fast", np.nan))
@@ -295,6 +307,11 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "v_lateral_values": np.array(v_lateral_values),
         "progress_port_values": np.array(progress_port_values),
         "progress_s_values": np.array(progress_s_values),
+        "rho_gate_values": np.array(rho_gate_values),
+        "psi_gate_values": np.array(psi_gate_values),
+        "progress_gate_values": np.array(progress_gate_values),
+        "safe_progress_values": np.array(safe_progress_values),
+        "unsafe_forward_progress_values": np.array(unsafe_forward_progress_values),
 
         "reward_s_dot_values": np.array(reward_s_dot_values),
         "reward_too_fast_values": np.array(reward_too_fast_values),
@@ -367,6 +384,11 @@ def save_rollout(result, rollout_id):
         v_lateral_values=result["v_lateral_values"],
         progress_port_values=result["progress_port_values"],
         progress_s_values=result["progress_s_values"],
+        rho_gate_values=result["rho_gate_values"],
+        psi_gate_values=result["psi_gate_values"],
+        progress_gate_values=result["progress_gate_values"],
+        safe_progress_values=result["safe_progress_values"],
+        unsafe_forward_progress_values=result["unsafe_forward_progress_values"],
 
         reward_s_dot_values=result["reward_s_dot_values"],
         reward_too_fast_values=result["reward_too_fast_values"],

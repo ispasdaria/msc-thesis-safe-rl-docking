@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv7_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_rewardv10_50ksteps_seed0"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -105,6 +105,15 @@ def load_rollout(filepath):
         "v_lateral": get_array(data, "v_lateral_values", n_steps),
         "progress_port": get_array(data, "progress_port_values", n_steps),
         "progress_s": get_array(data, "progress_s_values", n_steps),
+        "rho_gate": get_array(data, "rho_gate_values", n_steps),
+        "psi_gate": get_array(data, "psi_gate_values", n_steps),
+        "progress_gate": get_array(data, "progress_gate_values", n_steps),
+        "safe_progress": get_array(data, "safe_progress_values", n_steps),
+        "unsafe_forward_progress": get_array(
+            data,
+            "unsafe_forward_progress_values",
+            n_steps,
+        ),
         "reward_s_dot": get_array(data, "reward_s_dot_values", n_steps),
         "reward_too_fast": get_array(data, "reward_too_fast_values", n_steps),
         "reward_moving_away": get_array(data, "reward_moving_away_values", n_steps),
@@ -171,6 +180,11 @@ def plot_one_rollout(result, rollout_id):
     v_lateral = result["v_lateral"]
     progress_port = result["progress_port"]
     progress_s = result["progress_s"]
+    rho_gate = result["rho_gate"]
+    psi_gate = result["psi_gate"]
+    progress_gate = result["progress_gate"]
+    safe_progress = result["safe_progress"]
+    unsafe_forward_progress = result["unsafe_forward_progress"]
     reward_s_dot = result["reward_s_dot"]
     reward_too_fast = result["reward_too_fast"]
     reward_moving_away = result["reward_moving_away"]
@@ -325,6 +339,30 @@ def plot_one_rollout(result, rollout_id):
     plt.legend()
     plt.grid(True)
     save_plot(f"rollout_{rollout_id:03d}_progress_diagnostics.png")
+
+    plt.figure()
+    plt.plot(t_steps, rho_gate, label="rho_gate")
+    plt.plot(t_steps, psi_gate, label="psi_gate")
+    plt.plot(t_steps, progress_gate, label="progress_gate")
+    plt.ylim(-0.05, 1.05)
+    plt.xlabel("Time [s]")
+    plt.ylabel("Gate value")
+    plt.title(f"SAC Final Approach Progress Gates\n{title_suffix}")
+    plt.legend()
+    plt.grid(True)
+    save_plot(f"rollout_{rollout_id:03d}_progress_gates.png")
+
+    plt.figure()
+    plt.plot(t_steps, progress_s, label="progress_s")
+    plt.plot(t_steps, safe_progress, label="safe_progress")
+    plt.plot(t_steps, unsafe_forward_progress, label="unsafe_forward_progress")
+    plt.axhline(0.0, linestyle=":", linewidth=1, label="zero")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Progress per step [m]")
+    plt.title(f"SAC Final Approach Gated Progress\n{title_suffix}")
+    plt.legend()
+    plt.grid(True)
+    save_plot(f"rollout_{rollout_id:03d}_gated_progress.png")
 
     # ------------------------------------------------------------
     # 7. Attitude diagnostics

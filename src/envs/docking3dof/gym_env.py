@@ -254,11 +254,10 @@ class Docking3DoFGymEnv(gym.Env):
         truncated,
     ):
         """
-        First SAC reward version with diagnostic reward components.
+        SAC reward with diagnostic reward components.
 
-        The total reward is unchanged compared to the previous version.
-        This function now also returns a dictionary with individual reward terms
-        so that reward behavior can be inspected during rollouts.
+        This returns a dictionary with individual reward terms so that reward
+        behavior can be inspected during rollouts.
         """
 
         q = self.core_env.get_derived_quantities(state)
@@ -307,6 +306,11 @@ class Docking3DoFGymEnv(gym.Env):
             "v_lateral": None, 
             "progress_port": None,
             "progress_s": None,
+            "rho_gate": None,
+            "psi_gate": None,
+            "progress_gate": None,
+            "safe_progress": None,
+            "unsafe_forward_progress": None,
 
             # Reward terms
             "reward_position": 0.0,
@@ -439,7 +443,35 @@ class Docking3DoFGymEnv(gym.Env):
             if hasattr(self, "prev_s"):
                 progress_s = self.prev_s - s
 
-            reward_progress = 10.0 * progress_port
+            # Soft corridor gate
+            rho_good = 5.0
+            rho_bad = 12.0
+
+            rho_gate = np.clip(
+                (rho_bad - rho) / (rho_bad - rho_good),
+                0.0,
+                1.0,
+            )
+
+            # Soft alignment gate
+            psi_good = np.deg2rad(1.0)
+            psi_bad = np.deg2rad(2.5)
+
+            psi_gate = np.clip(
+                (psi_bad - psi_abs) / (psi_bad - psi_good),
+                0.0,
+                1.0,
+            )
+
+            progress_gate = rho_gate * psi_gate
+
+            safe_progress = progress_gate * progress_s
+            unsafe_forward_progress = (1.0 - progress_gate) * max(0.0, progress_s)
+
+            reward_progress = (
+                5.0 * safe_progress
+                - 5.0 * unsafe_forward_progress
+            )
             reward_position = -0.5 * port_distance
             reward_velocity = -5.0 * port_speed
             reward_s_dot = -20.0 * s_dot_error
@@ -485,6 +517,13 @@ class Docking3DoFGymEnv(gym.Env):
                     "s": float(s),
                     "s_dot": float(s_dot),
                     "v_lateral": float(v_lateral),
+                    "progress_port": float(progress_port),
+                    "progress_s": float(progress_s),
+                    "rho_gate": float(rho_gate),
+                    "psi_gate": float(psi_gate),
+                    "progress_gate": float(progress_gate),
+                    "safe_progress": float(safe_progress),
+                    "unsafe_forward_progress": float(unsafe_forward_progress),
 
                     # Reward components
                     "reward_position": float(reward_position),
@@ -497,8 +536,6 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
                     "reward_lateral_speed": float(reward_lateral_speed),
-                    "progress_port": float(progress_port),
-                    "progress_s": float(progress_s),
                     "reward_progress": float(reward_progress),
                 }
             )

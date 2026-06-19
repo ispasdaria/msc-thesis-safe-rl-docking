@@ -4,6 +4,8 @@ Evaluate a trained SAC model for the 3-DoF docking final-approach phase.
 This version avoids DummyVecEnv auto-reset during rollout history saving.
 It runs a normal, non-vectorized environment and manually normalizes
 observations using the saved VecNormalize statistics.
+
+Use this version for the reward v12 longer-training experiment.
 """
 
 import os
@@ -38,7 +40,8 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv10_50ksteps_seed0"
+# Use this for the longer reward-v13 training experiment.
+MODEL_NAME = "sac_final_approach_rewardv13_50ksteps_seed0"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -109,6 +112,39 @@ def normalize_observation(vecnorm, obs):
     return norm_obs
 
 
+def safe_last(array, default=np.nan):
+    """
+    Returns the last value of an array, or NaN if the array is empty.
+    """
+
+    if len(array) == 0:
+        return default
+
+    return array[-1]
+
+
+def safe_min(array, default=np.nan):
+    """
+    Returns the minimum value of an array, or NaN if the array is empty.
+    """
+
+    if len(array) == 0:
+        return default
+
+    return np.nanmin(array)
+
+
+def safe_max(array, default=np.nan):
+    """
+    Returns the maximum value of an array, or NaN if the array is empty.
+    """
+
+    if len(array) == 0:
+        return default
+
+    return np.nanmax(array)
+
+
 def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     """
     Runs one deterministic rollout in a non-vectorized environment.
@@ -117,6 +153,11 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     env = make_raw_eval_env(seed=seed, mode=mode)
 
     obs, reset_info = env.reset(seed=seed)
+
+    state = env.core_env.state
+    print("Initial state:")
+    print("psi [deg] =", np.rad2deg(state[4]))
+    print("omega [deg/s] =", np.rad2deg(state[5]))
 
     total_reward = 0.0
     final_info = reset_info
@@ -143,12 +184,13 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     reward_attitudes = []
     reward_rates = []
     reward_actions = []
+    reward_alphas = []
     reward_warnings = []
     reward_failures = []
     reward_successes = []
     reward_timeouts = []
 
-    # Reward specific diagnostics
+    # Reward-specific diagnostics
     desired_s_dot_values = []
     s_dot_error_values = []
     too_fast_values = []
@@ -156,6 +198,11 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     v_lateral_values = []
     progress_port_values = []
     progress_s_values = []
+    rho_progress_values = []
+    psi_ratio_values = []
+
+    # These are kept for compatibility with older v10 plots.
+    # For reward v7 they should usually be NaN.
     rho_gate_values = []
     psi_gate_values = []
     progress_gate_values = []
@@ -168,6 +215,8 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     reward_lateral_values = []
     reward_lateral_speed_values = []
     reward_progress_values = []
+    reward_rho_progress_values = []
+    reward_psi_margin_values = []
 
     # Action diagnostics
     normalized_actions = []
@@ -182,6 +231,20 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         action = action[0]
 
         obs, reward, terminated, truncated, info = env.step(action)
+
+        if step == 0:
+            state_next = env.core_env.state
+            print("normalized action =", action)
+            print("Next state:")
+            print("psi [deg] =", np.rad2deg(state_next[4]))
+            print("omega [deg/s] =", np.rad2deg(state_next[5]))
+            print("psi_safe [deg] =", np.rad2deg(env.core_env.psi_safe))
+            print("psi_unsafe [deg] =", np.rad2deg(env.core_env.psi_unsafe))
+            print("omega_safe [deg/s] =", np.rad2deg(env.core_env.omega_safe))
+            print("omega_unsafe [deg/s] =", np.rad2deg(env.core_env.omega_unsafe))
+            print("terminated =", terminated)
+            print("truncated =", truncated)
+            print("info =", info)
 
         done = terminated or truncated
 
@@ -215,13 +278,14 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         reward_attitudes.append(rc.get("reward_attitude", np.nan))
         reward_rates.append(rc.get("reward_rate", np.nan))
         reward_actions.append(rc.get("reward_action", np.nan))
+        reward_alphas.append(rc.get("reward_alpha", np.nan))
         reward_warnings.append(rc.get("reward_warning", np.nan))
         reward_failures.append(rc.get("reward_failure", np.nan))
         reward_successes.append(rc.get("reward_success", np.nan))
         reward_timeouts.append(rc.get("reward_timeout", np.nan))
 
         # -------------------------------------------------------------
-        # Reward specific diagnostics
+        # Reward-specific diagnostics
         # -------------------------------------------------------------
         desired_s_dot_values.append(rc.get("desired_s_dot", np.nan))
         s_dot_error_values.append(rc.get("s_dot_error", np.nan))
@@ -230,6 +294,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         v_lateral_values.append(rc.get("v_lateral", np.nan))
         progress_port_values.append(rc.get("progress_port", np.nan))
         progress_s_values.append(rc.get("progress_s", np.nan))
+        rho_progress_values.append(rc.get("rho_progress", np.nan))
+        psi_ratio_values.append(rc.get("psi_ratio", np.nan))
+
         rho_gate_values.append(rc.get("rho_gate", np.nan))
         psi_gate_values.append(rc.get("psi_gate", np.nan))
         progress_gate_values.append(rc.get("progress_gate", np.nan))
@@ -237,12 +304,15 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         unsafe_forward_progress_values.append(
             rc.get("unsafe_forward_progress", np.nan)
         )
+
         reward_progress_values.append(rc.get("reward_progress", np.nan))
         reward_s_dot_values.append(rc.get("reward_s_dot", np.nan))
         reward_too_fast_values.append(rc.get("reward_too_fast", np.nan))
         reward_moving_away_values.append(rc.get("reward_moving_away", np.nan))
         reward_lateral_values.append(rc.get("reward_lateral", np.nan))
         reward_lateral_speed_values.append(rc.get("reward_lateral_speed", np.nan))
+        reward_rho_progress_values.append(rc.get("reward_rho_progress", np.nan))
+        reward_psi_margin_values.append(rc.get("reward_psi_margin", np.nan))
 
         # -------------------------------------------------------------
         # Action diagnostics
@@ -259,6 +329,17 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
 
     env.close()
 
+    port_distances_array = np.array(port_distances)
+    s_values_array = np.array(s_values)
+    rho_values_array = np.array(rho_values)
+
+    final_port_distance = safe_last(port_distances_array)
+    min_port_distance = safe_min(port_distances_array)
+    final_s = safe_last(s_values_array)
+    min_s = safe_min(s_values_array)
+    final_rho = safe_last(rho_values_array)
+    max_rho = safe_max(rho_values_array)
+
     return {
         "seed": seed,
         "steps": step + 1,
@@ -268,6 +349,14 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "time_limit": final_info.get("time_limit", False),
         "termination_reason": final_info.get("termination_reason"),
         "violated_constraints": final_info.get("violated_constraints", []),
+
+        # Summary diagnostics
+        "final_port_distance": final_port_distance,
+        "min_port_distance": min_port_distance,
+        "final_s": final_s,
+        "min_s": min_s,
+        "final_rho": final_rho,
+        "max_rho": max_rho,
 
         # Core history arrays
         "times": times,
@@ -279,10 +368,10 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
 
         # Step-based SAC diagnostics
         "sac_rewards": np.array(sac_rewards),
-        "port_distances": np.array(port_distances),
+        "port_distances": port_distances_array,
         "port_speeds": np.array(port_speeds),
-        "s_values": np.array(s_values),
-        "rho_values": np.array(rho_values),
+        "s_values": s_values_array,
+        "rho_values": rho_values_array,
         "s_dot_values": np.array(s_dot_values),
         "psi_e_values": np.array(psi_e_values),
         "omega_values": np.array(omega_values),
@@ -294,12 +383,13 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "reward_attitudes": np.array(reward_attitudes),
         "reward_rates": np.array(reward_rates),
         "reward_actions": np.array(reward_actions),
+        "reward_alphas": np.array(reward_alphas),
         "reward_warnings": np.array(reward_warnings),
         "reward_failures": np.array(reward_failures),
         "reward_successes": np.array(reward_successes),
         "reward_timeouts": np.array(reward_timeouts),
 
-        # Reward specific diagnostics
+        # Reward-specific diagnostics
         "desired_s_dot_values": np.array(desired_s_dot_values),
         "s_dot_error_values": np.array(s_dot_error_values),
         "too_fast_values": np.array(too_fast_values),
@@ -307,6 +397,8 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "v_lateral_values": np.array(v_lateral_values),
         "progress_port_values": np.array(progress_port_values),
         "progress_s_values": np.array(progress_s_values),
+        "rho_progress_values": np.array(rho_progress_values),
+        "psi_ratio_values": np.array(psi_ratio_values),
         "rho_gate_values": np.array(rho_gate_values),
         "psi_gate_values": np.array(psi_gate_values),
         "progress_gate_values": np.array(progress_gate_values),
@@ -319,6 +411,8 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "reward_lateral_values": np.array(reward_lateral_values),
         "reward_lateral_speed_values": np.array(reward_lateral_speed_values),
         "reward_progress_values": np.array(reward_progress_values),
+        "reward_rho_progress_values": np.array(reward_rho_progress_values),
+        "reward_psi_margin_values": np.array(reward_psi_margin_values),
 
         # Action diagnostics
         "normalized_actions": np.array(normalized_actions),
@@ -345,6 +439,14 @@ def save_rollout(result, rollout_id):
         termination_reason=str(result["termination_reason"]),
         violated_constraints=np.array(result["violated_constraints"], dtype=object),
 
+        # Summary diagnostics
+        final_port_distance=result["final_port_distance"],
+        min_port_distance=result["min_port_distance"],
+        final_s=result["final_s"],
+        min_s=result["min_s"],
+        final_rho=result["final_rho"],
+        max_rho=result["max_rho"],
+
         # Core history arrays
         times=result["times"],
         states=result["states"],
@@ -362,7 +464,6 @@ def save_rollout(result, rollout_id):
         s_dot_values=result["s_dot_values"],
         psi_e_values=result["psi_e_values"],
         omega_values=result["omega_values"],
-        
 
         # General reward components
         reward_totals=result["reward_totals"],
@@ -371,12 +472,13 @@ def save_rollout(result, rollout_id):
         reward_attitudes=result["reward_attitudes"],
         reward_rates=result["reward_rates"],
         reward_actions=result["reward_actions"],
+        reward_alphas=result["reward_alphas"],
         reward_warnings=result["reward_warnings"],
         reward_failures=result["reward_failures"],
         reward_successes=result["reward_successes"],
         reward_timeouts=result["reward_timeouts"],
 
-        # Reward specific diagnostics
+        # Reward-specific diagnostics
         desired_s_dot_values=result["desired_s_dot_values"],
         s_dot_error_values=result["s_dot_error_values"],
         too_fast_values=result["too_fast_values"],
@@ -384,6 +486,8 @@ def save_rollout(result, rollout_id):
         v_lateral_values=result["v_lateral_values"],
         progress_port_values=result["progress_port_values"],
         progress_s_values=result["progress_s_values"],
+        rho_progress_values=result["rho_progress_values"],
+        psi_ratio_values=result["psi_ratio_values"],
         rho_gate_values=result["rho_gate_values"],
         psi_gate_values=result["psi_gate_values"],
         progress_gate_values=result["progress_gate_values"],
@@ -396,6 +500,8 @@ def save_rollout(result, rollout_id):
         reward_lateral_values=result["reward_lateral_values"],
         reward_lateral_speed_values=result["reward_lateral_speed_values"],
         reward_progress_values=result["reward_progress_values"],
+        reward_rho_progress_values=result["reward_rho_progress_values"],
+        reward_psi_margin_values=result["reward_psi_margin_values"],
 
         # Action diagnostics
         normalized_actions=result["normalized_actions"],
@@ -405,13 +511,117 @@ def save_rollout(result, rollout_id):
     return filepath
 
 
+def print_rollout_line(result, rollout_id, filepath):
+    """
+    Prints one compact rollout summary.
+    """
+
+    print(
+        f"Rollout {rollout_id:03d} | "
+        f"seed={result['seed']:<3} | "
+        f"steps={result['steps']:<5} | "
+        f"success={result['success']} | "
+        f"failure={result['failure']} | "
+        f"reason={result['termination_reason']} | "
+        f"violated={result['violated_constraints']} | "
+        f"min_port={result['min_port_distance']:.2f} m | "
+        f"final_port={result['final_port_distance']:.2f} m | "
+        f"min_s={result['min_s']:.2f} m | "
+        f"final_s={result['final_s']:.2f} m | "
+        f"max_rho={result['max_rho']:.2f} m | "
+        f"final_rho={result['final_rho']:.2f} m | "
+        f"states_shape={result['states'].shape} | "
+        f"saved={filepath}"
+    )
+
+
+def save_evaluation_summary(results):
+    """
+    Saves a text summary of the evaluation results.
+    """
+
+    success_rate = np.mean([r["success"] for r in results])
+    failure_rate = np.mean([r["failure"] for r in results])
+    time_limit_rate = np.mean([r["time_limit"] for r in results])
+    mean_steps = np.mean([r["steps"] for r in results])
+
+    mean_min_port_distance = np.nanmean([r["min_port_distance"] for r in results])
+    mean_final_port_distance = np.nanmean([r["final_port_distance"] for r in results])
+    mean_min_s = np.nanmean([r["min_s"] for r in results])
+    mean_final_s = np.nanmean([r["final_s"] for r in results])
+    mean_max_rho = np.nanmean([r["max_rho"] for r in results])
+    mean_final_rho = np.nanmean([r["final_rho"] for r in results])
+
+    reasons = Counter(r["termination_reason"] for r in results)
+
+    constraint_counter = Counter()
+    for result in results:
+        for constraint in result["violated_constraints"]:
+            constraint_counter[constraint] += 1
+
+    summary_path = os.path.join(RESULTS_DIR, "evaluation_summary.txt")
+
+    with open(summary_path, "w", encoding="utf-8") as f:
+        f.write("SAC final-approach evaluation summary\n")
+        f.write("=" * 80 + "\n")
+        f.write(f"Model name: {MODEL_NAME}\n")
+        f.write(f"Model path: {MODEL_PATH}\n")
+        f.write(f"VecNorm path: {VECNORM_PATH}\n")
+        f.write(f"Results dir: {RESULTS_DIR}\n\n")
+
+        f.write(f"Number of rollouts: {len(results)}\n")
+        f.write(f"Success rate:       {success_rate:.2f}\n")
+        f.write(f"Failure rate:       {failure_rate:.2f}\n")
+        f.write(f"Time-limit rate:    {time_limit_rate:.2f}\n")
+        f.write(f"Mean steps:         {mean_steps:.1f}\n\n")
+
+        f.write("Distance / geometry summary:\n")
+        f.write(f"Mean min port distance:   {mean_min_port_distance:.2f} m\n")
+        f.write(f"Mean final port distance: {mean_final_port_distance:.2f} m\n")
+        f.write(f"Mean min s:               {mean_min_s:.2f} m\n")
+        f.write(f"Mean final s:             {mean_final_s:.2f} m\n")
+        f.write(f"Mean max rho:             {mean_max_rho:.2f} m\n")
+        f.write(f"Mean final rho:           {mean_final_rho:.2f} m\n\n")
+
+        f.write("Termination reasons:\n")
+        for reason, count in reasons.items():
+            f.write(f"  {reason}: {count}\n")
+
+        f.write("\nViolated constraints:\n")
+        if constraint_counter:
+            for constraint, count in constraint_counter.items():
+                f.write(f"  {constraint}: {count}\n")
+        else:
+            f.write("  none\n")
+
+        f.write("\nPer-rollout summary:\n")
+        for result in results:
+            f.write(
+                f"seed={result['seed']:<3} | "
+                f"steps={result['steps']:<5} | "
+                f"success={result['success']} | "
+                f"failure={result['failure']} | "
+                f"reason={result['termination_reason']} | "
+                f"violated={result['violated_constraints']} | "
+                f"min_port={result['min_port_distance']:.2f} m | "
+                f"final_port={result['final_port_distance']:.2f} m | "
+                f"min_s={result['min_s']:.2f} m | "
+                f"final_s={result['final_s']:.2f} m | "
+                f"max_rho={result['max_rho']:.2f} m | "
+                f"final_rho={result['final_rho']:.2f} m\n"
+            )
+
+    return summary_path
+
+
 def main():
     print("=" * 80)
     print("Evaluating SAC final-approach model")
     print("=" * 80)
-    print(f"Model path:   {MODEL_PATH}")
-    print(f"VecNorm path: {VECNORM_PATH}")
-    print(f"Results dir:  {RESULTS_DIR}")
+    print(f"Model name:  {MODEL_NAME}")
+    print(f"Model path:  {MODEL_PATH}")
+    print(f"VecNorm path:{VECNORM_PATH}")
+    print(f"Results dir: {RESULTS_DIR}")
     print("=" * 80)
 
     if not os.path.exists(MODEL_PATH):
@@ -441,17 +651,7 @@ def main():
         filepath = save_rollout(result, rollout_id)
         results.append(result)
 
-        print(
-            f"Rollout {rollout_id:03d} | "
-            f"seed={seed:<3} | "
-            f"steps={result['steps']:<5} | "
-            f"success={result['success']} | "
-            f"failure={result['failure']} | "
-            f"reason={result['termination_reason']} | "
-            f"violated={result['violated_constraints']} | "
-            f"states_shape={result['states'].shape} | "
-            f"saved={filepath}"
-        )
+        print_rollout_line(result, rollout_id, filepath)
 
     dummy_env.close()
 
@@ -463,6 +663,13 @@ def main():
     failure_rate = np.mean([r["failure"] for r in results])
     time_limit_rate = np.mean([r["time_limit"] for r in results])
     mean_steps = np.mean([r["steps"] for r in results])
+
+    mean_min_port_distance = np.nanmean([r["min_port_distance"] for r in results])
+    mean_final_port_distance = np.nanmean([r["final_port_distance"] for r in results])
+    mean_min_s = np.nanmean([r["min_s"] for r in results])
+    mean_final_s = np.nanmean([r["final_s"] for r in results])
+    mean_max_rho = np.nanmean([r["max_rho"] for r in results])
+    mean_final_rho = np.nanmean([r["final_rho"] for r in results])
 
     reasons = Counter(r["termination_reason"] for r in results)
 
@@ -477,14 +684,28 @@ def main():
     print(f"Time-limit rate:    {time_limit_rate:.2f}")
     print(f"Mean steps:         {mean_steps:.1f}")
 
+    print("\nDistance / geometry summary:")
+    print(f"Mean min port distance:   {mean_min_port_distance:.2f} m")
+    print(f"Mean final port distance: {mean_final_port_distance:.2f} m")
+    print(f"Mean min s:               {mean_min_s:.2f} m")
+    print(f"Mean final s:             {mean_final_s:.2f} m")
+    print(f"Mean max rho:             {mean_max_rho:.2f} m")
+    print(f"Mean final rho:           {mean_final_rho:.2f} m")
+
     print("\nTermination reasons:")
     for reason, count in reasons.items():
         print(f"  {reason}: {count}")
 
     print("\nViolated constraints:")
-    for constraint, count in constraint_counter.items():
-        print(f"  {constraint}: {count}")
+    if constraint_counter:
+        for constraint, count in constraint_counter.items():
+            print(f"  {constraint}: {count}")
+    else:
+        print("  none")
 
+    summary_path = save_evaluation_summary(results)
+
+    print(f"\nSaved summary to: {summary_path}")
     print("\nDone.")
 
 

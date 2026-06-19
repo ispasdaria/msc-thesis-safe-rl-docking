@@ -46,8 +46,6 @@ class Docking3DoFGymEnv(gym.Env):
         if mode not in ["nominal", "testing", "training"]:
             raise ValueError("mode must be one of: 'nominal', 'testing', or 'training'.")
 
-        # Phase-dependent default max_time.
-        # Still able to override it manually by passing max_time=...
         if max_time is None:
             if phase == "closing":
                 max_time = 12000.0
@@ -67,11 +65,6 @@ class Docking3DoFGymEnv(gym.Env):
             seed=seed,
         )
 
-        # Observation is the physical simulator state:
-        # [rx, ry, vx, vy, psi, omegaz]
-        #
-        # The observation structure is the same for closing and final approach.
-        # The actual observation at each step is self.core_env.state.
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
@@ -79,8 +72,6 @@ class Docking3DoFGymEnv(gym.Env):
             dtype=np.float32,
         )
 
-        # SAC outputs actions in [-1, 1], then they are scaled to the physical
-        # acceleration limits from the core environment.
         if self.normalize_action:
             self.action_space = spaces.Box(
                 low=-1.0,
@@ -98,19 +89,6 @@ class Docking3DoFGymEnv(gym.Env):
     def _scale_action(self, action):
         """
         Converts SAC action to physical body-frame acceleration command.
-
-        If normalize_action=True:
-            SAC action is in [-1, 1]^3.
-
-            physical action =
-                [
-                    action[0] * ax_max,
-                    action[1] * ay_max,
-                    action[2] * alphaz_max
-                ]
-
-        If normalize_action=False:
-            action is already physical.
         """
 
         action = np.asarray(action, dtype=np.float64)
@@ -139,9 +117,6 @@ class Docking3DoFGymEnv(gym.Env):
     def _get_reset_info(self):
         """
         Returns diagnostic information after reset.
-
-        This information is useful for debugging and logging, but it is not
-        part of the observation seen by SAC.
         """
 
         q = self.core_env.get_derived_quantities(self.core_env.state)
@@ -198,6 +173,7 @@ class Docking3DoFGymEnv(gym.Env):
         q = self.core_env.get_derived_quantities(self.core_env.state)
         self.prev_port_distance = q["port_distance"]
         self.prev_s = q["s"]
+        self.prev_rho = q["rho"]
 
         obs = self._get_obs()
         info = self._get_reset_info()
@@ -218,9 +194,6 @@ class Docking3DoFGymEnv(gym.Env):
 
         obs = obs.astype(np.float32)
 
-        # In Gymnasium:
-        # terminated = task ended naturally, either success or failure.
-        # truncated  = episode was cut off by a time limit.
         terminated = bool(
             info.get("success", False)
             or info.get("failure", False)
@@ -230,6 +203,7 @@ class Docking3DoFGymEnv(gym.Env):
 
         reward, reward_components = self._compute_sac_reward(
             state=self.core_env.state,
+            normalized_action=np.asarray(action, dtype=np.float64),
             physical_action=physical_action,
             info=info,
             terminated=terminated,
@@ -239,8 +213,6 @@ class Docking3DoFGymEnv(gym.Env):
         info["normalized_action"] = np.asarray(action, dtype=np.float32)
         info["physical_action"] = physical_action.astype(np.float32)
 
-        # Reward diagnostics for plotting/debugging.
-        # These are not part of the observation; SAC does not directly use them.
         info["reward_components"] = reward_components
 
         return obs, float(reward), terminated, truncated, info
@@ -248,6 +220,7 @@ class Docking3DoFGymEnv(gym.Env):
     def _compute_sac_reward(
         self,
         state,
+        normalized_action,
         physical_action,
         info,
         terminated,
@@ -278,7 +251,6 @@ class Docking3DoFGymEnv(gym.Env):
 
         action_norm = np.linalg.norm(physical_action / action_scale)
 
-        # Initialize diagnostics with default values.
         reward_components = {
             "phase": self.phase,
 
@@ -303,9 +275,11 @@ class Docking3DoFGymEnv(gym.Env):
             "s_dot_error": None,
             "too_fast": None,
             "moving_away": None,
-            "v_lateral": None, 
+            "v_lateral": None,
             "progress_port": None,
             "progress_s": None,
+            "rho_progress": None,
+            "psi_ratio": None,
             "rho_gate": None,
             "psi_gate": None,
             "progress_gate": None,
@@ -323,12 +297,15 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_attitude": 0.0,
             "reward_rate": 0.0,
             "reward_action": 0.0,
+            "reward_alpha": 0.0,
+            "reward_progress": 0.0,
+            "reward_rho_progress": 0.0,
+            "reward_psi_margin": 0.0,
             "reward_warning": 0.0,
             "reward_failure": 0.0,
             "reward_success": 0.0,
             "reward_timeout": 0.0,
             "reward_total": 0.0,
-            "reward_progress": 0.0,
         }
 
         if self.phase == "closing":
@@ -378,19 +355,16 @@ class Docking3DoFGymEnv(gym.Env):
 
         elif self.phase == "final":
             # ------------------------------------------------------------
-            # Reward v2 for final approach
+            # Reward v7 for final approach
             # ------------------------------------------------------------
             #
-            # Main design idea:
-            #   Reward v1 encouraged reducing port_distance, but this term dominated
-            #   the reward and led to unsafe velocity/alignment behaviour.
+            # Reward v7 keeps the safety-oriented terms from the previous
+            # reward versions, but uses a simple port-distance progress term:
             #
-            # Reward v2 therefore:
-            #   - reduces the dominance of the distance term
-            #   - adds desired closing-speed shaping using s_dot
-            #   - penalizes lateral offset rho
-            #   - strengthens attitude/alignment penalties
-            #   - keeps action effort penalty small
+            #     reward_progress = 10.0 * progress_port
+            #
+            # where progress_port > 0 means the port distance decreased since
+            # the previous step.
             # ------------------------------------------------------------
 
             s = q["s"]
@@ -400,9 +374,6 @@ class Docking3DoFGymEnv(gym.Env):
 
             # Distance-dependent desired axial closing speed.
             # Convention: s_dot < 0 means approaching the docking point.
-            #
-            # Far away: allow a slightly faster approach.
-            # Closer in: require slower approach.
             if s > 200.0:
                 desired_s_dot = -0.035
             elif s > 100.0:
@@ -422,18 +393,6 @@ class Docking3DoFGymEnv(gym.Env):
             # If s_dot > 0, the vehicle is increasing axial distance.
             moving_away = max(0.0, s_dot)
 
-            # Reward terms.
-            #
-            # Compared to v1:
-            #   - position coefficient reduced from 2.0 to 0.5
-            #   - port speed coefficient increased from 1.0 to 5.0
-            #   - attitude coefficient increased from 0.5 to 5.0
-            #   - rate coefficient increased from 0.1 to 1.0
-            #   - added s_dot tracking
-            #   - added too-fast penalty
-            #   - added moving-away penalty
-            #   - added lateral rho penalty
-
             progress_port = 0.0
             progress_s = 0.0
 
@@ -443,35 +402,20 @@ class Docking3DoFGymEnv(gym.Env):
             if hasattr(self, "prev_s"):
                 progress_s = self.prev_s - s
 
-            # Soft corridor gate
-            rho_good = 5.0
-            rho_bad = 12.0
+            # Reward v7 progress term.
+            # progress_port > 0 means port distance decreased.
+            # progress_port < 0 means port distance increased.
+            reward_progress = 10.0 * progress_port
 
-            rho_gate = np.clip(
-                (rho_bad - rho) / (rho_bad - rho_good),
-                0.0,
-                1.0,
-            )
+            # Gate diagnostics are not used in reward v7.
+            # They are kept as NaN so evaluation/plot scripts do not break
+            # if they still expect these keys.
+            rho_gate = np.nan
+            psi_gate = np.nan
+            progress_gate = np.nan
+            safe_progress = np.nan
+            unsafe_forward_progress = np.nan
 
-            # Soft alignment gate
-            psi_good = np.deg2rad(1.0)
-            psi_bad = np.deg2rad(2.5)
-
-            psi_gate = np.clip(
-                (psi_bad - psi_abs) / (psi_bad - psi_good),
-                0.0,
-                1.0,
-            )
-
-            progress_gate = rho_gate * psi_gate
-
-            safe_progress = progress_gate * progress_s
-            unsafe_forward_progress = (1.0 - progress_gate) * max(0.0, progress_s)
-
-            reward_progress = (
-                5.0 * safe_progress
-                - 5.0 * unsafe_forward_progress
-            )
             reward_position = -0.5 * port_distance
             reward_velocity = -5.0 * port_speed
             reward_s_dot = -20.0 * s_dot_error
@@ -482,6 +426,15 @@ class Docking3DoFGymEnv(gym.Env):
             reward_rate = -3.0 * omega_abs
             reward_action = -0.01 * action_norm
             reward_lateral_speed = -10.0 * v_lateral
+            reward_alpha = -5.0 * normalized_action[2]**2
+            rho_progress = 0.0
+            if hasattr(self, "prev_rho"):
+                rho_progress = self.prev_rho - rho
+
+            reward_rho_progress = 20.0 * rho_progress
+
+            psi_ratio = psi_abs / self.core_env.psi_safe
+            reward_psi_margin = -10.0 * max(0.0, psi_ratio - 0.5)**2
 
             reward = (
                 reward_position
@@ -493,12 +446,16 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_attitude
                 + reward_rate
                 + reward_action
-                + reward_lateral_speed 
+                + reward_alpha
+                + reward_lateral_speed
                 + reward_progress
+                + reward_rho_progress
+                + reward_psi_margin
             )
 
             self.prev_port_distance = port_distance
             self.prev_s = s
+            self.prev_rho = rho
 
             reward_components.update(
                 {
@@ -519,6 +476,8 @@ class Docking3DoFGymEnv(gym.Env):
                     "v_lateral": float(v_lateral),
                     "progress_port": float(progress_port),
                     "progress_s": float(progress_s),
+                    "rho_progress": float(rho_progress),
+                    "psi_ratio": float(psi_ratio),
                     "rho_gate": float(rho_gate),
                     "psi_gate": float(psi_gate),
                     "progress_gate": float(progress_gate),
@@ -535,8 +494,11 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_attitude": float(reward_attitude),
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
+                    "reward_alpha": float(reward_alpha),
                     "reward_lateral_speed": float(reward_lateral_speed),
                     "reward_progress": float(reward_progress),
+                    "reward_rho_progress": float(reward_rho_progress),
+                    "reward_psi_margin": float(reward_psi_margin),
                 }
             )
 

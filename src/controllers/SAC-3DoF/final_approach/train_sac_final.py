@@ -71,7 +71,7 @@ def main():
     seed = 0
     total_timesteps = 50_000
 
-    model_name = "sac_final_approach_rewardv10_50ksteps_seed0"
+    model_name = "sac_final_approach_rewardv13_50ksteps_seed0"
 
     model_path = os.path.join(MODEL_DIR, model_name)
     vecnorm_path = os.path.join(MODEL_DIR, f"{model_name}_vecnormalize.pkl")

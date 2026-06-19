@@ -3,7 +3,7 @@ Plot SAC final-approach evaluation rollouts.
 
 This script reads .npz rollout histories saved by evaluate_sac_final.py.
 
-Use this version for the reward v13 longer-training experiment.
+Use this version for the reward v17 longer-training experiment.
 """
 
 import os
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv13_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_rewardv17_50ksteps_seed0"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -135,9 +135,11 @@ def load_rollout(filepath):
         "progress_s": get_array(data, "progress_s_values", n_steps),
         "rho_progress": get_array(data, "rho_progress_values", n_steps),
         "psi_ratio": get_array(data, "psi_ratio_values", n_steps),
+        "speed_ratio": get_array(data, "speed_ratio_values", n_steps),
 
-        # These are usually NaN for reward v7, but are kept for compatibility.
+        # v17 uses rho_gate and speed_gate. The other gates support older rollouts.
         "rho_gate": get_array(data, "rho_gate_values", n_steps),
+        "speed_gate": get_array(data, "speed_gate_values", n_steps),
         "psi_gate": get_array(data, "psi_gate_values", n_steps),
         "progress_gate": get_array(data, "progress_gate_values", n_steps),
         "safe_progress": get_array(data, "safe_progress_values", n_steps),
@@ -153,6 +155,10 @@ def load_rollout(filepath):
         "reward_lateral": get_array(data, "reward_lateral_values", n_steps),
         "reward_lateral_speed": get_array(data, "reward_lateral_speed_values", n_steps),
         "reward_progress": get_array(data, "reward_progress_values", n_steps),
+        "reward_speed_margin": get_array(
+            data, "reward_speed_margin_values", n_steps
+        ),
+        "reward_rho_keep": get_array(data, "reward_rho_keep_values", n_steps),
         "reward_rho_progress": get_array(data, "reward_rho_progress_values", n_steps),
         "reward_psi_margin": get_array(data, "reward_psi_margin_values", n_steps),
 
@@ -216,7 +222,9 @@ def plot_one_rollout(result, rollout_id):
     progress_s = result["progress_s"]
     rho_progress = result["rho_progress"]
     psi_ratio = result["psi_ratio"]
+    speed_ratio = result["speed_ratio"]
     rho_gate = result["rho_gate"]
+    speed_gate = result["speed_gate"]
     psi_gate = result["psi_gate"]
     progress_gate = result["progress_gate"]
     safe_progress = result["safe_progress"]
@@ -227,6 +235,8 @@ def plot_one_rollout(result, rollout_id):
     reward_lateral = result["reward_lateral"]
     reward_lateral_speed = result["reward_lateral_speed"]
     reward_progress = result["reward_progress"]
+    reward_speed_margin = result["reward_speed_margin"]
+    reward_rho_keep = result["reward_rho_keep"]
     reward_rho_progress = result["reward_rho_progress"]
     reward_psi_margin = result["reward_psi_margin"]
 
@@ -364,6 +374,18 @@ def plot_one_rollout(result, rollout_id):
     plt.grid(True)
     save_plot(f"rollout_{rollout_id:03d}_speed_diagnostics.png")
 
+    if np.any(np.isfinite(speed_ratio)):
+        plt.figure()
+        plt.plot(t_steps, speed_ratio, label="port_speed / vp_safe")
+        plt.axhline(0.7, linestyle="--", label="margin threshold")
+        plt.axhline(1.0, linestyle=":", label="safe limit")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Normalized speed")
+        plt.title(f"SAC Final Approach Speed Margin\n{title_suffix}")
+        plt.legend()
+        plt.grid(True)
+        save_plot(f"rollout_{rollout_id:03d}_speed_margin.png")
+
     # ------------------------------------------------------------
     # 7. Progress diagnostics
     # ------------------------------------------------------------
@@ -379,13 +401,19 @@ def plot_one_rollout(result, rollout_id):
     plt.grid(True)
     save_plot(f"rollout_{rollout_id:03d}_progress_diagnostics.png")
 
-    # These are useful only for gated-progress reward versions.
-    # For reward v7 they are usually NaN and the plot can be ignored.
-    if not np.all(np.isnan(progress_gate)):
+    # v17 gates port-distance progress with rho_gate and speed_gate. Older
+    # reward versions may additionally provide psi_gate and progress_gate.
+    gate_series = (
+        ("rho_gate", rho_gate),
+        ("speed_gate", speed_gate),
+        ("psi_gate", psi_gate),
+        ("progress_gate", progress_gate),
+    )
+    if any(np.any(np.isfinite(values)) for _, values in gate_series):
         plt.figure()
-        plt.plot(t_steps, rho_gate, label="rho_gate")
-        plt.plot(t_steps, psi_gate, label="psi_gate")
-        plt.plot(t_steps, progress_gate, label="progress_gate")
+        for label, values in gate_series:
+            if np.any(np.isfinite(values)):
+                plt.plot(t_steps, values, label=label)
         plt.ylim(-0.05, 1.05)
         plt.xlabel("Time [s]")
         plt.ylabel("Gate value")
@@ -523,6 +551,8 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_moving_away, label="moving away")
     plt.plot(t_steps, reward_lateral, label="lateral")
     plt.plot(t_steps, reward_progress, label="progress")
+    plt.plot(t_steps, reward_speed_margin, label="speed margin")
+    plt.plot(t_steps, reward_rho_keep, label="rho keep")
     plt.plot(t_steps, reward_rho_progress, label="rho progress")
     plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_attitudes, label="attitude")
@@ -550,6 +580,8 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_lateral, label="lateral")
     plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_progress, label="progress")
+    plt.plot(t_steps, reward_speed_margin, label="speed margin")
+    plt.plot(t_steps, reward_rho_keep, label="rho keep")
     plt.plot(t_steps, reward_rho_progress, label="rho progress")
     plt.plot(t_steps, reward_attitudes, label="attitude")
     plt.plot(t_steps, reward_rates, label="rate")

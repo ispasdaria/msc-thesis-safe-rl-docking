@@ -5,7 +5,7 @@ This version avoids DummyVecEnv auto-reset during rollout history saving.
 It runs a normal, non-vectorized environment and manually normalizes
 observations using the saved VecNormalize statistics.
 
-Use this version for the reward v17 longer-training experiment.
+Use this version for the reward v23 experiment.
 """
 
 import os
@@ -40,8 +40,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Use this for the longer reward-v17 training experiment.
-MODEL_NAME = "sac_final_approach_rewardv17_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_rewardv25_50ksteps_seed0"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -199,14 +198,18 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     progress_port_values = []
     progress_s_values = []
     rho_progress_values = []
+    rho_excess_values = []
     psi_ratio_values = []
+    omega_ratio_values = []
     speed_ratio_values = []
 
-    # v17 uses rho_gate and speed_gate; the remaining gate diagnostics are retained for
-    # compatibility with older reward versions and are normally NaN.
+    # Progress-gating diagnostics. Missing values remain NaN when evaluating an
+    # older reward version.
     rho_gate_values = []
     speed_gate_values = []
     psi_gate_values = []
+    omega_gate_values = []
+    alignment_gate_values = []
     progress_gate_values = []
     safe_progress_values = []
     unsafe_forward_progress_values = []
@@ -215,12 +218,15 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     reward_too_fast_values = []
     reward_moving_away_values = []
     reward_lateral_values = []
+    reward_rho_corridor_values = []
     reward_lateral_speed_values = []
     reward_progress_values = []
+    reward_unsafe_forward_progress_values = []
     reward_speed_margin_values = []
     reward_rho_keep_values = []
     reward_rho_progress_values = []
     reward_psi_margin_values = []
+    reward_omega_margin_values = []
 
     # Action diagnostics
     normalized_actions = []
@@ -299,12 +305,16 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         progress_port_values.append(rc.get("progress_port", np.nan))
         progress_s_values.append(rc.get("progress_s", np.nan))
         rho_progress_values.append(rc.get("rho_progress", np.nan))
+        rho_excess_values.append(rc.get("rho_excess", np.nan))
         psi_ratio_values.append(rc.get("psi_ratio", np.nan))
+        omega_ratio_values.append(rc.get("omega_ratio", np.nan))
         speed_ratio_values.append(rc.get("speed_ratio", np.nan))
 
         rho_gate_values.append(rc.get("rho_gate", np.nan))
         speed_gate_values.append(rc.get("speed_gate", np.nan))
         psi_gate_values.append(rc.get("psi_gate", np.nan))
+        omega_gate_values.append(rc.get("omega_gate", np.nan))
+        alignment_gate_values.append(rc.get("alignment_gate", np.nan))
         progress_gate_values.append(rc.get("progress_gate", np.nan))
         safe_progress_values.append(rc.get("safe_progress", np.nan))
         unsafe_forward_progress_values.append(
@@ -312,15 +322,22 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         )
 
         reward_progress_values.append(rc.get("reward_progress", np.nan))
+        reward_unsafe_forward_progress_values.append(
+            rc.get("reward_unsafe_forward_progress", np.nan)
+        )
         reward_speed_margin_values.append(rc.get("reward_speed_margin", np.nan))
         reward_rho_keep_values.append(rc.get("reward_rho_keep", np.nan))
         reward_s_dot_values.append(rc.get("reward_s_dot", np.nan))
         reward_too_fast_values.append(rc.get("reward_too_fast", np.nan))
         reward_moving_away_values.append(rc.get("reward_moving_away", np.nan))
         reward_lateral_values.append(rc.get("reward_lateral", np.nan))
+        reward_rho_corridor_values.append(
+            rc.get("reward_rho_corridor", np.nan)
+        )
         reward_lateral_speed_values.append(rc.get("reward_lateral_speed", np.nan))
         reward_rho_progress_values.append(rc.get("reward_rho_progress", np.nan))
         reward_psi_margin_values.append(rc.get("reward_psi_margin", np.nan))
+        reward_omega_margin_values.append(rc.get("reward_omega_margin", np.nan))
 
         # -------------------------------------------------------------
         # Action diagnostics
@@ -406,11 +423,15 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "progress_port_values": np.array(progress_port_values),
         "progress_s_values": np.array(progress_s_values),
         "rho_progress_values": np.array(rho_progress_values),
+        "rho_excess_values": np.array(rho_excess_values),
         "psi_ratio_values": np.array(psi_ratio_values),
+        "omega_ratio_values": np.array(omega_ratio_values),
         "speed_ratio_values": np.array(speed_ratio_values),
         "rho_gate_values": np.array(rho_gate_values),
         "speed_gate_values": np.array(speed_gate_values),
         "psi_gate_values": np.array(psi_gate_values),
+        "omega_gate_values": np.array(omega_gate_values),
+        "alignment_gate_values": np.array(alignment_gate_values),
         "progress_gate_values": np.array(progress_gate_values),
         "safe_progress_values": np.array(safe_progress_values),
         "unsafe_forward_progress_values": np.array(unsafe_forward_progress_values),
@@ -419,12 +440,17 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "reward_too_fast_values": np.array(reward_too_fast_values),
         "reward_moving_away_values": np.array(reward_moving_away_values),
         "reward_lateral_values": np.array(reward_lateral_values),
+        "reward_rho_corridor_values": np.array(reward_rho_corridor_values),
         "reward_lateral_speed_values": np.array(reward_lateral_speed_values),
         "reward_progress_values": np.array(reward_progress_values),
+        "reward_unsafe_forward_progress_values": np.array(
+            reward_unsafe_forward_progress_values
+        ),
         "reward_speed_margin_values": np.array(reward_speed_margin_values),
         "reward_rho_keep_values": np.array(reward_rho_keep_values),
         "reward_rho_progress_values": np.array(reward_rho_progress_values),
         "reward_psi_margin_values": np.array(reward_psi_margin_values),
+        "reward_omega_margin_values": np.array(reward_omega_margin_values),
 
         # Action diagnostics
         "normalized_actions": np.array(normalized_actions),
@@ -499,11 +525,15 @@ def save_rollout(result, rollout_id):
         progress_port_values=result["progress_port_values"],
         progress_s_values=result["progress_s_values"],
         rho_progress_values=result["rho_progress_values"],
+        rho_excess_values=result["rho_excess_values"],
         psi_ratio_values=result["psi_ratio_values"],
+        omega_ratio_values=result["omega_ratio_values"],
         speed_ratio_values=result["speed_ratio_values"],
         rho_gate_values=result["rho_gate_values"],
         speed_gate_values=result["speed_gate_values"],
         psi_gate_values=result["psi_gate_values"],
+        omega_gate_values=result["omega_gate_values"],
+        alignment_gate_values=result["alignment_gate_values"],
         progress_gate_values=result["progress_gate_values"],
         safe_progress_values=result["safe_progress_values"],
         unsafe_forward_progress_values=result["unsafe_forward_progress_values"],
@@ -512,12 +542,17 @@ def save_rollout(result, rollout_id):
         reward_too_fast_values=result["reward_too_fast_values"],
         reward_moving_away_values=result["reward_moving_away_values"],
         reward_lateral_values=result["reward_lateral_values"],
+        reward_rho_corridor_values=result["reward_rho_corridor_values"],
         reward_lateral_speed_values=result["reward_lateral_speed_values"],
         reward_progress_values=result["reward_progress_values"],
+        reward_unsafe_forward_progress_values=result[
+            "reward_unsafe_forward_progress_values"
+        ],
         reward_speed_margin_values=result["reward_speed_margin_values"],
         reward_rho_keep_values=result["reward_rho_keep_values"],
         reward_rho_progress_values=result["reward_rho_progress_values"],
         reward_psi_margin_values=result["reward_psi_margin_values"],
+        reward_omega_margin_values=result["reward_omega_margin_values"],
 
         # Action diagnostics
         normalized_actions=result["normalized_actions"],

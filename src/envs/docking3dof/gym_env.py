@@ -279,11 +279,15 @@ class Docking3DoFGymEnv(gym.Env):
             "progress_port": None,
             "progress_s": None,
             "rho_progress": None,
+            "rho_excess": None,
             "psi_ratio": None,
+            "omega_ratio": None,
             "speed_ratio": None,
             "rho_gate": None,
             "speed_gate": None,
             "psi_gate": None,
+            "omega_gate": None,
+            "alignment_gate": None,
             "progress_gate": None,
             "safe_progress": None,
             "unsafe_forward_progress": None,
@@ -295,16 +299,19 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_too_fast": 0.0,
             "reward_moving_away": 0.0,
             "reward_lateral": 0.0,
+            "reward_rho_corridor": 0.0,
             "reward_lateral_speed": 0.0,
             "reward_attitude": 0.0,
             "reward_rate": 0.0,
             "reward_action": 0.0,
             "reward_alpha": 0.0,
             "reward_progress": 0.0,
+            "reward_unsafe_forward_progress": 0.0,
             "reward_speed_margin": 0.0,
             "reward_rho_keep": 0.0,
             "reward_rho_progress": 0.0,
             "reward_psi_margin": 0.0,
+            "reward_omega_margin": 0.0,
             "reward_warning": 0.0,
             "reward_failure": 0.0,
             "reward_success": 0.0,
@@ -359,21 +366,21 @@ class Docking3DoFGymEnv(gym.Env):
 
         elif self.phase == "final":
             # ------------------------------------------------------------
-            # Reward v17 for final approach
+            # Reward v23 for final approach
             # ------------------------------------------------------------
             #
-            # Based on rewardv16, with progress additionally gated by docking-
-            # port speed and a penalty near the safe speed boundary.
-            # This prevents the agent from being rewarded for reducing port
-            # distance through a diagonal trajectory that leaves the docking
-            # corridor.
+            # Base: reward v18, because it was one of the versions that
+            # produced strong forward progress toward the docking port.
             #
-            # Main ideas:
-            #   - Reward forward progress only when rho is small.
-            #   - Penalize moving away strongly.
-            #   - Penalize increases in rho asymmetrically.
-            #   - Penalize angular action to avoid immediate alignment-rate failure.
-            #   - Add a psi margin penalty before the unsafe attitude boundary.
+            # Changes for v23:
+            #   - Keep v18-style progress gating by rho and port speed.
+            #   - Do not gate forward progress by alignment, because that
+            #     made later versions lose the useful approach behaviour.
+            #   - Soften the direct lateral penalty to avoid immediate lateral
+            #     overcorrection.
+            #   - Add a local rho-keep bonus near the corridor centerline.
+            #   - Keep unsafe forward progress penalty, but reduce it compared
+            #     with v20/v21.
             # ------------------------------------------------------------
 
             s = q["s"]
@@ -411,19 +418,42 @@ class Docking3DoFGymEnv(gym.Env):
             if hasattr(self, "prev_s"):
                 progress_s = self.prev_s - s
 
-            # Gate port-distance progress by lateral offset.
+            # v18 progress gates.
             # rho small  -> progress reward is active.
             # rho large  -> progress reward fades away.
             rho_gate = np.exp(-0.5 * (rho / 4.0) ** 2)
 
-            speed_ratio = port_speed / self.core_env.vp_safe_final
-            speed_gate = np.exp(-0.5 * max(0.0, speed_ratio - 0.7) ** 2 / 0.2**2)
+            vp_safe = getattr(
+                self.core_env,
+                "vp_safe_final",
+                getattr(self.core_env, "vp_safe", 1.0),
+            )
+            speed_ratio = port_speed / vp_safe
+            speed_gate = np.exp(-0.5 * (max(0.0, speed_ratio - 0.7) / 0.2) ** 2)
 
-            reward_progress = 50.0 * progress_port * rho_gate * speed_gate
+            psi_ratio = psi_abs / self.core_env.psi_safe
+            omega_ratio = omega_abs / self.core_env.omega_safe
 
-            reward_speed_margin = -20.0 * max(0.0, speed_ratio - 0.7) ** 2
+            # Keep these as diagnostics and for margin penalties, but do not use
+            # them inside progress_gate for this version.
+            psi_gate = np.clip(1.0 - psi_ratio, 0.0, 1.0)
+            omega_gate = np.clip(1.0 - omega_ratio, 0.0, 1.0)
+            alignment_gate = psi_gate * omega_gate
 
-            reward_rho_keep = 2.0 * np.exp(-0.5 * (rho / 2.0) ** 2)
+            # IMPORTANT for v23:
+            # Use the v18 forward-progress structure: rho gate + speed gate only.
+            # This preserves the behaviour that actually approached the port.
+            progress_gate = rho_gate * speed_gate
+            safe_progress = progress_port * progress_gate
+            unsafe_forward_progress = progress_port * (1.0 - progress_gate)
+
+            reward_progress = 50.0 * safe_progress
+            reward_unsafe_forward_progress = -120.0 * max(0.0, unsafe_forward_progress)
+
+            reward_speed_margin = -40.0 * max(0.0, speed_ratio - 0.7) ** 2
+
+            # Local centerline bonus: strong only when rho is already small.
+            reward_rho_keep = 3.0 * np.exp(-0.5 * (rho / 2.0) ** 2)
 
             # Asymmetric rho-progress reward.
             # rho_progress > 0 means lateral offset decreased.
@@ -439,28 +469,29 @@ class Docking3DoFGymEnv(gym.Env):
             else:
                 reward_rho_progress = 50.0 * rho_progress
 
-            # Attitude margin penalty.
-            # Starts penalizing once psi exceeds 50% of the safe limit.
-            psi_ratio = psi_abs / self.core_env.psi_safe
-            reward_psi_margin = -10.0 * max(0.0, psi_ratio - 0.5) ** 2
+            # Alignment margin penalties.
+            # These start before the safe boundary is reached.
+            reward_psi_margin = -50.0 * max(0.0, psi_ratio - 0.50) ** 2
+            reward_omega_margin = -5.0 * max(0.0, omega_ratio - 0.75) ** 2
 
-            # Other diagnostics kept for plotting compatibility.
-            psi_gate = np.nan
-            progress_gate = np.nan
-            safe_progress = np.nan
-            unsafe_forward_progress = np.nan
-
-            reward_position = -0.5 * port_distance
+            reward_position = -0.05 * port_distance
             reward_velocity = -5.0 * port_speed
             reward_s_dot = -20.0 * s_dot_error
-            reward_too_fast = -50.0 * too_fast
+            reward_too_fast = -100.0 * too_fast
             reward_moving_away = -150.0 * moving_away
-            reward_lateral = -1.5 * rho - 0.10 * rho**2
+
+            # v23 lateral penalty plus a stronger out-of-corridor term.
+            reward_lateral = -1.5 * rho - 0.08 * rho**2
+
+            # Add a stronger penalty only when rho leaves the useful corridor
+            rho_excess = max(0.0, rho - 4.0)
+            reward_rho_corridor = -8.0 * rho_excess**2
+
             reward_attitude = -15.0 * psi_abs
             reward_rate = -3.0 * omega_abs
-            reward_action = -0.01 * action_norm
+            reward_action = -0.02 * action_norm**2
             reward_lateral_speed = -10.0 * v_lateral
-            reward_alpha = -5.0 * normalized_action[2] ** 2
+            reward_alpha = -8.0 * normalized_action[2] ** 2
 
             reward = (
                 reward_position
@@ -469,16 +500,19 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_too_fast
                 + reward_moving_away
                 + reward_lateral
+                + reward_rho_corridor
                 + reward_attitude
                 + reward_rate
                 + reward_action
                 + reward_alpha
                 + reward_lateral_speed
                 + reward_progress
+                + reward_unsafe_forward_progress
                 + reward_speed_margin
                 + reward_rho_keep
                 + reward_rho_progress
                 + reward_psi_margin
+                + reward_omega_margin
             )
 
             self.prev_port_distance = port_distance
@@ -505,11 +539,15 @@ class Docking3DoFGymEnv(gym.Env):
                     "progress_port": float(progress_port),
                     "progress_s": float(progress_s),
                     "rho_progress": float(rho_progress),
+                    "rho_excess": float(rho_excess),
                     "psi_ratio": float(psi_ratio),
+                    "omega_ratio": float(omega_ratio),
                     "speed_ratio": float(speed_ratio),
                     "rho_gate": float(rho_gate),
                     "speed_gate": float(speed_gate),
                     "psi_gate": float(psi_gate),
+                    "omega_gate": float(omega_gate),
+                    "alignment_gate": float(alignment_gate),
                     "progress_gate": float(progress_gate),
                     "safe_progress": float(safe_progress),
                     "unsafe_forward_progress": float(unsafe_forward_progress),
@@ -521,16 +559,21 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_too_fast": float(reward_too_fast),
                     "reward_moving_away": float(reward_moving_away),
                     "reward_lateral": float(reward_lateral),
+                    "reward_rho_corridor": float(reward_rho_corridor),
                     "reward_attitude": float(reward_attitude),
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
                     "reward_alpha": float(reward_alpha),
                     "reward_lateral_speed": float(reward_lateral_speed),
                     "reward_progress": float(reward_progress),
+                    "reward_unsafe_forward_progress": float(
+                        reward_unsafe_forward_progress
+                    ),
                     "reward_speed_margin": float(reward_speed_margin),
                     "reward_rho_keep": float(reward_rho_keep),
                     "reward_rho_progress": float(reward_rho_progress),
                     "reward_psi_margin": float(reward_psi_margin),
+                    "reward_omega_margin": float(reward_omega_margin),
                 }
             )
 

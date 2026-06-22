@@ -3,7 +3,7 @@ Plot SAC final-approach evaluation rollouts.
 
 This script reads .npz rollout histories saved by evaluate_sac_final.py.
 
-Use this version for the reward v17 longer-training experiment.
+Use this version for the reward v23 experiment.
 """
 
 import os
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv17_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_rewardv25_50ksteps_seed0"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -134,13 +134,17 @@ def load_rollout(filepath):
         "progress_port": get_array(data, "progress_port_values", n_steps),
         "progress_s": get_array(data, "progress_s_values", n_steps),
         "rho_progress": get_array(data, "rho_progress_values", n_steps),
+        "rho_excess": get_array(data, "rho_excess_values", n_steps),
         "psi_ratio": get_array(data, "psi_ratio_values", n_steps),
+        "omega_ratio": get_array(data, "omega_ratio_values", n_steps),
         "speed_ratio": get_array(data, "speed_ratio_values", n_steps),
 
-        # v17 uses rho_gate and speed_gate. The other gates support older rollouts.
+        # Missing diagnostics are filled with NaN for older rollout files.
         "rho_gate": get_array(data, "rho_gate_values", n_steps),
         "speed_gate": get_array(data, "speed_gate_values", n_steps),
         "psi_gate": get_array(data, "psi_gate_values", n_steps),
+        "omega_gate": get_array(data, "omega_gate_values", n_steps),
+        "alignment_gate": get_array(data, "alignment_gate_values", n_steps),
         "progress_gate": get_array(data, "progress_gate_values", n_steps),
         "safe_progress": get_array(data, "safe_progress_values", n_steps),
         "unsafe_forward_progress": get_array(
@@ -153,14 +157,23 @@ def load_rollout(filepath):
         "reward_too_fast": get_array(data, "reward_too_fast_values", n_steps),
         "reward_moving_away": get_array(data, "reward_moving_away_values", n_steps),
         "reward_lateral": get_array(data, "reward_lateral_values", n_steps),
+        "reward_rho_corridor": get_array(
+            data, "reward_rho_corridor_values", n_steps
+        ),
         "reward_lateral_speed": get_array(data, "reward_lateral_speed_values", n_steps),
         "reward_progress": get_array(data, "reward_progress_values", n_steps),
+        "reward_unsafe_forward_progress": get_array(
+            data, "reward_unsafe_forward_progress_values", n_steps
+        ),
         "reward_speed_margin": get_array(
             data, "reward_speed_margin_values", n_steps
         ),
         "reward_rho_keep": get_array(data, "reward_rho_keep_values", n_steps),
         "reward_rho_progress": get_array(data, "reward_rho_progress_values", n_steps),
         "reward_psi_margin": get_array(data, "reward_psi_margin_values", n_steps),
+        "reward_omega_margin": get_array(
+            data, "reward_omega_margin_values", n_steps
+        ),
 
         "normalized_actions": data["normalized_actions"],
         "physical_actions": data["physical_actions"],
@@ -212,6 +225,8 @@ def plot_one_rollout(result, rollout_id):
     reward_alphas = result["reward_alphas"]
     reward_warnings = result["reward_warnings"]
     reward_failures = result["reward_failures"]
+    reward_successes = result["reward_successes"]
+    reward_timeouts = result["reward_timeouts"]
 
     desired_s_dot = result["desired_s_dot"]
     s_dot_error = result["s_dot_error"]
@@ -221,11 +236,15 @@ def plot_one_rollout(result, rollout_id):
     progress_port = result["progress_port"]
     progress_s = result["progress_s"]
     rho_progress = result["rho_progress"]
+    rho_excess = result["rho_excess"]
     psi_ratio = result["psi_ratio"]
+    omega_ratio = result["omega_ratio"]
     speed_ratio = result["speed_ratio"]
     rho_gate = result["rho_gate"]
     speed_gate = result["speed_gate"]
     psi_gate = result["psi_gate"]
+    omega_gate = result["omega_gate"]
+    alignment_gate = result["alignment_gate"]
     progress_gate = result["progress_gate"]
     safe_progress = result["safe_progress"]
     unsafe_forward_progress = result["unsafe_forward_progress"]
@@ -233,12 +252,15 @@ def plot_one_rollout(result, rollout_id):
     reward_too_fast = result["reward_too_fast"]
     reward_moving_away = result["reward_moving_away"]
     reward_lateral = result["reward_lateral"]
+    reward_rho_corridor = result["reward_rho_corridor"]
     reward_lateral_speed = result["reward_lateral_speed"]
     reward_progress = result["reward_progress"]
+    reward_unsafe_forward_progress = result["reward_unsafe_forward_progress"]
     reward_speed_margin = result["reward_speed_margin"]
     reward_rho_keep = result["reward_rho_keep"]
     reward_rho_progress = result["reward_rho_progress"]
     reward_psi_margin = result["reward_psi_margin"]
+    reward_omega_margin = result["reward_omega_margin"]
 
     # History convention:
     # states has length N+1 because it includes reset state.
@@ -323,6 +345,8 @@ def plot_one_rollout(result, rollout_id):
     plt.figure()
     plt.plot(t_steps, s_values, label="s")
     plt.plot(t_steps, rho_values, label="rho")
+    if np.any(np.isfinite(rho_excess)):
+        plt.plot(t_steps, rho_excess, label="rho excess above 4 m")
     plt.xlabel("Time [s]")
     plt.ylabel("Distance [m]")
     plt.title(f"SAC Final Approach Geometry\n{title_suffix}")
@@ -401,12 +425,15 @@ def plot_one_rollout(result, rollout_id):
     plt.grid(True)
     save_plot(f"rollout_{rollout_id:03d}_progress_diagnostics.png")
 
-    # v17 gates port-distance progress with rho_gate and speed_gate. Older
-    # reward versions may additionally provide psi_gate and progress_gate.
+    # In v23, progress_gate is rho_gate * speed_gate. Alignment gates are
+    # diagnostics only and are plotted here to show why their exclusion matters.
+    # NaN-only series from older rollouts are skipped.
     gate_series = (
         ("rho_gate", rho_gate),
         ("speed_gate", speed_gate),
         ("psi_gate", psi_gate),
+        ("omega_gate", omega_gate),
+        ("alignment_gate", alignment_gate),
         ("progress_gate", progress_gate),
     )
     if any(np.any(np.isfinite(values)) for _, values in gate_series):
@@ -417,14 +444,14 @@ def plot_one_rollout(result, rollout_id):
         plt.ylim(-0.05, 1.05)
         plt.xlabel("Time [s]")
         plt.ylabel("Gate value")
-        plt.title(f"SAC Final Approach Progress Gates\n{title_suffix}")
+        plt.title(f"SAC Final Approach Gate Diagnostics\n{title_suffix}")
         plt.legend()
         plt.grid(True)
         save_plot(f"rollout_{rollout_id:03d}_progress_gates.png")
 
     if not np.all(np.isnan(safe_progress)):
         plt.figure()
-        plt.plot(t_steps, progress_s, label="progress_s")
+        plt.plot(t_steps, progress_port, label="progress_port")
         plt.plot(t_steps, safe_progress, label="safe_progress")
         plt.plot(t_steps, unsafe_forward_progress, label="unsafe_forward_progress")
         plt.axhline(0.0, linestyle=":", linewidth=1, label="zero")
@@ -448,16 +475,21 @@ def plot_one_rollout(result, rollout_id):
     plt.grid(True)
     save_plot(f"rollout_{rollout_id:03d}_alignment.png")
 
-    plt.figure()
-    plt.plot(t_steps, psi_ratio, label="psi_ratio")
-    plt.axhline(0.5, linestyle=":", linewidth=1, label="margin threshold")
-    plt.axhline(1.0, linestyle="--", linewidth=1, label="safe limit")
-    plt.xlabel("Time [s]")
-    plt.ylabel("psi_abs / psi_safe")
-    plt.title(f"SAC Final Approach Psi Margin Diagnostic\n{title_suffix}")
-    plt.legend()
-    plt.grid(True)
-    save_plot(f"rollout_{rollout_id:03d}_psi_margin_diagnostic.png")
+    if np.any(np.isfinite(psi_ratio)) or np.any(np.isfinite(omega_ratio)):
+        plt.figure()
+        if np.any(np.isfinite(psi_ratio)):
+            plt.plot(t_steps, psi_ratio, label="|psi_e| / psi_safe")
+        if np.any(np.isfinite(omega_ratio)):
+            plt.plot(t_steps, omega_ratio, label="|omega| / omega_safe")
+        plt.axhline(0.5, linestyle=":", linewidth=1, label="psi penalty threshold")
+        plt.axhline(0.75, linestyle="-.", linewidth=1, label="omega penalty threshold")
+        plt.axhline(1.0, linestyle="--", linewidth=1, label="safe limit")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Normalized alignment")
+        plt.title(f"SAC Final Approach Alignment Margins\n{title_suffix}")
+        plt.legend()
+        plt.grid(True)
+        save_plot(f"rollout_{rollout_id:03d}_alignment_margin_diagnostic.png")
 
     plt.figure()
     plt.plot(t_states, np.rad2deg(psi), label="psi state")
@@ -550,7 +582,13 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_too_fast, label="too fast")
     plt.plot(t_steps, reward_moving_away, label="moving away")
     plt.plot(t_steps, reward_lateral, label="lateral")
+    plt.plot(t_steps, reward_rho_corridor, label="rho corridor")
     plt.plot(t_steps, reward_progress, label="progress")
+    plt.plot(
+        t_steps,
+        reward_unsafe_forward_progress,
+        label="unsafe forward progress",
+    )
     plt.plot(t_steps, reward_speed_margin, label="speed margin")
     plt.plot(t_steps, reward_rho_keep, label="rho keep")
     plt.plot(t_steps, reward_rho_progress, label="rho progress")
@@ -560,8 +598,11 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_actions, label="action")
     plt.plot(t_steps, reward_alphas, label="alpha")
     plt.plot(t_steps, reward_psi_margin, label="psi margin")
+    plt.plot(t_steps, reward_omega_margin, label="omega margin")
     plt.plot(t_steps, reward_warnings, label="warning")
     plt.plot(t_steps, reward_failures, label="failure")
+    plt.plot(t_steps, reward_successes, label="success")
+    plt.plot(t_steps, reward_timeouts, label="timeout")
     plt.xlabel("Time [s]")
     plt.ylabel("Reward component")
     plt.title(f"SAC Final Approach Reward Components\n{title_suffix}")
@@ -578,8 +619,14 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_too_fast, label="too fast")
     plt.plot(t_steps, reward_moving_away, label="moving away")
     plt.plot(t_steps, reward_lateral, label="lateral")
+    plt.plot(t_steps, reward_rho_corridor, label="rho corridor")
     plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_progress, label="progress")
+    plt.plot(
+        t_steps,
+        reward_unsafe_forward_progress,
+        label="unsafe forward progress",
+    )
     plt.plot(t_steps, reward_speed_margin, label="speed margin")
     plt.plot(t_steps, reward_rho_keep, label="rho keep")
     plt.plot(t_steps, reward_rho_progress, label="rho progress")
@@ -588,8 +635,11 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_actions, label="action")
     plt.plot(t_steps, reward_alphas, label="alpha")
     plt.plot(t_steps, reward_psi_margin, label="psi margin")
+    plt.plot(t_steps, reward_omega_margin, label="omega margin")
     plt.plot(t_steps, reward_warnings, label="warning")
     plt.plot(t_steps, reward_failures, label="failure")
+    plt.plot(t_steps, reward_successes, label="success")
+    plt.plot(t_steps, reward_timeouts, label="timeout")
     plt.xlabel("Time [s]")
     plt.ylabel("Reward component")
     plt.title(f"SAC Reward Components Without Position\n{title_suffix}")

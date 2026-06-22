@@ -1,5 +1,8 @@
-numpy 
-scipy 
-matplotlib 
-pandas 
-pyyaml 
+numpy
+scipy
+matplotlib
+pandas
+gymnasium[classic-control]
+stable-baselines3
+tensorboard
+pytest

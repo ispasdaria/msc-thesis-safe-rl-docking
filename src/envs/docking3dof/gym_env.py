@@ -365,23 +365,6 @@ class Docking3DoFGymEnv(gym.Env):
             )
 
         elif self.phase == "final":
-            # ------------------------------------------------------------
-            # Reward v23 for final approach
-            # ------------------------------------------------------------
-            #
-            # Base: reward v18, because it was one of the versions that
-            # produced strong forward progress toward the docking port.
-            #
-            # Changes for v23:
-            #   - Keep v18-style progress gating by rho and port speed.
-            #   - Do not gate forward progress by alignment, because that
-            #     made later versions lose the useful approach behaviour.
-            #   - Soften the direct lateral penalty to avoid immediate lateral
-            #     overcorrection.
-            #   - Add a local rho-keep bonus near the corridor centerline.
-            #   - Keep unsafe forward progress penalty, but reduce it compared
-            #     with v20/v21.
-            # ------------------------------------------------------------
 
             s = q["s"]
             rho = q["rho"]
@@ -434,15 +417,11 @@ class Docking3DoFGymEnv(gym.Env):
             psi_ratio = psi_abs / self.core_env.psi_safe
             omega_ratio = omega_abs / self.core_env.omega_safe
 
-            # Keep these as diagnostics and for margin penalties, but do not use
-            # them inside progress_gate for this version.
             psi_gate = np.clip(1.0 - psi_ratio, 0.0, 1.0)
             omega_gate = np.clip(1.0 - omega_ratio, 0.0, 1.0)
             alignment_gate = psi_gate * omega_gate
 
-            # IMPORTANT for v23:
-            # Use the v18 forward-progress structure: rho gate + speed gate only.
-            # This preserves the behaviour that actually approached the port.
+
             progress_gate = rho_gate * speed_gate
             safe_progress = progress_port * progress_gate
             unsafe_forward_progress = progress_port * (1.0 - progress_gate)
@@ -467,7 +446,7 @@ class Docking3DoFGymEnv(gym.Env):
                 rho_recovery_gain = 10.0 + 30.0 * min(rho / 10.0, 1.0)
                 reward_rho_progress = rho_recovery_gain * rho_progress
             else:
-                reward_rho_progress = 50.0 * rho_progress
+                reward_rho_progress = 15.0 * rho_progress
 
             # Alignment margin penalties.
             # These start before the safe boundary is reached.
@@ -481,9 +460,8 @@ class Docking3DoFGymEnv(gym.Env):
             reward_moving_away = -150.0 * moving_away
 
             # v23 lateral penalty plus a stronger out-of-corridor term.
-            reward_lateral = -1.5 * rho - 0.08 * rho**2
+            reward_lateral = -1.0 * rho - 0.05 * rho**2
 
-            # Add a stronger penalty only when rho leaves the useful corridor
             rho_excess = max(0.0, rho - 4.0)
             reward_rho_corridor = -8.0 * rho_excess**2
 

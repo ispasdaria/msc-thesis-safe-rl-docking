@@ -14,7 +14,7 @@ import sys
 import numpy as np
 
 REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
 )
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 
@@ -23,6 +23,24 @@ if SRC_PATH not in sys.path:
 
 from stable_baselines3.common.env_checker import check_env
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
+
+
+def expected_observation(env):
+    if env.phase == "closing":
+        return env.core_env.state.astype(np.float32)
+
+    q = env.core_env.get_derived_quantities(env.core_env.state)
+    return np.array(
+        [
+            q["r_p"][0],
+            q["r_p"][1],
+            q["v_p"][0],
+            q["v_p"][1],
+            q["psi_e"],
+            q["omega"],
+        ],
+        dtype=np.float32,
+    )
 
 
 def test_single_phase(phase):
@@ -63,6 +81,11 @@ def test_single_phase(phase):
         "Initial observation is not inside observation_space."
     )
 
+    expected_obs = expected_observation(env)
+    assert np.allclose(obs, expected_obs), (
+        "Observation does not match the phase-specific observation definition."
+    )
+
     action = env.action_space.sample()
     step_output = env.step(action)
 
@@ -88,6 +111,11 @@ def test_single_phase(phase):
     assert isinstance(terminated, bool), "terminated must be a bool."
     assert isinstance(truncated, bool), "truncated must be a bool."
     assert isinstance(info, dict), "step() info must be a dictionary."
+
+    expected_obs = expected_observation(env)
+    assert np.allclose(obs, expected_obs), (
+        "Step observation does not match the phase-specific observation definition."
+    )
 
     assert "reward_components" in info, (
         "info must contain reward_components for diagnostics."

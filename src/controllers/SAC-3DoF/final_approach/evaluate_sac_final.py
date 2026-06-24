@@ -40,7 +40,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv26_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_portobs_rewardv2_100ksteps_seed0"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -99,7 +99,7 @@ def normalize_observation(vecnorm, obs):
     Normalizes a single raw observation using VecNormalize statistics.
 
     Input:
-        obs shape: (6,)
+        obs shape: (6,) = [rpx, rpy, vpx, vpy, psi_e, omega]
 
     Output:
         normalized obs shape: (1, 6)
@@ -199,6 +199,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     progress_s_values = []
     rho_progress_values = []
     rho_excess_values = []
+    cone_radius_at_s_values = []
+    rho_ratio_values = []
+    center_quality_values = []
     psi_ratio_values = []
     omega_ratio_values = []
     speed_ratio_values = []
@@ -225,6 +228,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     reward_speed_margin_values = []
     reward_rho_keep_values = []
     reward_rho_progress_values = []
+    reward_cone_preference_values = []
     reward_psi_margin_values = []
     reward_omega_margin_values = []
 
@@ -306,6 +310,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         progress_s_values.append(rc.get("progress_s", np.nan))
         rho_progress_values.append(rc.get("rho_progress", np.nan))
         rho_excess_values.append(rc.get("rho_excess", np.nan))
+        cone_radius_at_s_values.append(rc.get("cone_radius_at_s", np.nan))
+        rho_ratio_values.append(rc.get("rho_ratio", np.nan))
+        center_quality_values.append(rc.get("center_quality", np.nan))
         psi_ratio_values.append(rc.get("psi_ratio", np.nan))
         omega_ratio_values.append(rc.get("omega_ratio", np.nan))
         speed_ratio_values.append(rc.get("speed_ratio", np.nan))
@@ -336,6 +343,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         )
         reward_lateral_speed_values.append(rc.get("reward_lateral_speed", np.nan))
         reward_rho_progress_values.append(rc.get("reward_rho_progress", np.nan))
+        reward_cone_preference_values.append(
+            rc.get("reward_cone_preference", np.nan)
+        )
         reward_psi_margin_values.append(rc.get("reward_psi_margin", np.nan))
         reward_omega_margin_values.append(rc.get("reward_omega_margin", np.nan))
 
@@ -424,6 +434,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "progress_s_values": np.array(progress_s_values),
         "rho_progress_values": np.array(rho_progress_values),
         "rho_excess_values": np.array(rho_excess_values),
+        "cone_radius_at_s_values": np.array(cone_radius_at_s_values),
+        "rho_ratio_values": np.array(rho_ratio_values),
+        "center_quality_values": np.array(center_quality_values),
         "psi_ratio_values": np.array(psi_ratio_values),
         "omega_ratio_values": np.array(omega_ratio_values),
         "speed_ratio_values": np.array(speed_ratio_values),
@@ -449,6 +462,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "reward_speed_margin_values": np.array(reward_speed_margin_values),
         "reward_rho_keep_values": np.array(reward_rho_keep_values),
         "reward_rho_progress_values": np.array(reward_rho_progress_values),
+        "reward_cone_preference_values": np.array(reward_cone_preference_values),
         "reward_psi_margin_values": np.array(reward_psi_margin_values),
         "reward_omega_margin_values": np.array(reward_omega_margin_values),
 
@@ -526,6 +540,9 @@ def save_rollout(result, rollout_id):
         progress_s_values=result["progress_s_values"],
         rho_progress_values=result["rho_progress_values"],
         rho_excess_values=result["rho_excess_values"],
+        cone_radius_at_s_values=result["cone_radius_at_s_values"],
+        rho_ratio_values=result["rho_ratio_values"],
+        center_quality_values=result["center_quality_values"],
         psi_ratio_values=result["psi_ratio_values"],
         omega_ratio_values=result["omega_ratio_values"],
         speed_ratio_values=result["speed_ratio_values"],
@@ -551,6 +568,7 @@ def save_rollout(result, rollout_id):
         reward_speed_margin_values=result["reward_speed_margin_values"],
         reward_rho_keep_values=result["reward_rho_keep_values"],
         reward_rho_progress_values=result["reward_rho_progress_values"],
+        reward_cone_preference_values=result["reward_cone_preference_values"],
         reward_psi_margin_values=result["reward_psi_margin_values"],
         reward_omega_margin_values=result["reward_omega_margin_values"],
 

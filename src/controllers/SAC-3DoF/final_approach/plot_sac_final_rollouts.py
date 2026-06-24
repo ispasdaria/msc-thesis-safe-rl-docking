@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_rewardv26_50ksteps_seed0"
+MODEL_NAME = "sac_final_approach_portobs_rewardv2_100ksteps_seed0"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -43,10 +43,31 @@ def get_array(data, key, length=None, default=np.nan):
 
     If the key does not exist, returns an array filled with NaN.
     This makes the plotting script robust while reward diagnostics evolve.
+    Saved diagnostics may contain None values from unavailable reward terms;
+    those are converted to NaN so NumPy finite checks and Matplotlib plotting
+    can treat them as missing numeric data.
     """
 
     if key in data.files:
-        return data[key]
+        values = np.asarray(data[key])
+
+        try:
+            return values.astype(float)
+        except (TypeError, ValueError):
+            numeric_values = np.full(values.shape, np.nan, dtype=float)
+            flat_values = values.reshape(-1)
+            flat_numeric_values = numeric_values.reshape(-1)
+
+            for i, value in enumerate(flat_values):
+                if value is None:
+                    continue
+
+                try:
+                    flat_numeric_values[i] = float(value)
+                except (TypeError, ValueError):
+                    pass
+
+            return numeric_values
 
     if length is None:
         return np.array([])
@@ -135,6 +156,9 @@ def load_rollout(filepath):
         "progress_s": get_array(data, "progress_s_values", n_steps),
         "rho_progress": get_array(data, "rho_progress_values", n_steps),
         "rho_excess": get_array(data, "rho_excess_values", n_steps),
+        "cone_radius_at_s": get_array(data, "cone_radius_at_s_values", n_steps),
+        "rho_ratio": get_array(data, "rho_ratio_values", n_steps),
+        "center_quality": get_array(data, "center_quality_values", n_steps),
         "psi_ratio": get_array(data, "psi_ratio_values", n_steps),
         "omega_ratio": get_array(data, "omega_ratio_values", n_steps),
         "speed_ratio": get_array(data, "speed_ratio_values", n_steps),
@@ -170,6 +194,9 @@ def load_rollout(filepath):
         ),
         "reward_rho_keep": get_array(data, "reward_rho_keep_values", n_steps),
         "reward_rho_progress": get_array(data, "reward_rho_progress_values", n_steps),
+        "reward_cone_preference": get_array(
+            data, "reward_cone_preference_values", n_steps
+        ),
         "reward_psi_margin": get_array(data, "reward_psi_margin_values", n_steps),
         "reward_omega_margin": get_array(
             data, "reward_omega_margin_values", n_steps
@@ -237,6 +264,9 @@ def plot_one_rollout(result, rollout_id):
     progress_s = result["progress_s"]
     rho_progress = result["rho_progress"]
     rho_excess = result["rho_excess"]
+    cone_radius_at_s = result["cone_radius_at_s"]
+    rho_ratio = result["rho_ratio"]
+    center_quality = result["center_quality"]
     psi_ratio = result["psi_ratio"]
     omega_ratio = result["omega_ratio"]
     speed_ratio = result["speed_ratio"]
@@ -259,6 +289,7 @@ def plot_one_rollout(result, rollout_id):
     reward_speed_margin = result["reward_speed_margin"]
     reward_rho_keep = result["reward_rho_keep"]
     reward_rho_progress = result["reward_rho_progress"]
+    reward_cone_preference = result["reward_cone_preference"]
     reward_psi_margin = result["reward_psi_margin"]
     reward_omega_margin = result["reward_omega_margin"]
 
@@ -345,8 +376,10 @@ def plot_one_rollout(result, rollout_id):
     plt.figure()
     plt.plot(t_steps, s_values, label="s")
     plt.plot(t_steps, rho_values, label="rho")
+    if np.any(np.isfinite(cone_radius_at_s)):
+        plt.plot(t_steps, cone_radius_at_s, label="cone radius at s")
     if np.any(np.isfinite(rho_excess)):
-        plt.plot(t_steps, rho_excess, label="rho excess above 4 m")
+        plt.plot(t_steps, rho_excess, label="rho excess above corridor")
     plt.xlabel("Time [s]")
     plt.ylabel("Distance [m]")
     plt.title(f"SAC Final Approach Geometry\n{title_suffix}")
@@ -366,6 +399,10 @@ def plot_one_rollout(result, rollout_id):
     plt.figure()
     plt.plot(t_steps, rho_values, label="rho")
     plt.plot(t_steps, v_lateral, label="v_lateral")
+    if np.any(np.isfinite(rho_ratio)):
+        plt.plot(t_steps, rho_ratio, label="rho / cone radius")
+    if np.any(np.isfinite(center_quality)):
+        plt.plot(t_steps, center_quality, label="center quality")
     plt.xlabel("Time [s]")
     plt.ylabel("Lateral diagnostic")
     plt.title(f"SAC Final Approach Lateral Offset and Velocity\n{title_suffix}")
@@ -417,6 +454,8 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, progress_port, label="progress_port")
     plt.plot(t_steps, progress_s, label="progress_s")
     plt.plot(t_steps, rho_progress, label="rho_progress")
+    if np.any(np.isfinite(center_quality)):
+        plt.plot(t_steps, center_quality, label="center_quality")
     plt.axhline(0.0, linestyle=":", linewidth=1, label="zero")
     plt.xlabel("Time [s]")
     plt.ylabel("Progress per step [m]")
@@ -592,6 +631,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_speed_margin, label="speed margin")
     plt.plot(t_steps, reward_rho_keep, label="rho keep")
     plt.plot(t_steps, reward_rho_progress, label="rho progress")
+    plt.plot(t_steps, reward_cone_preference, label="cone preference")
     plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_attitudes, label="attitude")
     plt.plot(t_steps, reward_rates, label="rate")
@@ -630,6 +670,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_speed_margin, label="speed margin")
     plt.plot(t_steps, reward_rho_keep, label="rho keep")
     plt.plot(t_steps, reward_rho_progress, label="rho progress")
+    plt.plot(t_steps, reward_cone_preference, label="cone preference")
     plt.plot(t_steps, reward_attitudes, label="attitude")
     plt.plot(t_steps, reward_rates, label="rate")
     plt.plot(t_steps, reward_actions, label="action")

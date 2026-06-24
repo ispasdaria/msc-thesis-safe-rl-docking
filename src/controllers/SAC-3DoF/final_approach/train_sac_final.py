@@ -52,7 +52,7 @@ def make_training_env(seed=0):
     """
     Creates one monitored final-approach training environment.
 
-    The environment returns raw physical observations.
+    The environment returns raw port-relative physical observations.
     VecNormalize normalizes observations and rewards externally.
     """
 
@@ -184,9 +184,9 @@ def main():
     # -----------------------------------------------------------------
 
     seed = 0
-    total_timesteps = 50_000
+    total_timesteps = 100_000
 
-    model_name = "sac_final_approach_rewardv26_50ksteps_seed0"
+    model_name = "sac_final_approach_portobs_rewardv2_100ksteps_seed0"
 
     model_path = os.path.join(MODEL_DIR, model_name)
     vecnorm_path = os.path.join(MODEL_DIR, f"{model_name}_vecnormalize.pkl")

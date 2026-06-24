@@ -9,15 +9,33 @@ class Docking3DoFGymEnv(gym.Env):
     """
     Gymnasium-compatible wrapper for the existing Docking3DoFEnv.
 
-    SAC sees:
-        observation = [rx, ry, vx, vy, psi, omegaz]
+    SAC sees phase-specific observations.
+
+    Final approach:
+        observation = [rpx, rpy, vpx, vpy, psi_e, omegaz]
+
+        rpx, rpy:
+            chaser docking-port center relative to the target docking-port
+            center, expressed in the target-centered orbital frame [m]
+        vpx, vpy:
+            chaser docking-port velocity relative to the target docking-port
+            velocity, expressed in the target-centered orbital frame [m/s]
+        psi_e:
+            wrapped relative attitude error [rad]
+        omegaz:
+            relative angular velocity [rad/s]
         action      = normalized action in [-1, 1]^3
 
     Internally:
         action is scaled to physical accelerations:
             [ax_Bc, ay_Bc, alphaz_Bc]
 
-    The same observation structure is used for both phases.
+    Closing:
+        observation = [rx, ry, vx, vy, psi, omegaz]
+
+    The simulator state remains [rx, ry, vx, vy, psi, omegaz]. Only the final
+    approach agent observes docking-port errors because docking is accepted at
+    port level.
     The phase changes:
         - reset distribution
         - terminal condition
@@ -27,6 +45,8 @@ class Docking3DoFGymEnv(gym.Env):
     """
 
     metadata = {"render_modes": []}
+    closing_observation_labels = ("rx", "ry", "vx", "vy", "psi", "omegaz")
+    final_observation_labels = ("rpx", "rpy", "vpx", "vpy", "psi_e", "omegaz")
 
     def __init__(
         self,
@@ -109,10 +129,37 @@ class Docking3DoFGymEnv(gym.Env):
 
     def _get_obs(self):
         """
-        Returns the current simulator state as the Gymnasium observation.
+        Returns the current Gymnasium observation.
+
+        In the final phase, the SAC policy receives the docking-port relative
+        position and velocity used by the docking acceptance conditions. In the
+        closing phase, it keeps the original CoM-relative state observation.
         """
 
-        return self.core_env.state.astype(np.float32)
+        if self.phase == "closing":
+            return self.core_env.state.astype(np.float32)
+
+        q = self.core_env.get_derived_quantities(self.core_env.state)
+
+        obs = np.array(
+            [
+                q["r_p"][0],
+                q["r_p"][1],
+                q["v_p"][0],
+                q["v_p"][1],
+                q["psi_e"],
+                q["omega"],
+            ],
+            dtype=np.float32,
+        )
+
+        return obs
+
+    def _get_observation_labels(self):
+        if self.phase == "final":
+            return self.final_observation_labels
+
+        return self.closing_observation_labels
 
     def _get_reset_info(self):
         """
@@ -138,6 +185,7 @@ class Docking3DoFGymEnv(gym.Env):
             "s_dot": q["s_dot"],
             "psi_e": q["psi_e"],
             "omega": q["omega"],
+            "observation_labels": self._get_observation_labels(),
         }
 
     def reset(self, seed=None, options=None):
@@ -191,9 +239,8 @@ class Docking3DoFGymEnv(gym.Env):
 
         physical_action = self._scale_action(action)
 
-        obs, _, done, info = self.core_env.step(physical_action)
-
-        obs = obs.astype(np.float32)
+        _, _, done, info = self.core_env.step(physical_action)
+        obs = self._get_obs()
 
         terminated = bool(
             info.get("success", False)
@@ -280,6 +327,9 @@ class Docking3DoFGymEnv(gym.Env):
             "progress_s": None,
             "rho_progress": None,
             "rho_excess": None,
+            "cone_radius_at_s": None,
+            "rho_ratio": None,
+            "center_quality": None,
             "psi_ratio": None,
             "omega_ratio": None,
             "speed_ratio": None,
@@ -310,6 +360,7 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_speed_margin": 0.0,
             "reward_rho_keep": 0.0,
             "reward_rho_progress": 0.0,
+            "reward_cone_preference": 0.0,
             "reward_psi_margin": 0.0,
             "reward_omega_margin": 0.0,
             "reward_warning": 0.0,
@@ -369,28 +420,6 @@ class Docking3DoFGymEnv(gym.Env):
             s = q["s"]
             rho = q["rho"]
             s_dot = q["s_dot"]
-            v_lateral = abs(q["v_p"][1])
-
-            # Distance-dependent desired axial closing speed.
-            # Convention: s_dot < 0 means approaching the docking point.
-            if s > 200.0:
-                desired_s_dot = -0.035
-            elif s > 100.0:
-                desired_s_dot = -0.025
-            elif s > 30.0:
-                desired_s_dot = -0.015
-            else:
-                desired_s_dot = -0.005
-
-            s_dot_error = abs(s_dot - desired_s_dot)
-
-            # Extra penalty only when approaching too fast.
-            # If s_dot is more negative than desired, the vehicle is closing too quickly.
-            too_fast = max(0.0, desired_s_dot - s_dot)
-
-            # Extra penalty if moving away from the docking point.
-            # If s_dot > 0, the vehicle is increasing axial distance.
-            moving_away = max(0.0, s_dot)
 
             progress_port = 0.0
             progress_s = 0.0
@@ -401,96 +430,50 @@ class Docking3DoFGymEnv(gym.Env):
             if hasattr(self, "prev_s"):
                 progress_s = self.prev_s - s
 
-            # v18 progress gates.
-            # rho small  -> progress reward is active.
-            # rho large  -> progress reward fades away.
-            rho_gate = np.exp(-0.5 * (rho / 4.0) ** 2)
-
             vp_safe = getattr(
                 self.core_env,
                 "vp_safe_final",
                 getattr(self.core_env, "vp_safe", 1.0),
             )
             speed_ratio = port_speed / vp_safe
-            speed_gate = np.exp(-0.5 * (max(0.0, speed_ratio - 0.7) / 0.2) ** 2)
 
             psi_ratio = psi_abs / self.core_env.psi_safe
             omega_ratio = omega_abs / self.core_env.omega_safe
 
-            psi_gate = np.clip(1.0 - psi_ratio, 0.0, 1.0)
-            omega_gate = np.clip(1.0 - omega_ratio, 0.0, 1.0)
-            alignment_gate = psi_gate * omega_gate
-
-
-            progress_gate = rho_gate * speed_gate
-            safe_progress = progress_port * progress_gate
-            unsafe_forward_progress = progress_port * (1.0 - progress_gate)
-
-            reward_progress = 50.0 * safe_progress
-            reward_unsafe_forward_progress = -120.0 * max(0.0, unsafe_forward_progress)
-
-            reward_speed_margin = -40.0 * max(0.0, speed_ratio - 0.7) ** 2
-
-            # Local centerline bonus: strong only when rho is already small.
-            reward_rho_keep = 3.0 * np.exp(-0.5 * (rho / 2.0) ** 2)
-
-            # Asymmetric rho-progress reward.
-            # rho_progress > 0 means lateral offset decreased.
-            # rho_progress < 0 means lateral offset increased.
             if hasattr(self, "prev_rho"):
                 rho_progress = self.prev_rho - rho
             else:
                 rho_progress = 0.0
 
-            if rho_progress >= 0.0:
-                rho_recovery_gain = 10.0 + 30.0 * min(rho / 10.0, 1.0)
-                reward_rho_progress = rho_recovery_gain * rho_progress
-            else:
-                reward_rho_progress = 15.0 * rho_progress
+            cone_radius_at_s = self.core_env.cone_slope * max(s, 1e-6)
+            rho_ratio = rho / max(cone_radius_at_s, 1e-6)
+            center_quality = np.exp(-3.0 * rho_ratio**2)
 
-            # Alignment margin penalties.
-            # These start before the safe boundary is reached.
-            reward_psi_margin = -50.0 * max(0.0, psi_ratio - 0.50) ** 2
-            reward_omega_margin = -5.0 * max(0.0, omega_ratio - 0.75) ** 2
-
-            reward_position = -0.05 * port_distance
-            reward_velocity = -5.0 * port_speed
-            reward_s_dot = -20.0 * s_dot_error
-            reward_too_fast = -100.0 * too_fast
-            reward_moving_away = -150.0 * moving_away
-
-            # v23 lateral penalty plus a stronger out-of-corridor term.
-            reward_lateral = -1.0 * rho - 0.05 * rho**2
-
-            rho_excess = max(0.0, rho - 4.0)
-            reward_rho_corridor = -8.0 * rho_excess**2
-
-            reward_attitude = -15.0 * psi_abs
-            reward_rate = -3.0 * omega_abs
+            # General port-level nominal-control reward.
+            # Safety-specific shaping is intentionally kept light so that the
+            # later CBF filter can be evaluated as the explicit safety layer.
+            reward_position = -0.03 * port_distance
+            reward_velocity = -3.0 * port_speed
+            reward_lateral = -0.5 * rho
+            reward_attitude = -5.0 * psi_abs
+            reward_rate = -1.0 * omega_abs
+            reward_progress = 30.0 * progress_port * (0.25 + 0.75 * center_quality)
+            reward_rho_progress = 5.0 * rho_progress
+            reward_cone_preference = -10.0 * max(0.0, rho_ratio - 0.4) ** 2
             reward_action = -0.02 * action_norm**2
-            reward_lateral_speed = -10.0 * v_lateral
-            reward_alpha = -8.0 * normalized_action[2] ** 2
+            reward_alpha = -2.0 * normalized_action[2] ** 2
 
             reward = (
                 reward_position
                 + reward_velocity
-                + reward_s_dot
-                + reward_too_fast
-                + reward_moving_away
                 + reward_lateral
-                + reward_rho_corridor
                 + reward_attitude
                 + reward_rate
                 + reward_action
                 + reward_alpha
-                + reward_lateral_speed
                 + reward_progress
-                + reward_unsafe_forward_progress
-                + reward_speed_margin
-                + reward_rho_keep
                 + reward_rho_progress
-                + reward_psi_margin
-                + reward_omega_margin
+                + reward_cone_preference
             )
 
             self.prev_port_distance = port_distance
@@ -506,52 +489,32 @@ class Docking3DoFGymEnv(gym.Env):
                     "rate_error": float(omega_abs),
 
                     # Final-approach-specific diagnostics
-                    "desired_s_dot": float(desired_s_dot),
-                    "s_dot_error": float(s_dot_error),
-                    "too_fast": float(too_fast),
-                    "moving_away": float(moving_away),
                     "rho": float(rho),
                     "s": float(s),
                     "s_dot": float(s_dot),
-                    "v_lateral": float(v_lateral),
+                    "v_lateral": float(abs(q["v_p"][1])),
                     "progress_port": float(progress_port),
                     "progress_s": float(progress_s),
                     "rho_progress": float(rho_progress),
-                    "rho_excess": float(rho_excess),
+                    "rho_excess": float(max(0.0, rho - self.core_env.corridor_radius)),
+                    "cone_radius_at_s": float(cone_radius_at_s),
+                    "rho_ratio": float(rho_ratio),
+                    "center_quality": float(center_quality),
                     "psi_ratio": float(psi_ratio),
                     "omega_ratio": float(omega_ratio),
                     "speed_ratio": float(speed_ratio),
-                    "rho_gate": float(rho_gate),
-                    "speed_gate": float(speed_gate),
-                    "psi_gate": float(psi_gate),
-                    "omega_gate": float(omega_gate),
-                    "alignment_gate": float(alignment_gate),
-                    "progress_gate": float(progress_gate),
-                    "safe_progress": float(safe_progress),
-                    "unsafe_forward_progress": float(unsafe_forward_progress),
 
                     # Reward components
                     "reward_position": float(reward_position),
                     "reward_velocity": float(reward_velocity),
-                    "reward_s_dot": float(reward_s_dot),
-                    "reward_too_fast": float(reward_too_fast),
-                    "reward_moving_away": float(reward_moving_away),
                     "reward_lateral": float(reward_lateral),
-                    "reward_rho_corridor": float(reward_rho_corridor),
                     "reward_attitude": float(reward_attitude),
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
                     "reward_alpha": float(reward_alpha),
-                    "reward_lateral_speed": float(reward_lateral_speed),
                     "reward_progress": float(reward_progress),
-                    "reward_unsafe_forward_progress": float(
-                        reward_unsafe_forward_progress
-                    ),
-                    "reward_speed_margin": float(reward_speed_margin),
-                    "reward_rho_keep": float(reward_rho_keep),
                     "reward_rho_progress": float(reward_rho_progress),
-                    "reward_psi_margin": float(reward_psi_margin),
-                    "reward_omega_margin": float(reward_omega_margin),
+                    "reward_cone_preference": float(reward_cone_preference),
                 }
             )
 
@@ -564,17 +527,17 @@ class Docking3DoFGymEnv(gym.Env):
             reward_components["reward_warning"] = float(reward_warning)
 
         if info.get("failure", False):
-            reward_failure = -100.0
+            reward_failure = -1000.0
             reward += reward_failure
             reward_components["reward_failure"] = float(reward_failure)
 
         if info.get("success", False):
-            reward_success = 200.0
+            reward_success = 1000.0
             reward += reward_success
             reward_components["reward_success"] = float(reward_success)
 
         if truncated:
-            reward_timeout = -10.0
+            reward_timeout = -200.0
             reward += reward_timeout
             reward_components["reward_timeout"] = float(reward_timeout)
 

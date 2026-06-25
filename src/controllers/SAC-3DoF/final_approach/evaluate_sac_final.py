@@ -40,7 +40,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_portobs_rewardv2_100ksteps_seed0"
+MODEL_NAME = "sac_final_approach_portobs_rewardv9_100ksteps_seed0"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -202,6 +202,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     cone_radius_at_s_values = []
     rho_ratio_values = []
     center_quality_values = []
+    near_field_weight_values = []
     psi_ratio_values = []
     omega_ratio_values = []
     speed_ratio_values = []
@@ -229,6 +230,8 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
     reward_rho_keep_values = []
     reward_rho_progress_values = []
     reward_cone_preference_values = []
+    reward_near_field_centering_values = []
+    reward_mid_field_centering_values = []
     reward_psi_margin_values = []
     reward_omega_margin_values = []
 
@@ -313,6 +316,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         cone_radius_at_s_values.append(rc.get("cone_radius_at_s", np.nan))
         rho_ratio_values.append(rc.get("rho_ratio", np.nan))
         center_quality_values.append(rc.get("center_quality", np.nan))
+        near_field_weight_values.append(rc.get("near_field_weight", np.nan))
         psi_ratio_values.append(rc.get("psi_ratio", np.nan))
         omega_ratio_values.append(rc.get("omega_ratio", np.nan))
         speed_ratio_values.append(rc.get("speed_ratio", np.nan))
@@ -345,6 +349,12 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         reward_rho_progress_values.append(rc.get("reward_rho_progress", np.nan))
         reward_cone_preference_values.append(
             rc.get("reward_cone_preference", np.nan)
+        )
+        reward_near_field_centering_values.append(
+            rc.get("reward_near_field_centering", np.nan)
+        )
+        reward_mid_field_centering_values.append(
+            rc.get("reward_mid_field_centering", np.nan)
         )
         reward_psi_margin_values.append(rc.get("reward_psi_margin", np.nan))
         reward_omega_margin_values.append(rc.get("reward_omega_margin", np.nan))
@@ -437,6 +447,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "cone_radius_at_s_values": np.array(cone_radius_at_s_values),
         "rho_ratio_values": np.array(rho_ratio_values),
         "center_quality_values": np.array(center_quality_values),
+        "near_field_weight_values": np.array(near_field_weight_values),
         "psi_ratio_values": np.array(psi_ratio_values),
         "omega_ratio_values": np.array(omega_ratio_values),
         "speed_ratio_values": np.array(speed_ratio_values),
@@ -463,6 +474,12 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         "reward_rho_keep_values": np.array(reward_rho_keep_values),
         "reward_rho_progress_values": np.array(reward_rho_progress_values),
         "reward_cone_preference_values": np.array(reward_cone_preference_values),
+        "reward_near_field_centering_values": np.array(
+            reward_near_field_centering_values
+        ),
+        "reward_mid_field_centering_values": np.array(
+            reward_mid_field_centering_values
+        ),
         "reward_psi_margin_values": np.array(reward_psi_margin_values),
         "reward_omega_margin_values": np.array(reward_omega_margin_values),
 
@@ -543,6 +560,7 @@ def save_rollout(result, rollout_id):
         cone_radius_at_s_values=result["cone_radius_at_s_values"],
         rho_ratio_values=result["rho_ratio_values"],
         center_quality_values=result["center_quality_values"],
+        near_field_weight_values=result["near_field_weight_values"],
         psi_ratio_values=result["psi_ratio_values"],
         omega_ratio_values=result["omega_ratio_values"],
         speed_ratio_values=result["speed_ratio_values"],
@@ -569,6 +587,12 @@ def save_rollout(result, rollout_id):
         reward_rho_keep_values=result["reward_rho_keep_values"],
         reward_rho_progress_values=result["reward_rho_progress_values"],
         reward_cone_preference_values=result["reward_cone_preference_values"],
+        reward_near_field_centering_values=result[
+            "reward_near_field_centering_values"
+        ],
+        reward_mid_field_centering_values=result[
+            "reward_mid_field_centering_values"
+        ],
         reward_psi_margin_values=result["reward_psi_margin_values"],
         reward_omega_margin_values=result["reward_omega_margin_values"],
 

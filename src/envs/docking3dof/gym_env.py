@@ -330,6 +330,7 @@ class Docking3DoFGymEnv(gym.Env):
             "cone_radius_at_s": None,
             "rho_ratio": None,
             "center_quality": None,
+            "near_field_weight": None,
             "psi_ratio": None,
             "omega_ratio": None,
             "speed_ratio": None,
@@ -361,6 +362,8 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_rho_keep": 0.0,
             "reward_rho_progress": 0.0,
             "reward_cone_preference": 0.0,
+            "reward_near_field_centering": 0.0,
+            "reward_mid_field_centering": 0.0,
             "reward_psi_margin": 0.0,
             "reward_omega_margin": 0.0,
             "reward_warning": 0.0,
@@ -448,6 +451,7 @@ class Docking3DoFGymEnv(gym.Env):
             cone_radius_at_s = self.core_env.cone_slope * max(s, 1e-6)
             rho_ratio = rho / max(cone_radius_at_s, 1e-6)
             center_quality = np.exp(-3.0 * rho_ratio**2)
+            near_field_weight = np.exp(-s / 50.0)
 
             # General port-level nominal-control reward.
             # Safety-specific shaping is intentionally kept light so that the
@@ -457,9 +461,13 @@ class Docking3DoFGymEnv(gym.Env):
             reward_lateral = -0.5 * rho
             reward_attitude = -5.0 * psi_abs
             reward_rate = -1.0 * omega_abs
-            reward_progress = 30.0 * progress_port * (0.25 + 0.75 * center_quality)
+            reward_progress = 45.0 * progress_port * (0.25 + 0.75 * center_quality)
             reward_rho_progress = 5.0 * rho_progress
             reward_cone_preference = -10.0 * max(0.0, rho_ratio - 0.4) ** 2
+            reward_near_field_centering = -25.0 * near_field_weight * rho_ratio**2
+            reward_mid_field_centering = 0.0
+            reward_psi_margin = -25.0 * max(0.0, psi_ratio - 0.5) ** 2
+            reward_speed_margin = -20.0 * max(0.0, speed_ratio - 0.7) ** 2
             reward_action = -0.02 * action_norm**2
             reward_alpha = -2.0 * normalized_action[2] ** 2
 
@@ -474,6 +482,9 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_progress
                 + reward_rho_progress
                 + reward_cone_preference
+                + reward_near_field_centering
+                + reward_psi_margin
+                + reward_speed_margin
             )
 
             self.prev_port_distance = port_distance
@@ -500,6 +511,7 @@ class Docking3DoFGymEnv(gym.Env):
                     "cone_radius_at_s": float(cone_radius_at_s),
                     "rho_ratio": float(rho_ratio),
                     "center_quality": float(center_quality),
+                    "near_field_weight": float(near_field_weight),
                     "psi_ratio": float(psi_ratio),
                     "omega_ratio": float(omega_ratio),
                     "speed_ratio": float(speed_ratio),
@@ -515,6 +527,14 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_progress": float(reward_progress),
                     "reward_rho_progress": float(reward_rho_progress),
                     "reward_cone_preference": float(reward_cone_preference),
+                    "reward_near_field_centering": float(
+                        reward_near_field_centering
+                    ),
+                    "reward_mid_field_centering": float(
+                        reward_mid_field_centering
+                    ),
+                    "reward_psi_margin": float(reward_psi_margin),
+                    "reward_speed_margin": float(reward_speed_margin),
                 }
             )
 

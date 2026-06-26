@@ -1,0 +1,20 @@
+SAC final-approach training-seed robustness summary
+================================================================================
+Number of trained models: 11
+Mean success rate:        0.0909
+Std success rate:         0.2875
+Mean failure rate:        0.9091
+Std failure rate:         0.2875
+
+Per-model summary:
+train_seed=0   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=22.7381 m | mean_final_rho=2.2803 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=1   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=7.2038 m | mean_final_rho=0.7256 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=2   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=1.7144 m | mean_final_rho=0.1754 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=3   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.1618 m | mean_final_rho=0.0257 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=4   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=42.7967 m | mean_final_rho=4.2725 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=5   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=6.3090 m | mean_final_rho=0.6313 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=6   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=17.6661 m | mean_final_rho=1.7637 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=7   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=17.7545 m | mean_final_rho=1.7722 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=8   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=7.6372 m | mean_final_rho=0.7662 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=9   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=7.3740 m | mean_final_rho=0.7399 m | reasons=safety_violation:50 | constraints=geometry:50
+train_seed=12  | success=1.0000 | failure=0.0000 | time_limit=0.0000 | mean_final_port=0.0644 m | mean_final_rho=0.0002 m | reasons=success_docking:50 | constraints=

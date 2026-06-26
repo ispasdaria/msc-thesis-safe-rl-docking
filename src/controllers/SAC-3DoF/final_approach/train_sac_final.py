@@ -48,7 +48,7 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 # Environment factory
 # ---------------------------------------------------------------------
 
-def make_training_env(seed=0):
+def make_training_env(seed=12):
     """
     Creates one monitored final-approach training environment.
 
@@ -183,10 +183,10 @@ def main():
     # Training configuration
     # -----------------------------------------------------------------
 
-    seed = 0
+    seed = 12
     total_timesteps = 100_000
 
-    model_name = "sac_final_approach_portobs_rewardv9_100ksteps_seed0"
+    model_name = "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12"
 
     model_path = os.path.join(MODEL_DIR, model_name)
     vecnorm_path = os.path.join(MODEL_DIR, f"{model_name}_vecnormalize.pkl")
@@ -220,7 +220,7 @@ def main():
         norm_reward=True,
         clip_obs=10.0,
         clip_reward=10.0,
-        gamma=0.99,
+        gamma=0.98,
     )
 
     # -----------------------------------------------------------------
@@ -230,15 +230,15 @@ def main():
     model = SAC(
         policy="MlpPolicy",
         env=train_env,
-        learning_rate=3e-4,
+        learning_rate=0.0003395686575052769,
         buffer_size=100_000,
         learning_starts=1_000,
         batch_size=256,
         tau=0.005,
-        gamma=0.99,
-        train_freq=1,
-        gradient_steps=1,
-        ent_coef="auto",
+        gamma=0.98,
+        train_freq=8,
+        gradient_steps=8,
+        ent_coef="auto_0.1",
         target_update_interval=1,
         verbose=1,
         seed=seed,

@@ -1,0 +1,26 @@
+SAC final-approach many-seed evaluation
+================================================================================
+Model name: sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12
+Model path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip
+VecNorm path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl
+CSV path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\results\eval_many\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12\testing_seeds_1000_1199\evaluation_many.csv
+
+Number of rollouts: 200
+Success rate:       1.0000
+Failure rate:       0.0000
+Time-limit rate:    0.0000
+Mean steps:         3225.5
+
+Distance / geometry summary:
+Mean final port distance: 0.0636 m
+Max final port distance:  0.0996 m
+Mean min port distance:   0.0636 m
+Mean final rho:           0.0002 m
+Max final rho:            0.0004 m
+Mean max rho:             1.8215 m
+
+Termination reasons:
+  success_docking: 200
+
+Violated constraints:
+  none

@@ -172,126 +172,16 @@ class CurriculumFinalApproachEnv(Docking3DoFGymEnv):
         terminated,
         truncated,
     ):
-        q = self.core_env.get_derived_quantities(state)
-
-        port_distance = q["port_distance"]
-        port_speed = q["port_speed"]
-        psi_abs = abs(q["psi_e"])
-        omega_abs = abs(q["omega"])
-
-        action_scale = np.array(
-            [self.core_env.ax_max, self.core_env.ay_max, self.core_env.alphaz_max],
-            dtype=np.float64,
-        )
-        action_norm = np.linalg.norm(physical_action / action_scale)
-
-        progress_port = 0.0
-        if hasattr(self, "prev_port_distance"):
-            progress_port = self.prev_port_distance - port_distance
-
-        vp_safe = getattr(self.core_env, "vp_safe_final", 0.15)
-        speed_ratio = port_speed / vp_safe
-        psi_ratio = psi_abs / self.core_env.psi_safe
-        omega_ratio = omega_abs / self.core_env.omega_safe
-
-        reward_position = -0.02 * port_distance
-        reward_velocity = -2.0 * port_speed
-        reward_attitude = -3.0 * psi_abs
-        reward_rate = -0.75 * omega_abs
-        reward_action = -0.015 * action_norm**2
-        reward_alpha = -1.0 * normalized_action[2] ** 2
-
-        reward_progress = 60.0 * progress_port
-        reward_moving_away = -20.0 * max(0.0, -progress_port)
-        reward_speed_margin = -15.0 * max(0.0, speed_ratio - 0.8) ** 2
-        reward_psi_margin = -15.0 * max(0.0, psi_ratio - 0.8) ** 2
-        reward_omega_margin = -10.0 * max(0.0, omega_ratio - 0.8) ** 2
-
-        close_bonus = 5.0 * np.exp(-port_distance / 2.0)
-        slow_bonus = 2.0 * np.exp(-port_speed / 0.05)
-        aligned_bonus = 2.0 * np.exp(-(psi_ratio**2 + omega_ratio**2))
-        reward_bonus = close_bonus + slow_bonus + aligned_bonus
-
-        reward = (
-            reward_position
-            + reward_velocity
-            + reward_attitude
-            + reward_rate
-            + reward_action
-            + reward_alpha
-            + reward_progress
-            + reward_moving_away
-            + reward_speed_margin
-            + reward_psi_margin
-            + reward_omega_margin
-            + reward_bonus
+        reward, reward_components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
         )
 
-        self.prev_port_distance = port_distance
-        self.prev_s = q["s"]
-        self.prev_rho = q["rho"]
-
-        reward_components = {
-            "phase": self.phase,
-            "curriculum_stage": self.stage.name,
-            "port_distance": float(port_distance),
-            "port_speed": float(port_speed),
-            "psi_abs": float(psi_abs),
-            "omega_abs": float(omega_abs),
-            "action_norm": float(action_norm),
-            "s": float(q["s"]),
-            "rho": float(q["rho"]),
-            "s_dot": float(q["s_dot"]),
-            "pos_error": float(port_distance),
-            "vel_error": float(port_speed),
-            "attitude_error": float(psi_abs),
-            "rate_error": float(omega_abs),
-            "progress_port": float(progress_port),
-            "speed_ratio": float(speed_ratio),
-            "psi_ratio": float(psi_ratio),
-            "omega_ratio": float(omega_ratio),
-            "reward_position": float(reward_position),
-            "reward_velocity": float(reward_velocity),
-            "reward_attitude": float(reward_attitude),
-            "reward_rate": float(reward_rate),
-            "reward_action": float(reward_action),
-            "reward_alpha": float(reward_alpha),
-            "reward_progress": float(reward_progress),
-            "reward_moving_away": float(reward_moving_away),
-            "reward_speed_margin": float(reward_speed_margin),
-            "reward_psi_margin": float(reward_psi_margin),
-            "reward_omega_margin": float(reward_omega_margin),
-            "reward_close_bonus": float(close_bonus),
-            "reward_slow_bonus": float(slow_bonus),
-            "reward_aligned_bonus": float(aligned_bonus),
-            "reward_warning": 0.0,
-            "reward_failure": 0.0,
-            "reward_success": 0.0,
-            "reward_timeout": 0.0,
-            "reward_total": 0.0,
-        }
-
-        if info.get("warning", False):
-            reward_warning = -10.0
-            reward += reward_warning
-            reward_components["reward_warning"] = float(reward_warning)
-
-        if info.get("failure", False):
-            reward_failure = -1000.0
-            reward += reward_failure
-            reward_components["reward_failure"] = float(reward_failure)
-
-        if info.get("success", False):
-            reward_success = 1000.0
-            reward += reward_success
-            reward_components["reward_success"] = float(reward_success)
-
-        if truncated:
-            reward_timeout = -200.0
-            reward += reward_timeout
-            reward_components["reward_timeout"] = float(reward_timeout)
-
-        reward_components["reward_total"] = float(reward)
+        reward_components["curriculum_stage"] = self.stage.name
         return reward, reward_components
 
 

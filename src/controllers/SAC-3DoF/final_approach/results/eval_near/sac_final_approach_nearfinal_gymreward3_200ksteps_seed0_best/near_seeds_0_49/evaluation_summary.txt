@@ -1,0 +1,28 @@
+SAC near-final evaluation
+================================================================================
+Model name: sac_final_approach_nearfinal_gymreward3_200ksteps_seed0_best
+Model path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_nearfinal_gymreward3_200ksteps_seed0_best.zip
+VecNorm path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_nearfinal_gymreward3_200ksteps_seed0_best_vecnormalize.pkl
+CSV path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\results\eval_near\sac_final_approach_nearfinal_gymreward3_200ksteps_seed0_best\near_seeds_0_49\evaluation_near.csv
+
+Number of rollouts: 50
+Success rate:       0.9800
+Failure rate:       0.0200
+Time-limit rate:    0.0000
+Mean steps:         669.2
+Mean initial s:     53.4974 m
+
+Distance / geometry summary:
+Mean final port distance: 1.4374 m
+Max final port distance:  68.3322 m
+Mean min port distance:   1.4374 m
+Mean final rho:           0.0169 m
+Max final rho:            0.7817 m
+Mean max rho:             0.7311 m
+
+Termination reasons:
+  success_docking: 49
+  safety_violation: 1
+
+Violated constraints:
+  alignment: 1

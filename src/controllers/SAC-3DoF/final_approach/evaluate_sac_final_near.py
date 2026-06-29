@@ -10,9 +10,13 @@ segment, not whether it can start from the normal P3 range around 300 m.
 import argparse
 import csv
 import os
+import sys
 from collections import Counter
 
+import numpy.core.multiarray as np_core_multiarray
+import numpy.core.numeric as np_core_numeric
 import numpy as np
+import numpy.random._pickle as np_random_pickle
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.monitor import Monitor
@@ -25,7 +29,40 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "eval_near")
 
-DEFAULT_MODEL_NAME = "sac_final_approach_nearfinal_gymreward3_200ksteps_seed0"
+DEFAULT_MODEL_NAME = "sac_final_approach_nearfinal_gymreward3_200ksteps_seed0_best"
+
+
+def install_numpy_bitgenerator_pickle_compat():
+    sys.modules.setdefault("numpy._core.multiarray", np_core_multiarray)
+    sys.modules.setdefault("numpy._core.numeric", np_core_numeric)
+
+    original_ctor = np_random_pickle.__bit_generator_ctor
+    original_generator_ctor = np_random_pickle.__generator_ctor
+
+    class DummyGenerator:
+        def __setstate__(self, state):
+            return None
+
+    class DummyBitGenerator:
+        def __setstate__(self, state):
+            return None
+
+    def bit_generator_ctor(bit_generator_name="MT19937"):
+        if not isinstance(bit_generator_name, str) and hasattr(
+            bit_generator_name, "__name__"
+        ):
+            return DummyBitGenerator()
+        return original_ctor(bit_generator_name)
+
+    def generator_ctor(bit_generator_name="MT19937", bit_generator_ctor=None):
+        if not isinstance(bit_generator_name, str):
+            return DummyGenerator()
+        if bit_generator_ctor is None:
+            bit_generator_ctor = np_random_pickle.__bit_generator_ctor
+        return original_generator_ctor(bit_generator_name, bit_generator_ctor)
+
+    np_random_pickle.__bit_generator_ctor = bit_generator_ctor
+    np_random_pickle.__generator_ctor = generator_ctor
 
 
 def make_eval_env(seed, args):
@@ -47,8 +84,11 @@ def make_eval_env(seed, args):
 
 
 def load_vecnormalize_stats(vecnorm_path, args):
+    install_numpy_bitgenerator_pickle_compat()
     dummy_env = DummyVecEnv([lambda: Monitor(make_eval_env(seed=999, args=args))])
     vecnorm = VecNormalize.load(vecnorm_path, dummy_env)
+    vecnorm.observation_space._np_random = None
+    vecnorm.action_space._np_random = None
     vecnorm.training = False
     vecnorm.norm_reward = False
     return vecnorm, dummy_env

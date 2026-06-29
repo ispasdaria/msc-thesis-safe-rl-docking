@@ -17,7 +17,10 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy.core.multiarray as np_core_multiarray
+import numpy.core.numeric as np_core_numeric
 import numpy as np
+import numpy.random._pickle as np_random_pickle
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
@@ -44,6 +47,39 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "learning_curves")
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
+
+
+def install_numpy_bitgenerator_pickle_compat():
+    sys.modules.setdefault("numpy._core.multiarray", np_core_multiarray)
+    sys.modules.setdefault("numpy._core.numeric", np_core_numeric)
+
+    original_ctor = np_random_pickle.__bit_generator_ctor
+    original_generator_ctor = np_random_pickle.__generator_ctor
+
+    class DummyGenerator:
+        def __setstate__(self, state):
+            return None
+
+    class DummyBitGenerator:
+        def __setstate__(self, state):
+            return None
+
+    def bit_generator_ctor(bit_generator_name="MT19937"):
+        if not isinstance(bit_generator_name, str) and hasattr(
+            bit_generator_name, "__name__"
+        ):
+            return DummyBitGenerator()
+        return original_ctor(bit_generator_name)
+
+    def generator_ctor(bit_generator_name="MT19937", bit_generator_ctor=None):
+        if not isinstance(bit_generator_name, str):
+            return DummyGenerator()
+        if bit_generator_ctor is None:
+            bit_generator_ctor = np_random_pickle.__bit_generator_ctor
+        return original_generator_ctor(bit_generator_name, bit_generator_ctor)
+
+    np_random_pickle.__bit_generator_ctor = bit_generator_ctor
+    np_random_pickle.__generator_ctor = generator_ctor
 
 
 def rotation_body_to_orbital_2d(psi):
@@ -320,10 +356,7 @@ class NearFinalCheckpointEvalCallback(BaseCallback):
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
         step_label = f"{self.num_timesteps:07d}"
-        checkpoint_base = os.path.join(
-            self.checkpoint_dir,
-            f"{self.model_name}_ckpt_{step_label}_steps",
-        )
+        checkpoint_base = os.path.join(self.checkpoint_dir, f"ckpt_{step_label}_steps")
         self.model.save(checkpoint_base)
 
         vecnorm = self.model.get_vec_normalize_env()
@@ -464,15 +497,25 @@ class NearFinalCheckpointEvalCallback(BaseCallback):
         )
 
 
+def range_label(value):
+    return f"{value:g}".replace(".", "p")
+
+
 def model_name_for_args(args):
+    if args.model_name:
+        return args.model_name
+
     steps_label = f"{args.total_timesteps // 1000}ksteps"
-    return f"sac_final_approach_nearfinal_gymreward3_{steps_label}_seed{args.seed}"
+    s_label = f"s{range_label(args.s_min)}_{range_label(args.s_max)}m"
+    return f"sac_final_approach_nearfinal_gymreward3_{s_label}_{steps_label}_seed{args.seed}"
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Train SAC only on near-final 35-70 m reset states."
     )
+    parser.add_argument("--model-name", default=None)
+    parser.add_argument("--init-model-name", default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--total-timesteps", type=int, default=200_000)
     parser.add_argument("--s-min", type=float, default=35.0)
@@ -511,6 +554,22 @@ def main():
     eval_progress_csv = os.path.join(learning_curve_dir, "checkpoint_eval.csv")
     best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")
     best_vecnorm_path = os.path.join(MODEL_DIR, f"{model_name}_best_vecnormalize.pkl")
+    init_model_path = None
+    init_vecnorm_path = None
+
+    if args.init_model_name:
+        init_model_path = os.path.join(MODEL_DIR, args.init_model_name + ".zip")
+        init_vecnorm_path = os.path.join(
+            MODEL_DIR,
+            args.init_model_name + "_vecnormalize.pkl",
+        )
+
+        if not os.path.exists(init_model_path):
+            raise FileNotFoundError(f"Initial model not found: {init_model_path}")
+        if not os.path.exists(init_vecnorm_path):
+            raise FileNotFoundError(
+                f"Initial VecNormalize file not found: {init_vecnorm_path}"
+            )
 
     if not args.overwrite and os.path.exists(model_zip_path) and os.path.exists(vecnorm_path):
         print("=" * 80)
@@ -531,6 +590,9 @@ def main():
     print(f"Learning curve:   {learning_curve_plot}")
     print(f"Checkpoint dir:   {checkpoint_dir}")
     print(f"Best model path:  {best_model_path}.zip")
+    if args.init_model_name:
+        print(f"Initial model:    {init_model_path}")
+        print(f"Initial VecNorm:  {init_vecnorm_path}")
     print(f"Eval progress:    {eval_progress_csv}")
     print(f"Total steps:      {args.total_timesteps}")
     print(f"s range:          [{args.s_min}, {args.s_max}] m")
@@ -542,34 +604,49 @@ def main():
     print("Reward source:    Docking3DoFGymEnv._compute_sac_reward")
     print("=" * 80)
 
-    train_env = DummyVecEnv([lambda: make_training_env(seed=args.seed, args=args)])
-    train_env = VecNormalize(
-        train_env,
-        norm_obs=True,
-        norm_reward=True,
-        clip_obs=10.0,
-        clip_reward=10.0,
-        gamma=0.98,
-    )
+    raw_train_env = DummyVecEnv([lambda: make_training_env(seed=args.seed, args=args)])
+    if args.init_model_name:
+        install_numpy_bitgenerator_pickle_compat()
+        train_env = VecNormalize.load(init_vecnorm_path, raw_train_env)
+        train_env.observation_space._np_random = None
+        train_env.action_space._np_random = None
+        train_env.training = True
+        train_env.norm_reward = True
+        model = SAC.load(
+            init_model_path,
+            env=train_env,
+            seed=args.seed,
+            tensorboard_log=LOG_DIR,
+            device=args.device,
+        )
+    else:
+        train_env = VecNormalize(
+            raw_train_env,
+            norm_obs=True,
+            norm_reward=True,
+            clip_obs=10.0,
+            clip_reward=10.0,
+            gamma=0.98,
+        )
 
-    model = SAC(
-        policy="MlpPolicy",
-        env=train_env,
-        learning_rate=0.0003395686575052769,
-        buffer_size=100_000,
-        learning_starts=1_000,
-        batch_size=256,
-        tau=0.005,
-        gamma=0.98,
-        train_freq=8,
-        gradient_steps=8,
-        ent_coef="auto_0.1",
-        target_update_interval=1,
-        verbose=1,
-        seed=args.seed,
-        tensorboard_log=LOG_DIR,
-        device=args.device,
-    )
+        model = SAC(
+            policy="MlpPolicy",
+            env=train_env,
+            learning_rate=0.0003395686575052769,
+            buffer_size=100_000,
+            learning_starts=1_000,
+            batch_size=256,
+            tau=0.005,
+            gamma=0.98,
+            train_freq=8,
+            gradient_steps=8,
+            ent_coef="auto_0.1",
+            target_update_interval=1,
+            verbose=1,
+            seed=args.seed,
+            tensorboard_log=LOG_DIR,
+            device=args.device,
+        )
 
     callback = LearningCurveCallback(
         csv_path=learning_curve_csv,

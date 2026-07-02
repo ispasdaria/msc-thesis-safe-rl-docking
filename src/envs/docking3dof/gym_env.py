@@ -461,9 +461,9 @@ class Docking3DoFGymEnv(gym.Env):
             reward_lateral = -0.5 * rho
             reward_attitude = -5.0 * psi_abs
             reward_rate = -1.0 * omega_abs
-            reward_progress = 45.0 * progress_port * (0.05 + 0.95 * center_quality)
+            reward_progress = 45.0 * progress_port * (0.25 + 0.75 * center_quality)
             reward_rho_progress = 5.0 * rho_progress
-            reward_cone_preference = -10.0 * max(0.0, rho_ratio - 0.25) ** 2
+            reward_cone_preference = -10.0 * max(0.0, rho_ratio - 0.4) ** 2
             reward_near_field_centering = -25.0 * near_field_weight * rho_ratio**2
             reward_mid_field_centering = 0.0
             reward_psi_margin = -25.0 * max(0.0, psi_ratio - 0.5) ** 2

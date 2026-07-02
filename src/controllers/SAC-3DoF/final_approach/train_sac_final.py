@@ -230,10 +230,10 @@ def main():
     # Training configuration
     # -----------------------------------------------------------------
 
-    seed = 1
+    seed = 0
     total_timesteps = 100_000
 
-    model_name = "sac_final_approach_portobs_rewardv9_100ksteps_seed1_optuna12_retrial"
+    model_name = "sac_final_approach_portobs_rewardv9_100ksteps_seed0_optuna12_retrial"
 
     model_path = os.path.join(MODEL_DIR, model_name)
     best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")

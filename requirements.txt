@@ -1,9 +1,10 @@
-numpy
+numpy==1.26.4
 scipy
 matplotlib
 pandas
-gymnasium[classic-control]
-stable-baselines3
+gymnasium[classic-control]==1.3.0
+stable-baselines3==2.9.0
+torch==2.12.1
 tensorboard
 optuna
 pytest

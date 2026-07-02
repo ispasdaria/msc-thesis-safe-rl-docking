@@ -163,7 +163,7 @@ def score_summary(summary):
 def suggest_sac_params(trial):
     train_update = trial.suggest_categorical(
         "train_update",
-        ["1_1", "4_4", "8_8"],
+        ["4_4", "8_8", "16_16", "8_16"],
     )
     train_freq, gradient_steps = [int(value) for value in train_update.split("_")]
 
@@ -184,11 +184,11 @@ def suggest_sac_params(trial):
         ),
         "gamma": trial.suggest_categorical(
             "gamma",
-            [0.98, 0.99, 0.995],
+            [0.95, 0.97, 0.98, 0.99],
         ),
         "learning_starts": trial.suggest_categorical(
             "learning_starts",
-            [1000, 5000, 10000],
+            [0, 250, 500, 1000, 2000, 5000],
         ),
         "ent_coef": trial.suggest_categorical(
             "ent_coef",
@@ -325,7 +325,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Optuna hyperparameter tuning for SAC final approach."
     )
-    parser.add_argument("--study-name", default="sac_final_rewardv9_optuna")
+    parser.add_argument("--study-name", default="sac_final_rewardv9_optuna_v2")
     parser.add_argument("--n-trials", type=int, default=20)
     parser.add_argument("--train-steps", type=int, default=100_000)
     parser.add_argument("--eval-seeds", type=int, default=5)

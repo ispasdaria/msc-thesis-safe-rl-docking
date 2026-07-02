@@ -12,7 +12,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 import numpy as np
 from stable_baselines3 import SAC
-from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
@@ -59,6 +59,29 @@ def make_training_env(seed=12):
     env = Docking3DoFGymEnv(
         phase="final",
         mode="training",
+        dt=1.0,
+        max_time=None,
+        integrator="rk4",
+        normalize_action=True,
+        seed=seed,
+    )
+
+    env = Monitor(env)
+    return env
+
+
+def make_eval_env(seed=0):
+    """
+    Creates one monitored final-approach evaluation environment.
+
+    Evaluation uses the testing reset distribution. VecNormalize is wrapped
+    around this environment in main() and synchronized from the training env by
+    EvalCallback before each evaluation.
+    """
+
+    env = Docking3DoFGymEnv(
+        phase="final",
+        mode="testing",
         dt=1.0,
         max_time=None,
         integrator="rk4",
@@ -178,18 +201,46 @@ class LearningCurveCallback(BaseCallback):
         plt.close()
 
 
+class SaveBestModelAndVecNormalizeCallback(BaseCallback):
+    """
+    Saves the model and VecNormalize stats when EvalCallback finds a new best.
+
+    EvalCallback defines "best" using the standard SB3 criterion: highest mean
+    evaluation reward over deterministic evaluation episodes.
+    """
+
+    def __init__(self, best_model_path, best_vecnorm_path):
+        super().__init__()
+
+        self.best_model_path = best_model_path
+        self.best_vecnorm_path = best_vecnorm_path
+
+    def _on_step(self):
+        self.model.save(self.best_model_path)
+        self.training_env.save(self.best_vecnorm_path)
+        print(
+            "Saved new best mean-eval-reward checkpoint "
+            f"to {self.best_model_path}.zip"
+        )
+        return True
+
+
 def main():
     # -----------------------------------------------------------------
     # Training configuration
     # -----------------------------------------------------------------
 
-    seed = 12
+    seed = 1
     total_timesteps = 100_000
 
-    model_name = "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12"
+    model_name = "sac_final_approach_portobs_rewardv9_100ksteps_seed1_optuna12_retrial"
 
     model_path = os.path.join(MODEL_DIR, model_name)
+    best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")
     vecnorm_path = os.path.join(MODEL_DIR, f"{model_name}_vecnormalize.pkl")
+    best_vecnorm_path = os.path.join(
+        MODEL_DIR, f"{model_name}_best_vecnormalize.pkl"
+    )
     learning_curve_dir = os.path.join(RESULTS_DIR, model_name)
     learning_curve_csv = os.path.join(learning_curve_dir, "learning_curve.csv")
     learning_curve_plot = os.path.join(learning_curve_dir, "learning_curve.png")
@@ -201,8 +252,11 @@ def main():
     print("=" * 80)
     print(f"Repository root: {REPO_ROOT}")
     print(f"Model path:      {model_path}")
+    print(f"Best model:      {best_model_path}")
     print(f"VecNorm path:    {vecnorm_path}")
+    print(f"Best VecNorm:    {best_vecnorm_path}")
     print(f"Learning curve:  {learning_curve_plot}")
+    print(f"Eval log:        {learning_curve_dir}")
     print(f"Total steps:     {total_timesteps}")
     print("=" * 80)
 
@@ -222,6 +276,20 @@ def main():
         clip_reward=10.0,
         gamma=0.98,
     )
+
+    eval_env = DummyVecEnv([
+        lambda: make_eval_env(seed=seed + 10_000)
+    ])
+
+    eval_env = VecNormalize(
+        eval_env,
+        norm_obs=True,
+        norm_reward=False,
+        clip_obs=10.0,
+        gamma=0.98,
+    )
+    eval_env.training = False
+    eval_env.norm_reward = False
 
     # -----------------------------------------------------------------
     # SAC model
@@ -255,12 +323,27 @@ def main():
         plot_path=learning_curve_plot,
         rolling_window=20,
     )
+    save_best_callback = SaveBestModelAndVecNormalizeCallback(
+        best_model_path=best_model_path,
+        best_vecnorm_path=best_vecnorm_path,
+    )
+    best_model_callback = EvalCallback(
+        eval_env,
+        callback_on_new_best=save_best_callback,
+        best_model_save_path=None,
+        log_path=learning_curve_dir,
+        eval_freq=10_000,
+        n_eval_episodes=10,
+        deterministic=True,
+        render=False,
+        verbose=1,
+    )
 
     model.learn(
         total_timesteps=total_timesteps,
         tb_log_name=model_name,
         progress_bar=True,
-        callback=learning_curve_callback,
+        callback=[learning_curve_callback, best_model_callback],
     )
 
     # -----------------------------------------------------------------
@@ -271,6 +354,7 @@ def main():
     train_env.save(vecnorm_path)
 
     train_env.close()
+    eval_env.close()
 
     print("=" * 80)
     print("Training completed.")

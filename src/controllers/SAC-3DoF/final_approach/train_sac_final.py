@@ -230,10 +230,10 @@ def main():
     # Training configuration
     # -----------------------------------------------------------------
 
-    seed = 0
-    total_timesteps = 100_000
+    seed = 6
+    total_timesteps = 300_000
 
-    model_name = "sac_final_approach_portobs_rewardv9_100ksteps_seed0_optuna12_retrial"
+    model_name = "sac_final_approach_portobs_rewardv9_300ksteps_seed6_optuna12_retrial"
 
     model_path = os.path.join(MODEL_DIR, model_name)
     best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")
@@ -299,7 +299,7 @@ def main():
         policy="MlpPolicy",
         env=train_env,
         learning_rate=0.0003395686575052769,
-        buffer_size=100_000,
+        buffer_size=300_000,
         learning_starts=1_000,
         batch_size=256,
         tau=0.005,

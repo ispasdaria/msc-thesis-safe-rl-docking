@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_closing_rewardv5_100ksteps_seed0"
+MODEL_NAME = "sac_closing_rewardv7_100ksteps_seed0"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -168,6 +168,12 @@ def load_rollout(filepath):
         "rho_ratio": get_array(data, "rho_ratio_values", n_steps),
         "center_quality": get_array(data, "center_quality_values", n_steps),
         "near_field_weight": get_array(data, "near_field_weight_values", n_steps),
+        "p3_position_ratio": get_array(data, "p3_position_ratio_values", n_steps),
+        "p3_lateral_ratio": get_array(data, "p3_lateral_ratio_values", n_steps),
+        "p3_lateral_violation": get_array(
+            data, "p3_lateral_violation_values", n_steps
+        ),
+        "p3_handoff_gate": get_array(data, "p3_handoff_gate_values", n_steps),
         "psi_ratio": get_array(data, "psi_ratio_values", n_steps),
         "omega_ratio": get_array(data, "omega_ratio_values", n_steps),
         "speed_ratio": get_array(data, "speed_ratio_values", n_steps),
@@ -195,6 +201,7 @@ def load_rollout(filepath):
         ),
         "reward_lateral_speed": get_array(data, "reward_lateral_speed_values", n_steps),
         "reward_progress": get_array(data, "reward_progress_values", n_steps),
+        "reward_no_progress": get_array(data, "reward_no_progress_values", n_steps),
         "reward_unsafe_forward_progress": get_array(
             data, "reward_unsafe_forward_progress_values", n_steps
         ),
@@ -287,6 +294,10 @@ def plot_one_rollout(result, rollout_id):
     rho_ratio = result["rho_ratio"]
     center_quality = result["center_quality"]
     near_field_weight = result["near_field_weight"]
+    p3_position_ratio = result["p3_position_ratio"]
+    p3_lateral_ratio = result["p3_lateral_ratio"]
+    p3_lateral_violation = result["p3_lateral_violation"]
+    p3_handoff_gate = result["p3_handoff_gate"]
     psi_ratio = result["psi_ratio"]
     omega_ratio = result["omega_ratio"]
     speed_ratio = result["speed_ratio"]
@@ -305,6 +316,7 @@ def plot_one_rollout(result, rollout_id):
     reward_rho_corridor = result["reward_rho_corridor"]
     reward_lateral_speed = result["reward_lateral_speed"]
     reward_progress = result["reward_progress"]
+    reward_no_progress = result["reward_no_progress"]
     reward_unsafe_forward_progress = result["reward_unsafe_forward_progress"]
     reward_speed_margin = result["reward_speed_margin"]
     reward_rho_keep = result["reward_rho_keep"]
@@ -427,6 +439,10 @@ def plot_one_rollout(result, rollout_id):
         plt.plot(t_steps, center_quality, label="center quality")
     if np.any(np.isfinite(near_field_weight)):
         plt.plot(t_steps, near_field_weight, label="near-field weight")
+    if np.any(np.isfinite(p3_handoff_gate)):
+        plt.plot(t_steps, p3_handoff_gate, label="P3 handoff gate")
+    if np.any(np.isfinite(p3_lateral_violation)):
+        plt.plot(t_steps, p3_lateral_violation, label="P3 lateral violation")
     plt.xlabel("Time [s]")
     plt.ylabel("Lateral diagnostic")
     plt.title(f"SAC Closing Lateral Offset and Velocity\n{title_suffix}")
@@ -649,6 +665,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_lateral, label="lateral")
     plt.plot(t_steps, reward_rho_corridor, label="rho corridor")
     plt.plot(t_steps, reward_progress, label="progress")
+    plt.plot(t_steps, reward_no_progress, label="no progress")
     plt.plot(
         t_steps,
         reward_unsafe_forward_progress,
@@ -690,6 +707,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_rho_corridor, label="rho corridor")
     plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_progress, label="progress")
+    plt.plot(t_steps, reward_no_progress, label="no progress")
     plt.plot(
         t_steps,
         reward_unsafe_forward_progress,

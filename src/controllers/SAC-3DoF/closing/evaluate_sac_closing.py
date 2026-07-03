@@ -39,7 +39,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_closing_rewardv5_100ksteps_seed0"
+MODEL_NAME = "sac_closing_rewardv7_100ksteps_seed0"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -208,6 +208,10 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
     rho_ratio_values = []
     center_quality_values = []
     near_field_weight_values = []
+    p3_position_ratio_values = []
+    p3_lateral_ratio_values = []
+    p3_lateral_violation_values = []
+    p3_handoff_gate_values = []
     psi_ratio_values = []
     omega_ratio_values = []
     speed_ratio_values = []
@@ -230,6 +234,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
     reward_rho_corridor_values = []
     reward_lateral_speed_values = []
     reward_progress_values = []
+    reward_no_progress_values = []
     reward_unsafe_forward_progress_values = []
     reward_speed_margin_values = []
     reward_rho_keep_values = []
@@ -330,6 +335,12 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         rho_ratio_values.append(rc.get("rho_ratio", np.nan))
         center_quality_values.append(rc.get("center_quality", np.nan))
         near_field_weight_values.append(rc.get("near_field_weight", np.nan))
+        p3_position_ratio_values.append(rc.get("p3_position_ratio", np.nan))
+        p3_lateral_ratio_values.append(rc.get("p3_lateral_ratio", np.nan))
+        p3_lateral_violation_values.append(
+            rc.get("p3_lateral_violation", np.nan)
+        )
+        p3_handoff_gate_values.append(rc.get("p3_handoff_gate", np.nan))
         psi_ratio_values.append(rc.get("psi_ratio", np.nan))
         omega_ratio_values.append(rc.get("omega_ratio", np.nan))
         speed_ratio_values.append(rc.get("speed_ratio", np.nan))
@@ -346,6 +357,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         )
 
         reward_progress_values.append(rc.get("reward_progress", np.nan))
+        reward_no_progress_values.append(rc.get("reward_no_progress", np.nan))
         reward_unsafe_forward_progress_values.append(
             rc.get("reward_unsafe_forward_progress", np.nan)
         )
@@ -479,6 +491,10 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         "rho_ratio_values": np.array(rho_ratio_values),
         "center_quality_values": np.array(center_quality_values),
         "near_field_weight_values": np.array(near_field_weight_values),
+        "p3_position_ratio_values": np.array(p3_position_ratio_values),
+        "p3_lateral_ratio_values": np.array(p3_lateral_ratio_values),
+        "p3_lateral_violation_values": np.array(p3_lateral_violation_values),
+        "p3_handoff_gate_values": np.array(p3_handoff_gate_values),
         "psi_ratio_values": np.array(psi_ratio_values),
         "omega_ratio_values": np.array(omega_ratio_values),
         "speed_ratio_values": np.array(speed_ratio_values),
@@ -498,6 +514,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         "reward_rho_corridor_values": np.array(reward_rho_corridor_values),
         "reward_lateral_speed_values": np.array(reward_lateral_speed_values),
         "reward_progress_values": np.array(reward_progress_values),
+        "reward_no_progress_values": np.array(reward_no_progress_values),
         "reward_unsafe_forward_progress_values": np.array(
             reward_unsafe_forward_progress_values
         ),
@@ -601,6 +618,10 @@ def save_rollout(result, rollout_id):
         rho_ratio_values=result["rho_ratio_values"],
         center_quality_values=result["center_quality_values"],
         near_field_weight_values=result["near_field_weight_values"],
+        p3_position_ratio_values=result["p3_position_ratio_values"],
+        p3_lateral_ratio_values=result["p3_lateral_ratio_values"],
+        p3_lateral_violation_values=result["p3_lateral_violation_values"],
+        p3_handoff_gate_values=result["p3_handoff_gate_values"],
         psi_ratio_values=result["psi_ratio_values"],
         omega_ratio_values=result["omega_ratio_values"],
         speed_ratio_values=result["speed_ratio_values"],
@@ -620,6 +641,7 @@ def save_rollout(result, rollout_id):
         reward_rho_corridor_values=result["reward_rho_corridor_values"],
         reward_lateral_speed_values=result["reward_lateral_speed_values"],
         reward_progress_values=result["reward_progress_values"],
+        reward_no_progress_values=result["reward_no_progress_values"],
         reward_unsafe_forward_progress_values=result[
             "reward_unsafe_forward_progress_values"
         ],

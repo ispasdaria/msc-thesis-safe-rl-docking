@@ -337,6 +337,10 @@ class Docking3DoFGymEnv(gym.Env):
             "rho_ratio": None,
             "center_quality": None,
             "near_field_weight": None,
+            "p3_position_ratio": None,
+            "p3_lateral_ratio": None,
+            "p3_lateral_violation": None,
+            "p3_handoff_gate": None,
             "psi_ratio": None,
             "omega_ratio": None,
             "speed_ratio": None,
@@ -348,6 +352,7 @@ class Docking3DoFGymEnv(gym.Env):
             "progress_gate": None,
             "safe_progress": None,
             "unsafe_forward_progress": None,
+            "no_progress": None,
 
             # Reward terms
             "reward_position": 0.0,
@@ -363,6 +368,7 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_action": 0.0,
             "reward_alpha": 0.0,
             "reward_progress": 0.0,
+            "reward_no_progress": 0.0,
             "reward_unsafe_forward_progress": 0.0,
             "reward_speed_margin": 0.0,
             "reward_rho_keep": 0.0,
@@ -412,6 +418,20 @@ class Docking3DoFGymEnv(gym.Env):
                 0.0,
                 1.0,
             )
+            cone_radius_at_s = self.core_env.cone_slope * max(q["s"], 1e-6)
+            rho_ratio = q["rho"] / max(cone_radius_at_s, 1e-6)
+            if self.core_env.p3_target is not None:
+                p3_tol = self.core_env.p3_target_tolerance
+                p3_x_ratio = abs(error[0]) / max(p3_tol[0], 1e-6)
+                p3_lateral_ratio = abs(error[1]) / max(p3_tol[1], 1e-6)
+                p3_position_ratio = np.hypot(p3_x_ratio, p3_lateral_ratio)
+                p3_lateral_violation = max(0.0, p3_lateral_ratio - 1.0)
+                p3_handoff_gate = 1.0 / (1.0 + p3_position_ratio)
+            else:
+                p3_position_ratio = 0.0
+                p3_lateral_ratio = 0.0
+                p3_lateral_violation = 0.0
+                p3_handoff_gate = 0.0
 
             reward_position = -0.002 * pos_error
             reward_velocity = -0.5 * vel_error
@@ -419,7 +439,13 @@ class Docking3DoFGymEnv(gym.Env):
             reward_rate = -0.1 * rate_error
             reward_action = -0.01 * action_norm
             reward_progress = 20.0 * progress_port * safe_progress_scale
-            reward_lateral = -0.005 * q["rho"]
+            no_progress = (
+                pos_error > 50.0
+                and progress_port < 0.01
+                and speed_gate <= 0.75
+            )
+            reward_no_progress = -0.05 if no_progress else 0.0
+            reward_lateral = 0.0
             reward_speed_margin = (
                 -80.0 * max(0.0, speed_ratio - 0.75) ** 2
                 -80.0 * max(0.0, sdot_ratio - 0.75) ** 2
@@ -432,6 +458,7 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_rate
                 + reward_action
                 + reward_progress
+                + reward_no_progress
                 + reward_lateral
                 + reward_speed_margin
             )
@@ -445,6 +472,13 @@ class Docking3DoFGymEnv(gym.Env):
                     "progress_port": float(progress_port),
                     "speed_ratio": float(speed_ratio),
                     "progress_gate": float(safe_progress_scale),
+                    "cone_radius_at_s": float(cone_radius_at_s),
+                    "rho_ratio": float(rho_ratio),
+                    "p3_position_ratio": float(p3_position_ratio),
+                    "p3_lateral_ratio": float(p3_lateral_ratio),
+                    "p3_lateral_violation": float(p3_lateral_violation),
+                    "p3_handoff_gate": float(p3_handoff_gate),
+                    "no_progress": float(no_progress),
                     "too_fast": float(
                         max(0.0, speed_ratio - 0.75)
                         + max(0.0, sdot_ratio - 0.75)
@@ -455,6 +489,7 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
                     "reward_progress": float(reward_progress),
+                    "reward_no_progress": float(reward_no_progress),
                     "reward_lateral": float(reward_lateral),
                     "reward_speed_margin": float(reward_speed_margin),
                 }

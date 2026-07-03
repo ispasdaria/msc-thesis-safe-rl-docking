@@ -223,6 +223,12 @@ class Docking3DoFGymEnv(gym.Env):
         self.prev_port_distance = q["port_distance"]
         self.prev_s = q["s"]
         self.prev_rho = q["rho"]
+        if self.phase == "closing" and self.core_env.p3_target is not None:
+            target_error = self.core_env.state - self.core_env.p3_target
+            target_error[4] = self.core_env.wrap_to_pi(
+                self.core_env.state[4] - self.core_env.p3_target[4]
+            )
+            self.prev_closing_pos_error = np.linalg.norm(target_error[0:2])
 
         obs = self._get_obs()
         info = self._get_reset_info()
@@ -390,11 +396,34 @@ class Docking3DoFGymEnv(gym.Env):
                 attitude_error = psi_abs
                 rate_error = omega_abs
 
+            progress_port = 0.0
+            if hasattr(self, "prev_closing_pos_error"):
+                progress_port = self.prev_closing_pos_error - pos_error
+
+            self.prev_closing_pos_error = pos_error
+
+            vp_safe = self.core_env.vp_safe_close
+            sdot_safe = self.core_env.sdot_safe_close
+            speed_ratio = port_speed / max(vp_safe, 1e-6)
+            sdot_ratio = abs(q["s_dot"]) / max(sdot_safe, 1e-6)
+            speed_gate = max(speed_ratio, sdot_ratio)
+            safe_progress_scale = np.clip(
+                1.0 - max(0.0, speed_gate - 0.8) / 0.4,
+                0.0,
+                1.0,
+            )
+
             reward_position = -0.002 * pos_error
             reward_velocity = -0.5 * vel_error
             reward_attitude = -0.5 * attitude_error
             reward_rate = -0.1 * rate_error
             reward_action = -0.01 * action_norm
+            reward_progress = 20.0 * progress_port * safe_progress_scale
+            reward_lateral = -0.005 * q["rho"]
+            reward_speed_margin = (
+                -80.0 * max(0.0, speed_ratio - 0.75) ** 2
+                -80.0 * max(0.0, sdot_ratio - 0.75) ** 2
+            )
 
             reward = (
                 reward_position
@@ -402,6 +431,9 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_attitude
                 + reward_rate
                 + reward_action
+                + reward_progress
+                + reward_lateral
+                + reward_speed_margin
             )
 
             reward_components.update(
@@ -410,11 +442,21 @@ class Docking3DoFGymEnv(gym.Env):
                     "vel_error": float(vel_error),
                     "attitude_error": float(attitude_error),
                     "rate_error": float(rate_error),
+                    "progress_port": float(progress_port),
+                    "speed_ratio": float(speed_ratio),
+                    "progress_gate": float(safe_progress_scale),
+                    "too_fast": float(
+                        max(0.0, speed_ratio - 0.75)
+                        + max(0.0, sdot_ratio - 0.75)
+                    ),
                     "reward_position": float(reward_position),
                     "reward_velocity": float(reward_velocity),
                     "reward_attitude": float(reward_attitude),
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
+                    "reward_progress": float(reward_progress),
+                    "reward_lateral": float(reward_lateral),
+                    "reward_speed_margin": float(reward_speed_margin),
                 }
             )
 

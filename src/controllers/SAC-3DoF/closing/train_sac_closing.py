@@ -223,7 +223,7 @@ def main():
     seed = 0
     total_timesteps = 100_000
 
-    model_name = "sac_closing_rewardv1_100ksteps_seed0"
+    model_name = "sac_closing_rewardv5_100ksteps_seed0"
 
     model_path = os.path.join(MODEL_DIR, model_name)
     best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")

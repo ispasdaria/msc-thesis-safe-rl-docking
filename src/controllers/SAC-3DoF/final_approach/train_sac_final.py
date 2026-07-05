@@ -9,6 +9,10 @@ import sys
 import csv
 from collections import deque
 
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 import numpy as np
 from stable_baselines3 import SAC

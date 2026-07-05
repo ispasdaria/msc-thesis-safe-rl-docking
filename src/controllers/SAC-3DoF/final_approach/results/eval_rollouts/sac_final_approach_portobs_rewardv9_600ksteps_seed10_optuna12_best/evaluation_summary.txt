@@ -1,0 +1,38 @@
+SAC final-approach evaluation summary
+================================================================================
+Model name: sac_final_approach_portobs_rewardv9_600ksteps_seed10_optuna12_best
+Model path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_portobs_rewardv9_600ksteps_seed10_optuna12_best.zip
+VecNorm path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_portobs_rewardv9_600ksteps_seed10_optuna12_best_vecnormalize.pkl
+Results dir: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\results\eval_rollouts\sac_final_approach_portobs_rewardv9_600ksteps_seed10_optuna12_best
+
+Number of rollouts: 10
+Success rate:       1.00
+Failure rate:       0.00
+Time-limit rate:    0.00
+Mean steps:         3106.8
+
+Distance / geometry summary:
+Mean min port distance:   0.07 m
+Mean final port distance: 0.07 m
+Mean min s:               0.07 m
+Mean final s:             0.07 m
+Mean max rho:             2.05 m
+Mean final rho:           0.00 m
+
+Termination reasons:
+  success_docking: 10
+
+Violated constraints:
+  none
+
+Per-rollout summary:
+seed=0   | steps=3210  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.10 m | final_port=0.10 m | min_s=0.10 m | final_s=0.10 m | max_rho=1.68 m | final_rho=0.00 m
+seed=1   | steps=3037  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.08 m | final_port=0.08 m | min_s=0.08 m | final_s=0.08 m | max_rho=2.73 m | final_rho=0.00 m
+seed=2   | steps=3051  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.08 m | final_port=0.08 m | min_s=0.08 m | final_s=0.08 m | max_rho=1.62 m | final_rho=0.00 m
+seed=3   | steps=2862  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.09 m | final_port=0.09 m | min_s=0.09 m | final_s=0.09 m | max_rho=1.82 m | final_rho=0.00 m
+seed=4   | steps=3221  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.05 m | final_port=0.05 m | min_s=0.05 m | final_s=0.05 m | max_rho=2.00 m | final_rho=0.00 m
+seed=5   | steps=3161  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.05 m | final_port=0.05 m | min_s=0.05 m | final_s=0.05 m | max_rho=1.95 m | final_rho=0.00 m
+seed=6   | steps=3168  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.08 m | final_port=0.08 m | min_s=0.08 m | final_s=0.08 m | max_rho=1.64 m | final_rho=0.00 m
+seed=7   | steps=3086  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.07 m | final_port=0.07 m | min_s=0.07 m | final_s=0.07 m | max_rho=2.40 m | final_rho=0.00 m
+seed=8   | steps=2961  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.06 m | final_port=0.06 m | min_s=0.06 m | final_s=0.06 m | max_rho=2.88 m | final_rho=0.00 m
+seed=9   | steps=3311  | success=True | failure=False | reason=success_docking | violated=[] | min_port=0.08 m | final_port=0.08 m | min_s=0.08 m | final_s=0.08 m | max_rho=1.80 m | final_rho=0.00 m

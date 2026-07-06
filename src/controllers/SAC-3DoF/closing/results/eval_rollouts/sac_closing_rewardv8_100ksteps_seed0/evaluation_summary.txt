@@ -1,0 +1,43 @@
+SAC closing evaluation summary
+================================================================================
+Model name: sac_closing_rewardv8_100ksteps_seed0
+Model path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\models\sac_closing_rewardv8_100ksteps_seed0.zip
+VecNorm path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\models\sac_closing_rewardv8_100ksteps_seed0_vecnormalize.pkl
+Results dir: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\results\eval_rollouts\sac_closing_rewardv8_100ksteps_seed0
+
+Number of rollouts: 10
+Success rate:       0.00
+Failure rate:       0.60
+Time-limit rate:    0.40
+Mean steps:         5579.3
+
+Distance / geometry summary:
+Mean min port distance:   1655.36 m
+Mean closing port distance: 1676.69 m
+Mean min s:               1654.57 m
+Mean closing s:             1672.28 m
+Mean max rho:             100.57 m
+Mean closing rho:           84.02 m
+
+P3 target-error summary:
+Mean min position error:   1374.55 m
+Mean closing position error: 1397.04 m
+
+Termination reasons:
+  safety_violation: 6
+  timeout: 4
+
+Violated constraints:
+  velocity: 6
+
+Per-rollout summary:
+seed=0   | steps=293   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=1693.88 m | closing_port=1693.88 m | min_s=1693.04 m | closing_s=1693.04 m | max_rho=64.87 m | closing_rho=53.44 m | target_error=1413.85 m
+seed=1   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=1644.50 m | closing_port=1656.39 m | min_s=1643.76 m | closing_s=1656.35 m | max_rho=90.31 m | closing_rho=10.81 m | target_error=1363.19 m
+seed=2   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=1528.65 m | closing_port=1540.67 m | min_s=1527.77 m | closing_s=1539.61 m | max_rho=65.89 m | closing_rho=57.16 m | target_error=1273.46 m
+seed=3   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=1528.25 m | closing_port=1536.48 m | min_s=1527.42 m | closing_s=1535.43 m | max_rho=64.65 m | closing_rho=56.65 m | target_error=1260.94 m
+seed=4   | steps=226   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=1759.05 m | closing_port=1764.39 m | min_s=1759.05 m | closing_s=1764.38 m | max_rho=6.23 m | closing_rho=6.23 m | target_error=1475.60 m
+seed=5   | steps=3187  | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=1737.51 m | closing_port=1798.66 m | min_s=1736.41 m | closing_s=1778.97 m | max_rho=265.37 m | closing_rho=265.37 m | target_error=1522.35 m
+seed=6   | steps=212   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=1681.64 m | closing_port=1683.65 m | min_s=1681.29 m | closing_s=1683.42 m | max_rho=38.79 m | closing_rho=28.06 m | target_error=1400.78 m
+seed=7   | steps=3656  | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=1702.41 m | closing_port=1796.84 m | min_s=1700.56 m | closing_s=1777.28 m | max_rho=264.41 m | closing_rho=264.41 m | target_error=1535.59 m
+seed=8   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=1529.01 m | closing_port=1545.47 m | min_s=1528.23 m | closing_s=1544.23 m | max_rho=97.33 m | closing_rho=61.91 m | target_error=1264.45 m
+seed=9   | steps=219   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=1748.67 m | closing_port=1750.48 m | min_s=1748.19 m | closing_s=1750.10 m | max_rho=47.81 m | closing_rho=36.15 m | target_error=1460.20 m

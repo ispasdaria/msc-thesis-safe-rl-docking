@@ -414,7 +414,7 @@ class Docking3DoFGymEnv(gym.Env):
             sdot_ratio = abs(q["s_dot"]) / max(sdot_safe, 1e-6)
             speed_gate = max(speed_ratio, sdot_ratio)
             safe_progress_scale = np.clip(
-                1.0 - max(0.0, speed_gate - 0.8) / 0.4,
+                1.0 - max(0.0, speed_gate - 0.8) / 0.25,
                 0.0,
                 1.0,
             )
@@ -442,13 +442,13 @@ class Docking3DoFGymEnv(gym.Env):
             no_progress = (
                 pos_error > 50.0
                 and progress_port < 0.01
-                and speed_gate <= 0.75
+                and speed_gate <= 0.8
             )
             reward_no_progress = -0.05 if no_progress else 0.0
             reward_lateral = 0.0
             reward_speed_margin = (
-                -80.0 * max(0.0, speed_ratio - 0.75) ** 2
-                -80.0 * max(0.0, sdot_ratio - 0.75) ** 2
+                -120.0 * max(0.0, speed_ratio - 0.8) ** 2
+                -120.0 * max(0.0, sdot_ratio - 0.8) ** 2
             )
 
             reward = (
@@ -471,6 +471,7 @@ class Docking3DoFGymEnv(gym.Env):
                     "rate_error": float(rate_error),
                     "progress_port": float(progress_port),
                     "speed_ratio": float(speed_ratio),
+                    "speed_gate": float(speed_gate),
                     "progress_gate": float(safe_progress_scale),
                     "cone_radius_at_s": float(cone_radius_at_s),
                     "rho_ratio": float(rho_ratio),
@@ -480,8 +481,8 @@ class Docking3DoFGymEnv(gym.Env):
                     "p3_handoff_gate": float(p3_handoff_gate),
                     "no_progress": float(no_progress),
                     "too_fast": float(
-                        max(0.0, speed_ratio - 0.75)
-                        + max(0.0, sdot_ratio - 0.75)
+                        max(0.0, speed_ratio - 0.8)
+                        + max(0.0, sdot_ratio - 0.8)
                     ),
                     "reward_position": float(reward_position),
                     "reward_velocity": float(reward_velocity),
@@ -623,7 +624,12 @@ class Docking3DoFGymEnv(gym.Env):
             reward += reward_warning
             reward_components["reward_warning"] = float(reward_warning)
 
-        if info.get("failure", False):
+        if info.get("failure", False) and self.phase == "closing":
+            reward_failure = -5000.0
+            reward += reward_failure
+            reward_components["reward_failure"] = float(reward_failure)
+
+        elif info.get("failure", False):
             reward_failure = -1000.0
             reward += reward_failure
             reward_components["reward_failure"] = float(reward_failure)

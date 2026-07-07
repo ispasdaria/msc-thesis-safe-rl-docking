@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_closing_rewardv10_100ksteps_seed0"
+MODEL_NAME = "sac_closing_rewardv13_100ksteps_seed0"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -184,6 +184,21 @@ def load_rollout(filepath):
         "psi_gate": get_array(data, "psi_gate_values", n_steps),
         "omega_gate": get_array(data, "omega_gate_values", n_steps),
         "alignment_gate": get_array(data, "alignment_gate_values", n_steps),
+        "velocity_progress_gate": get_array(
+            data,
+            "velocity_progress_gate_values",
+            n_steps,
+        ),
+        "alignment_progress_gate": get_array(
+            data,
+            "alignment_progress_gate_values",
+            n_steps,
+        ),
+        "geometry_progress_gate": get_array(
+            data,
+            "geometry_progress_gate_values",
+            n_steps,
+        ),
         "progress_gate": get_array(data, "progress_gate_values", n_steps),
         "safe_progress": get_array(data, "safe_progress_values", n_steps),
         "unsafe_forward_progress": get_array(
@@ -306,6 +321,9 @@ def plot_one_rollout(result, rollout_id):
     psi_gate = result["psi_gate"]
     omega_gate = result["omega_gate"]
     alignment_gate = result["alignment_gate"]
+    velocity_progress_gate = result["velocity_progress_gate"]
+    alignment_progress_gate = result["alignment_progress_gate"]
+    geometry_progress_gate = result["geometry_progress_gate"]
     progress_gate = result["progress_gate"]
     safe_progress = result["safe_progress"]
     unsafe_forward_progress = result["unsafe_forward_progress"]
@@ -506,15 +524,17 @@ def plot_one_rollout(result, rollout_id):
     plt.grid(True)
     save_plot(f"rollout_{rollout_id:03d}_progress_diagnostics.png")
 
-    # In v23, progress_gate is rho_gate * speed_gate. Alignment gates are
-    # diagnostics only and are plotted here to show why their exclusion matters.
-    # NaN-only series from older rollouts are skipped.
+    # Progress gates are reward-version-specific diagnostics. NaN-only series
+    # from older rollouts are skipped.
     gate_series = (
         ("rho_gate", rho_gate),
         ("speed_gate", speed_gate),
         ("psi_gate", psi_gate),
         ("omega_gate", omega_gate),
         ("alignment_gate", alignment_gate),
+        ("velocity_progress_gate", velocity_progress_gate),
+        ("alignment_progress_gate", alignment_progress_gate),
+        ("geometry_progress_gate", geometry_progress_gate),
         ("progress_gate", progress_gate),
     )
     if any(np.any(np.isfinite(values)) for _, values in gate_series):

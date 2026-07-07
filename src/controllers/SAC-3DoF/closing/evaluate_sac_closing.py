@@ -39,7 +39,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_closing_rewardv10_100ksteps_seed0_best"
+MODEL_NAME = "sac_closing_rewardv13_100ksteps_seed0"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -223,6 +223,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
     psi_gate_values = []
     omega_gate_values = []
     alignment_gate_values = []
+    velocity_progress_gate_values = []
+    alignment_progress_gate_values = []
+    geometry_progress_gate_values = []
     progress_gate_values = []
     safe_progress_values = []
     unsafe_forward_progress_values = []
@@ -350,6 +353,15 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         psi_gate_values.append(rc.get("psi_gate", np.nan))
         omega_gate_values.append(rc.get("omega_gate", np.nan))
         alignment_gate_values.append(rc.get("alignment_gate", np.nan))
+        velocity_progress_gate_values.append(
+            rc.get("velocity_progress_gate", np.nan)
+        )
+        alignment_progress_gate_values.append(
+            rc.get("alignment_progress_gate", np.nan)
+        )
+        geometry_progress_gate_values.append(
+            rc.get("geometry_progress_gate", np.nan)
+        )
         progress_gate_values.append(rc.get("progress_gate", np.nan))
         safe_progress_values.append(rc.get("safe_progress", np.nan))
         unsafe_forward_progress_values.append(
@@ -503,6 +515,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         "psi_gate_values": np.array(psi_gate_values),
         "omega_gate_values": np.array(omega_gate_values),
         "alignment_gate_values": np.array(alignment_gate_values),
+        "velocity_progress_gate_values": np.array(velocity_progress_gate_values),
+        "alignment_progress_gate_values": np.array(alignment_progress_gate_values),
+        "geometry_progress_gate_values": np.array(geometry_progress_gate_values),
         "progress_gate_values": np.array(progress_gate_values),
         "safe_progress_values": np.array(safe_progress_values),
         "unsafe_forward_progress_values": np.array(unsafe_forward_progress_values),
@@ -630,6 +645,9 @@ def save_rollout(result, rollout_id):
         psi_gate_values=result["psi_gate_values"],
         omega_gate_values=result["omega_gate_values"],
         alignment_gate_values=result["alignment_gate_values"],
+        velocity_progress_gate_values=result["velocity_progress_gate_values"],
+        alignment_progress_gate_values=result["alignment_progress_gate_values"],
+        geometry_progress_gate_values=result["geometry_progress_gate_values"],
         progress_gate_values=result["progress_gate_values"],
         safe_progress_values=result["safe_progress_values"],
         unsafe_forward_progress_values=result["unsafe_forward_progress_values"],

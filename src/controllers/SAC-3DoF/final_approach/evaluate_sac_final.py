@@ -40,7 +40,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_portobs_rewardv9_600ksteps_seed19_optuna12_best"
+MODEL_NAME = "sac_final_approach_portobs_rewardv9_100ksteps_seed19_optuna12"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")

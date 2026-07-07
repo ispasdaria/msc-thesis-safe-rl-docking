@@ -1,0 +1,38 @@
+SAC final-approach evaluation summary
+================================================================================
+Model name: sac_final_approach_portobs_rewardv9_100ksteps_seed10_optuna12_best
+Model path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_portobs_rewardv9_100ksteps_seed10_optuna12_best.zip
+VecNorm path: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_portobs_rewardv9_100ksteps_seed10_optuna12_best_vecnormalize.pkl
+Results dir: C:\Users\ispas\repos\msc-thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\results\eval_rollouts\sac_final_approach_portobs_rewardv9_100ksteps_seed10_optuna12_best
+
+Number of rollouts: 10
+Success rate:       0.00
+Failure rate:       1.00
+Time-limit rate:    0.00
+Mean steps:         476.1
+
+Distance / geometry summary:
+Mean min port distance:   238.39 m
+Mean final port distance: 238.39 m
+Mean min s:               238.33 m
+Mean final s:             238.33 m
+Mean max rho:             5.52 m
+Mean final rho:           5.52 m
+
+Termination reasons:
+  safety_violation: 10
+
+Violated constraints:
+  velocity: 10
+
+Per-rollout summary:
+seed=0   | steps=78    | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=276.03 m | final_port=276.03 m | min_s=275.98 m | final_s=275.98 m | max_rho=5.17 m | final_rho=5.17 m
+seed=1   | steps=665   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=219.58 m | final_port=219.58 m | min_s=219.50 m | final_s=219.50 m | max_rho=5.85 m | final_rho=5.85 m
+seed=2   | steps=63    | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=262.55 m | final_port=262.55 m | min_s=262.51 m | final_s=262.51 m | max_rho=4.74 m | final_rho=4.74 m
+seed=3   | steps=58    | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=256.27 m | final_port=256.27 m | min_s=256.23 m | final_s=256.23 m | max_rho=4.44 m | final_rho=4.44 m
+seed=4   | steps=870   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=219.54 m | final_port=219.54 m | min_s=219.46 m | final_s=219.46 m | max_rho=5.95 m | final_rho=5.95 m
+seed=5   | steps=803   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=219.55 m | final_port=219.55 m | min_s=219.47 m | final_s=219.47 m | max_rho=5.92 m | final_rho=5.92 m
+seed=6   | steps=79    | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=271.79 m | final_port=271.79 m | min_s=271.73 m | final_s=271.73 m | max_rho=5.52 m | final_rho=5.52 m
+seed=7   | steps=719   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=219.57 m | final_port=219.57 m | min_s=219.49 m | final_s=219.49 m | max_rho=5.87 m | final_rho=5.87 m
+seed=8   | steps=583   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=219.51 m | final_port=219.51 m | min_s=219.44 m | final_s=219.44 m | max_rho=5.85 m | final_rho=5.85 m
+seed=9   | steps=843   | success=False | failure=True | reason=safety_violation | violated=['velocity'] | min_port=219.55 m | final_port=219.55 m | min_s=219.47 m | final_s=219.47 m | max_rho=5.93 m | final_rho=5.93 m

@@ -1,0 +1,38 @@
+SAC final-approach evaluation summary
+================================================================================
+Model name: sac_final_approach_portobs_rewardv9_600ksteps_seed7_optuna12_buffer600k
+Model path: D:\Daria Master\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_portobs_rewardv9_600ksteps_seed7_optuna12_buffer600k.zip
+VecNorm path: D:\Daria Master\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\models\sac_final_approach_portobs_rewardv9_600ksteps_seed7_optuna12_buffer600k_vecnormalize.pkl
+Results dir: D:\Daria Master\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\final_approach\results\eval_rollouts\sac_final_approach_portobs_rewardv9_600ksteps_seed7_optuna12_buffer600k
+
+Number of rollouts: 10
+Success rate:       0.00
+Failure rate:       1.00
+Time-limit rate:    0.00
+Mean steps:         3051.7
+
+Distance / geometry summary:
+Mean min port distance:   2.82 m
+Mean final port distance: 2.82 m
+Mean min s:               2.81 m
+Mean final s:             2.81 m
+Mean max rho:             1.70 m
+Mean final rho:           0.28 m
+
+Termination reasons:
+  safety_violation: 10
+
+Violated constraints:
+  geometry: 10
+
+Per-rollout summary:
+seed=0   | steps=3081  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.83 m | final_port=2.83 m | min_s=2.82 m | final_s=2.82 m | max_rho=1.43 m | final_rho=0.29 m
+seed=1   | steps=3032  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.80 m | final_port=2.80 m | min_s=2.79 m | final_s=2.79 m | max_rho=2.73 m | final_rho=0.28 m
+seed=2   | steps=2924  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.83 m | final_port=2.83 m | min_s=2.82 m | final_s=2.82 m | max_rho=1.24 m | final_rho=0.29 m
+seed=3   | steps=2849  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.87 m | final_port=2.87 m | min_s=2.85 m | final_s=2.85 m | max_rho=1.52 m | final_rho=0.29 m
+seed=4   | steps=3215  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.80 m | final_port=2.80 m | min_s=2.78 m | final_s=2.78 m | max_rho=0.57 m | final_rho=0.28 m
+seed=5   | steps=3158  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.73 m | final_port=2.73 m | min_s=2.72 m | final_s=2.72 m | max_rho=1.90 m | final_rho=0.28 m
+seed=6   | steps=3040  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.84 m | final_port=2.84 m | min_s=2.82 m | final_s=2.82 m | max_rho=1.01 m | final_rho=0.28 m
+seed=7   | steps=3082  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.84 m | final_port=2.84 m | min_s=2.82 m | final_s=2.82 m | max_rho=2.40 m | final_rho=0.28 m
+seed=8   | steps=2954  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.87 m | final_port=2.87 m | min_s=2.86 m | final_s=2.86 m | max_rho=2.87 m | final_rho=0.29 m
+seed=9   | steps=3182  | success=False | failure=True | reason=safety_violation | violated=['geometry'] | min_port=2.80 m | final_port=2.80 m | min_s=2.79 m | final_s=2.79 m | max_rho=1.31 m | final_rho=0.28 m

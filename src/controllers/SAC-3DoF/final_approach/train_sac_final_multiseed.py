@@ -194,7 +194,7 @@ class SaveBestModelAndVecNormalizeCallback(BaseCallback):
 
 def model_name_for_seed(seed, total_timesteps):
     steps_label = f"{total_timesteps // 1000}ksteps"
-    return f"sac_final_approach_portobs_rewardv9_{steps_label}_seed{seed}_optuna12"
+    return f"sac_final_approach_portobs_rewardv9_{steps_label}_seed{seed}_optuna12_buffer600k"
 
 
 def train_one_seed(
@@ -267,7 +267,7 @@ def train_one_seed(
         policy="MlpPolicy",
         env=train_env,
         learning_rate=0.0003395686575052769,
-        buffer_size=100_000,
+        buffer_size=600_000,
         learning_starts=1_000,
         batch_size=256,
         tau=0.005,

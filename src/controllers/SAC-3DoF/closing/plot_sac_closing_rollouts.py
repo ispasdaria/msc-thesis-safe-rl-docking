@@ -22,6 +22,7 @@ MODEL_NAME = "sac_closing_rewardv13_100ksteps_seed0"
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
     "results",
+    "reward_shaping_trials",
     "eval_rollouts",
     MODEL_NAME,
 )
@@ -29,6 +30,7 @@ ROLLOUT_DIR = os.path.join(
 PLOT_DIR = os.path.join(
     SCRIPT_DIR,
     "results",
+    "reward_shaping_trials",
     "plots",
     MODEL_NAME,
 )

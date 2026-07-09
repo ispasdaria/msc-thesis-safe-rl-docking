@@ -32,11 +32,28 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "eval_multiseed")
+BUFFER100K_600K_MODEL_DIR = os.path.join(MODEL_DIR, "optuna12_600ksteps_buffer100k")
+BUFFER100K_600K_RESULTS_DIR = os.path.join(
+    SCRIPT_DIR,
+    "results",
+    "optuna12_600ksteps_buffer100k",
+    "eval_multiseed",
+)
 
 
-def model_name_for_seed(seed, total_timesteps):
+def buffer_label(buffer_size):
+    return f"buffer{buffer_size // 1000}k" if buffer_size is not None else None
+
+
+def model_name_for_seed(seed, total_timesteps, buffer_size=None, best=False):
     steps_label = f"{total_timesteps // 1000}ksteps"
-    return f"sac_final_approach_portobs_rewardv9_{steps_label}_seed{seed}_optuna12"
+    model_name = f"sac_final_approach_portobs_rewardv9_{steps_label}_seed{seed}_optuna12"
+    label = buffer_label(buffer_size)
+    if label is not None:
+        model_name += f"_{label}"
+    if best:
+        model_name += "_best"
+    return model_name
 
 
 def make_eval_env(seed=0, mode="testing"):
@@ -209,8 +226,19 @@ def parse_args():
     parser.add_argument("--eval-seed-start", type=int, default=0)
     parser.add_argument("--eval-seed-end", type=int, default=49)
     parser.add_argument("--total-timesteps", type=int, default=100_000)
+    parser.add_argument(
+        "--buffer-size",
+        type=int,
+        default=None,
+        help="Replay buffer size used in the checkpoint name, e.g. 300000 -> _buffer300k.",
+    )
     parser.add_argument("--mode", default="testing", choices=["nominal", "testing", "training"])
     parser.add_argument("--max-steps", type=int, default=5000)
+    parser.add_argument(
+        "--best",
+        action="store_true",
+        help="Evaluate the corresponding _best checkpoints instead of final checkpoints.",
+    )
     parser.add_argument(
         "--skip-missing",
         action="store_true",
@@ -227,9 +255,17 @@ def main():
     if args.eval_seed_end < args.eval_seed_start:
         raise ValueError("--eval-seed-end must be >= --eval-seed-start.")
 
+    if args.buffer_size is None and args.total_timesteps == 600_000:
+        args.buffer_size = 100_000
+
+    use_legacy_600k_buffer100k_dir = (
+        args.total_timesteps == 600_000 and args.buffer_size == 100_000
+    )
+    results_dir = BUFFER100K_600K_RESULTS_DIR if use_legacy_600k_buffer100k_dir else RESULTS_DIR
     run_dir = os.path.join(
-        RESULTS_DIR,
+        results_dir,
         f"train_seeds_{args.train_seed_start}_{args.train_seed_end}",
+        "best" if args.best else "final",
         f"{args.mode}_eval_seeds_{args.eval_seed_start}_{args.eval_seed_end}",
     )
     os.makedirs(run_dir, exist_ok=True)
@@ -246,14 +282,22 @@ def main():
     print("=" * 80)
     print(f"Training seeds:   {args.train_seed_start}..{args.train_seed_end}")
     print(f"Evaluation seeds: {args.eval_seed_start}..{args.eval_seed_end}")
+    print(f"Buffer size:      {args.buffer_size if args.buffer_size is not None else 'not in name'}")
+    print(f"Checkpoint type:  {'best' if args.best else 'final'}")
     print(f"Mode:             {args.mode}")
     print(f"Results dir:      {run_dir}")
     print("=" * 80)
 
     for train_seed in range(args.train_seed_start, args.train_seed_end + 1):
-        model_name = model_name_for_seed(train_seed, args.total_timesteps)
-        model_path = os.path.join(MODEL_DIR, model_name + ".zip")
-        vecnorm_path = os.path.join(MODEL_DIR, model_name + "_vecnormalize.pkl")
+        model_name = model_name_for_seed(
+            train_seed,
+            args.total_timesteps,
+            buffer_size=args.buffer_size,
+            best=args.best,
+        )
+        model_dir = BUFFER100K_600K_MODEL_DIR if use_legacy_600k_buffer100k_dir else MODEL_DIR
+        model_path = os.path.join(model_dir, model_name + ".zip")
+        vecnorm_path = os.path.join(model_dir, model_name + "_vecnormalize.pkl")
 
         if not os.path.exists(model_path) or not os.path.exists(vecnorm_path):
             message = (

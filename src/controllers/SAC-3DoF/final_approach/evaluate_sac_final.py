@@ -40,15 +40,17 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_portobs_rewardv9_100ksteps_seed19_optuna12"
+MODEL_NAME = "sac_final_approach_portobs_rewardv9_300ksteps_seed6_optuna12_buffer100k"
+ARTIFACT_GROUP = "optuna12_600ksteps_buffer100k"
 
-MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
+MODEL_DIR = os.path.join(SCRIPT_DIR, "models", ARTIFACT_GROUP)
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
 VECNORM_PATH = os.path.join(MODEL_DIR, MODEL_NAME + "_vecnormalize.pkl")
 
 RESULTS_DIR = os.path.join(
     SCRIPT_DIR,
     "results",
+    ARTIFACT_GROUP,
     "eval_rollouts",
     MODEL_NAME,
 )

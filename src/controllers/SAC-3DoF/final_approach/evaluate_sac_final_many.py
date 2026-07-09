@@ -32,6 +32,9 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
+BUFFER100K_600K_MODEL_DIR = os.path.join(MODEL_DIR, "optuna12_600ksteps_buffer100k")
+BUFFER600K_600K_MODEL_DIR = os.path.join(MODEL_DIR, "optuna12_600ksteps_buffer600k")
+RESULTS_ROOT = os.path.join(SCRIPT_DIR, "results")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "eval_many")
 
 DEFAULT_MODEL_NAME = "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12"
@@ -248,8 +251,22 @@ def parse_args():
 def main():
     args = parse_args()
 
-    model_path = os.path.join(MODEL_DIR, args.model_name + ".zip")
-    vecnorm_path = os.path.join(MODEL_DIR, args.model_name + "_vecnormalize.pkl")
+    model_dir = (
+        BUFFER100K_600K_MODEL_DIR
+        if "600ksteps" in args.model_name and "buffer100k" in args.model_name
+        else BUFFER600K_600K_MODEL_DIR
+        if "600ksteps" in args.model_name and "buffer600k" in args.model_name
+        else MODEL_DIR
+    )
+    model_path = os.path.join(model_dir, args.model_name + ".zip")
+    vecnorm_path = os.path.join(model_dir, args.model_name + "_vecnormalize.pkl")
+    results_dir = (
+        os.path.join(RESULTS_ROOT, "optuna12_600ksteps_buffer100k", "eval_many")
+        if "600ksteps" in args.model_name and "buffer100k" in args.model_name
+        else os.path.join(RESULTS_ROOT, "optuna12_600ksteps_buffer600k", "eval_many")
+        if "600ksteps" in args.model_name and "buffer600k" in args.model_name
+        else RESULTS_DIR
+    )
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found: {model_path}")
@@ -257,7 +274,7 @@ def main():
         raise FileNotFoundError(f"VecNormalize file not found: {vecnorm_path}")
 
     run_dir = os.path.join(
-        RESULTS_DIR,
+        results_dir,
         args.model_name,
         f"{args.mode}_seeds_{args.seed_start}_{args.seed_end}",
     )

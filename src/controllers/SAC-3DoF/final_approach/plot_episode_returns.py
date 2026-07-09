@@ -2,7 +2,7 @@
 Plot total training reward per completed episode from a learning_curve.csv file.
 
 By default, plots are saved to:
-    final_approach/results/new_learning_curves/<model_name>.png
+    final_approach/results/episode_return_learning_curves/<model_name>.png
 
 The model name is inferred from the parent folder of the CSV path.
 
@@ -26,7 +26,7 @@ import numpy as np
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 RESULTS_DIR = SCRIPT_DIR / "results"
-NEW_LEARNING_CURVES_DIR = RESULTS_DIR / "new_learning_curves"
+EPISODE_RETURN_LEARNING_CURVES_DIR = RESULTS_DIR / "episode_return_learning_curves"
 
 
 def infer_model_name(csv_path):
@@ -38,7 +38,7 @@ def infer_model_name(csv_path):
 
 def default_output_path(csv_path):
     model_name = infer_model_name(csv_path)
-    return NEW_LEARNING_CURVES_DIR / f"{model_name}.png"
+    return EPISODE_RETURN_LEARNING_CURVES_DIR / f"{model_name}.png"
 
 
 def read_episode_returns(csv_path):
@@ -212,7 +212,7 @@ def parse_args():
         default=None,
         help=(
             "Output PNG path. Defaults to "
-            "final_approach/results/new_learning_curves/<model_name>.png."
+            "final_approach/results/episode_return_learning_curves/<model_name>.png."
         ),
     )
     parser.add_argument(

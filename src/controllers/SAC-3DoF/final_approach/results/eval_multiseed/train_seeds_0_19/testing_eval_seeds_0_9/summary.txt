@@ -1,0 +1,29 @@
+SAC final-approach training-seed robustness summary
+================================================================================
+Number of trained models: 20
+Mean success rate:        0.0500
+Std success rate:         0.2179
+Mean failure rate:        0.9000
+Std failure rate:         0.3000
+
+Per-model summary:
+train_seed=0   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=22.7306 m | mean_final_rho=2.2830 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=1   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=7.1256 m | mean_final_rho=0.7182 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=2   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=1.7116 m | mean_final_rho=0.1754 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=3   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.1691 m | mean_final_rho=0.0248 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=4   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=42.7536 m | mean_final_rho=4.2672 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=5   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=6.3161 m | mean_final_rho=0.6320 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=6   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=17.6686 m | mean_final_rho=1.7636 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=7   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=17.7665 m | mean_final_rho=1.7717 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=8   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=7.6493 m | mean_final_rho=0.7658 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=9   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=7.3227 m | mean_final_rho=0.7335 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=10  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=10.1033 m | mean_final_rho=1.0192 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=11  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=4.8175 m | mean_final_rho=0.4830 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=12  | success=1.0000 | failure=0.0000 | time_limit=0.0000 | mean_final_port=0.0648 m | mean_final_rho=0.0002 m | reasons=success_docking:10 | constraints=
+train_seed=13  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=19.7717 m | mean_final_rho=1.9698 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=14  | success=0.0000 | failure=0.0000 | time_limit=1.0000 | mean_final_port=25.4265 m | mean_final_rho=1.2491 m | reasons=timeout:10 | constraints=
+train_seed=15  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=1.5867 m | mean_final_rho=0.1651 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=16  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.5400 m | mean_final_rho=0.0571 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=17  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=1.9931 m | mean_final_rho=0.2022 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=18  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=7.8066 m | mean_final_rho=0.7902 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=19  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=15.7514 m | mean_final_rho=1.5765 m | reasons=safety_violation:10 | constraints=geometry:10

@@ -41,13 +41,14 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 MODEL_NAME = "sac_closing_rewardv13_100ksteps_seed0"
 
-MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
+MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "reward_shaping_trials")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
 VECNORM_PATH = os.path.join(MODEL_DIR, MODEL_NAME + "_vecnormalize.pkl")
 
 RESULTS_DIR = os.path.join(
     SCRIPT_DIR,
     "results",
+    "reward_shaping_trials",
     "eval_rollouts",
     MODEL_NAME,
 )

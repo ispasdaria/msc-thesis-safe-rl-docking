@@ -18,11 +18,13 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12"
+MODEL_NAME = "sac_final_approach_portobs_rewardv9_600ksteps_seed18_optuna12_buffer100k_best"
+ARTIFACT_GROUP = "optuna12_600ksteps_buffer100k"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
     "results",
+    ARTIFACT_GROUP,
     "eval_rollouts",
     MODEL_NAME,
 )
@@ -30,6 +32,7 @@ ROLLOUT_DIR = os.path.join(
 PLOT_DIR = os.path.join(
     SCRIPT_DIR,
     "results",
+    ARTIFACT_GROUP,
     "plots",
     MODEL_NAME,
 )

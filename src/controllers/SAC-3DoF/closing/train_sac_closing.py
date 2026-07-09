@@ -38,10 +38,13 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
-LOG_DIR = os.path.join(SCRIPT_DIR, "logs")
-RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
-NEW_LEARNING_CURVES_DIR = os.path.join(RESULTS_DIR, "new_learning_curves")
+MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "reward_shaping_trials")
+LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "reward_shaping_trials")
+RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "reward_shaping_trials")
+EPISODE_RETURN_LEARNING_CURVES_DIR = os.path.join(
+    RESULTS_DIR,
+    "episode_return_learning_curves",
+)
 EVALUATION_LEARNING_CURVES_DIR = os.path.join(
     RESULTS_DIR,
     "evaluation_learning_curves",
@@ -49,7 +52,7 @@ EVALUATION_LEARNING_CURVES_DIR = os.path.join(
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(NEW_LEARNING_CURVES_DIR, exist_ok=True)
+os.makedirs(EPISODE_RETURN_LEARNING_CURVES_DIR, exist_ok=True)
 os.makedirs(EVALUATION_LEARNING_CURVES_DIR, exist_ok=True)
 
 
@@ -608,9 +611,12 @@ def main():
     best_vecnorm_path = os.path.join(
         MODEL_DIR, f"{model_name}_best_vecnormalize.pkl"
     )
-    learning_curve_dir = os.path.join(NEW_LEARNING_CURVES_DIR, model_name)
+    learning_curve_dir = os.path.join(EPISODE_RETURN_LEARNING_CURVES_DIR, model_name)
     learning_curve_csv = os.path.join(learning_curve_dir, "learning_curve.csv")
-    learning_curve_plot = os.path.join(NEW_LEARNING_CURVES_DIR, f"{model_name}.png")
+    learning_curve_plot = os.path.join(
+        EPISODE_RETURN_LEARNING_CURVES_DIR,
+        f"{model_name}.png",
+    )
     evaluation_curve_dir = os.path.join(EVALUATION_LEARNING_CURVES_DIR, model_name)
     evaluation_curve_csv = os.path.join(
         evaluation_curve_dir,

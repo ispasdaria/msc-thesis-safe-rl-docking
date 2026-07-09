@@ -4,9 +4,10 @@ Train SAC for the 3-DoF docking closing phase.
 This script only trains the SAC agent.
 """
 
+import argparse
+import csv
 import os
 import sys
-import csv
 from collections import deque
 
 import matplotlib
@@ -15,6 +16,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -46,6 +48,34 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "learning_curves")
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Train a SAC closing-phase agent."
+    )
+    parser.add_argument(
+        "--device",
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="Device used by Stable-Baselines3/PyTorch: auto, cpu, or cuda.",
+    )
+    return parser.parse_args()
+
+
+def validate_device(device):
+    if device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError(
+            "CUDA was requested with --device cuda, but "
+            "torch.cuda.is_available() is False."
+        )
+
+
+def print_device_info(device):
+    print(f"Requested device: {device}")
+    print(f"CUDA available:   {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA device:      {torch.cuda.get_device_name(0)}")
 
 
 # ---------------------------------------------------------------------
@@ -220,6 +250,9 @@ class BestModelCallback(BaseCallback):
 
 
 def main():
+    args = parse_args()
+    validate_device(args.device)
+
     # -----------------------------------------------------------------
     # Training configuration
     # -----------------------------------------------------------------
@@ -251,6 +284,7 @@ def main():
     print(f"Best VecNorm:    {best_vecnorm_path}")
     print(f"Learning curve:  {learning_curve_plot}")
     print(f"Total steps:     {total_timesteps}")
+    print_device_info(args.device)
     print("=" * 80)
 
     # -----------------------------------------------------------------
@@ -290,7 +324,7 @@ def main():
         verbose=1,
         seed=seed,
         tensorboard_log=LOG_DIR,
-        device="auto",
+        device=args.device,
     )
 
     # -----------------------------------------------------------------

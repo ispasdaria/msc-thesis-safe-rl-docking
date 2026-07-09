@@ -17,6 +17,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
@@ -43,6 +44,21 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "learning_curves")
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
+
+
+def validate_device(device):
+    if device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError(
+            "CUDA was requested with --device cuda, but "
+            "torch.cuda.is_available() is False."
+        )
+
+
+def print_device_info(device):
+    print(f"Requested device: {device}")
+    print(f"CUDA available:   {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA device:      {torch.cuda.get_device_name(0)}")
 
 
 def make_training_env(seed):
@@ -194,7 +210,7 @@ class SaveBestModelAndVecNormalizeCallback(BaseCallback):
 
 def model_name_for_seed(seed, total_timesteps):
     steps_label = f"{total_timesteps // 1000}ksteps"
-    return f"sac_final_approach_portobs_rewardv9_{steps_label}_seed{seed}_optuna12_buffer600k"
+    return f"sac_final_approach_portobs_rewardv9_{steps_label}_seed{seed}_optuna12_buffer100k"
 
 
 def train_one_seed(
@@ -240,6 +256,7 @@ def train_one_seed(
     print(f"Eval freq:     {eval_freq}")
     print(f"Eval episodes: {n_eval_episodes}")
     print(f"Total steps:   {total_timesteps}")
+    print_device_info(device)
     print("=" * 80)
 
     train_env = DummyVecEnv([lambda: make_training_env(seed=seed)])
@@ -267,7 +284,7 @@ def train_one_seed(
         policy="MlpPolicy",
         env=train_env,
         learning_rate=0.0003395686575052769,
-        buffer_size=600_000,
+        buffer_size=100_000,
         learning_starts=1_000,
         batch_size=256,
         tau=0.005,
@@ -332,7 +349,12 @@ def parse_args():
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--seed-end", type=int, default=9)
     parser.add_argument("--total-timesteps", type=int, default=100_000)
-    parser.add_argument("--device", default="auto")
+    parser.add_argument(
+        "--device",
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="Device used by Stable-Baselines3/PyTorch: auto, cpu, or cuda.",
+    )
     parser.add_argument("--progress-bar", action="store_true")
     parser.add_argument("--eval-freq", type=int, default=10_000)
     parser.add_argument("--n-eval-episodes", type=int, default=10)
@@ -346,6 +368,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    validate_device(args.device)
 
     if args.seed_end < args.seed_start:
         raise ValueError("--seed-end must be greater than or equal to --seed-start.")

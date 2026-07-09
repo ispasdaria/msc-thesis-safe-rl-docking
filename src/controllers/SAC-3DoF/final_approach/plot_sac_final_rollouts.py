@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12"
+MODEL_NAME = "sac_final_approach_portobs_rewardv9_600ksteps_seed18_optuna12_best"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,

@@ -213,37 +213,40 @@ class LearningCurveCallback(BaseCallback):
 
 
 class BestModelCallback(BaseCallback):
-    """
-    Saves the best training checkpoint seen so far.
+    """Checks the best raw training episode return at fixed intervals."""
 
-    The score is the raw episode return reported by Monitor, which keeps
-    the criterion aligned with the learning-curve output.
-    """
-
-    def __init__(self, best_model_path, best_vecnorm_path):
+    def __init__(self, check_freq, best_model_path, best_vecnorm_path):
         super().__init__()
-
+        self.check_freq = int(check_freq)
         self.best_model_path = best_model_path
         self.best_vecnorm_path = best_vecnorm_path
         self.best_episode_return = -np.inf
+        self.best_saved_return = -np.inf
 
     def _on_step(self):
         for info in self.locals.get("infos", []):
             episode_info = info.get("episode")
+            if episode_info is not None:
+                self.best_episode_return = max(
+                    self.best_episode_return,
+                    float(episode_info["r"]),
+                )
 
-            if episode_info is None:
-                continue
+        if self.num_timesteps % self.check_freq != 0:
+            return True
 
-            episode_return = float(episode_info["r"])
-            if episode_return <= self.best_episode_return:
-                continue
-
-            self.best_episode_return = episode_return
+        if self.best_episode_return > self.best_saved_return:
+            self.best_saved_return = self.best_episode_return
             self.model.save(self.best_model_path)
             self.training_env.save(self.best_vecnorm_path)
-
             print(
-                f"New best episode return {episode_return:.6f} at timestep {self.num_timesteps}"
+                f"New best episode return {self.best_saved_return:.6f} "
+                f"saved at timestep {self.num_timesteps}"
+            )
+        else:
+            print(
+                f"Best-model check at timestep {self.num_timesteps}: "
+                f"no improvement over {self.best_saved_return:.6f}"
             )
 
         return True
@@ -258,9 +261,9 @@ def main():
     # -----------------------------------------------------------------
 
     seed = 0
-    total_timesteps = 100_000
+    total_timesteps = 1_000_000
     
-    model_name = "sac_closing_rewardv9_100ksteps_seed0"
+    model_name = "sac_closing_rewardv7_1Mksteps_seed0_buffer1M"
 
     model_path = os.path.join(MODEL_DIR, model_name)
     best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")
@@ -283,6 +286,7 @@ def main():
     print(f"VecNorm path:    {vecnorm_path}")
     print(f"Best VecNorm:    {best_vecnorm_path}")
     print(f"Learning curve:  {learning_curve_plot}")
+    print("Best-model check: every 50,000 steps")
     print(f"Total steps:     {total_timesteps}")
     print_device_info(args.device)
     print("=" * 80)
@@ -312,7 +316,7 @@ def main():
         policy="MlpPolicy",
         env=train_env,
         learning_rate=0.0003395686575052769,
-        buffer_size=100_000,
+        buffer_size=1_000_000,
         learning_starts=1_000,
         batch_size=256,
         tau=0.005,
@@ -337,6 +341,7 @@ def main():
         rolling_window=20,
     )
     best_model_callback = BestModelCallback(
+        check_freq=50_000,
         best_model_path=best_model_path,
         best_vecnorm_path=best_vecnorm_path,
     )

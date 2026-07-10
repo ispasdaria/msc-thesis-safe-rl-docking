@@ -1,0 +1,11 @@
+SAC final-approach training-seed robustness summary
+================================================================================
+Number of trained models: 2
+Mean success rate:        0.2500
+Std success rate:         0.2500
+Mean failure rate:        0.7500
+Std failure rate:         0.2500
+
+Per-model summary:
+train_seed=18  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.7323 m | mean_final_rho=0.0761 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=19  | success=0.5000 | failure=0.5000 | time_limit=0.0000 | mean_final_port=0.0433 m | mean_final_rho=0.0045 m | reasons=safety_violation:5;success_docking:5 | constraints=geometry:5

@@ -1,0 +1,3 @@
+train_seed,model_name,n_eval,success_rate,failure_rate,time_limit_rate,mean_steps,mean_final_port_distance,max_final_port_distance,mean_min_port_distance,mean_final_rho,max_final_rho,mean_max_rho,termination_reasons,violated_constraints
+18,sac_final_approach_portobs_rewardv9_300ksteps_seed18_optuna12_buffer300k,10,0.0,1.0,0.0,3101.9,0.07599015658534466,0.10376055951611189,0.07599015658534466,0.011205265603486933,0.01198720562407768,1.7245158584666886,safety_violation:10,geometry:10
+19,sac_final_approach_portobs_rewardv9_300ksteps_seed19_optuna12_buffer300k,10,0.0,1.0,0.0,3247.7,3.0336355294704473,3.0692021199537547,3.0336355294704473,0.30805931157559263,0.3122394685910765,2.3328777410364494,safety_violation:10,geometry:10

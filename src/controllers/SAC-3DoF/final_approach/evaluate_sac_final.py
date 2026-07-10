@@ -4,8 +4,6 @@ Evaluate a trained SAC model for the 3-DoF docking final-approach phase.
 This version avoids DummyVecEnv auto-reset during rollout history saving.
 It runs a normal, non-vectorized environment and manually normalizes
 observations using the saved VecNormalize statistics.
-
-Use this version for the reward v23 experiment.
 """
 
 import os

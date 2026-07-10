@@ -430,8 +430,11 @@ class Docking3DoFGymEnv(gym.Env):
             speed_ratio = port_speed / max(vp_safe, 1e-6)
             sdot_ratio = abs(q["s_dot"]) / max(sdot_safe, 1e-6)
             speed_gate = max(speed_ratio, sdot_ratio)
-            action_saturation = max(0.0, action_norm - 0.70)
-
+            safe_progress_scale = np.clip(
+                1.0 - max(0.0, speed_gate - 0.8) / 0.4,
+                0.0,
+                1.0,
+            )
             cone_radius_at_s = self.core_env.cone_slope * max(q["s"], 1e-6)
             rho_ratio = q["rho"] / max(cone_radius_at_s, 1e-6)
             corridor_ratio = q["rho"] / max(self.core_env.corridor_radius, 1e-6)
@@ -454,79 +457,24 @@ class Docking3DoFGymEnv(gym.Env):
                 p3_lateral_ratio = 0.0
                 p3_lateral_violation = 0.0
                 p3_handoff_gate = 0.0
-                p3_psi_ratio = 0.0
-                p3_omega_ratio = 0.0
-                p3_alignment_ratio = 0.0
 
-            reward_position = -0.004 * pos_error
-            reward_lateral = -0.50 * lateral_error
-            reward_velocity = (
-                -0.20 * vel_error
-                -30.0 * max(0.0, speed_ratio - 0.80) ** 2
-                -80.0 * max(0.0, speed_ratio - 1.00) ** 2
+            reward_position = -0.002 * pos_error
+            reward_velocity = -0.5 * vel_error
+            reward_attitude = -0.5 * attitude_error
+            reward_rate = -0.1 * rate_error
+            reward_action = -0.01 * action_norm
+            reward_progress = 20.0 * progress_port * safe_progress_scale
+            no_progress = (
+                pos_error > 50.0
+                and progress_port < 0.01
+                and speed_gate <= 0.75
             )
-            reward_s_dot = (
-                -30.0 * max(0.0, sdot_ratio - 0.80) ** 2
-                -80.0 * max(0.0, sdot_ratio - 1.00) ** 2
+            reward_no_progress = -0.05 if no_progress else 0.0
+            reward_lateral = 0.0
+            reward_speed_margin = (
+                -80.0 * max(0.0, speed_ratio - 0.75) ** 2
+                -80.0 * max(0.0, sdot_ratio - 0.75) ** 2
             )
-            reward_attitude = -0.25 * attitude_error
-            reward_rate = -0.05 * rate_error
-            reward_action = (
-                -0.01 * action_norm
-                -0.03 * action_norm**2
-                -2.0 * max(0.0, speed_gate - 0.90) * action_norm**2
-                -6.0 * max(0.0, speed_gate - 0.90) * action_saturation**2
-            )
-            velocity_progress_gate = np.clip((0.95 - speed_gate) / 0.15, 0.0, 1.0)
-            alignment_progress_gate = np.clip(
-                (1.00 - alignment_gate) / 0.30,
-                0.0,
-                1.0,
-            )
-            cone_progress_gate = np.clip((1.00 - rho_ratio) / 0.50, 0.0, 1.0)
-            corridor_progress_gate = (
-                (1.0 - p3_handoff_gate)
-                + p3_handoff_gate
-                * np.clip((1.00 - corridor_ratio) / 0.50, 0.0, 1.0)
-            )
-            geometry_progress_gate = min(cone_progress_gate, corridor_progress_gate)
-            progress_gate = (
-                velocity_progress_gate
-                * alignment_progress_gate
-                * geometry_progress_gate
-            )
-            forward_progress = max(distance_progress, 0.0)
-            backward_progress = min(distance_progress, 0.0)
-            safe_progress = progress_gate * forward_progress
-            unsafe_forward_progress = (1.0 - progress_gate) * forward_progress
-            reward_progress = (
-                20.0 * safe_progress
-                + 10.0 * backward_progress
-            )
-            reward_rho_progress = (
-                8.0 * max(lateral_progress, 0.0)
-                + 4.0 * min(lateral_progress, 0.0)
-            )
-            reward_rho_corridor = -80.0 * p3_handoff_gate * corridor_excess**2
-            reward_terminal_corridor = 30.0 * p3_handoff_gate * (
-                1.0 - np.clip(corridor_ratio, 0.0, 1.0)
-            )
-            reward_psi_margin = (
-                -15.0 * max(0.0, psi_safe_ratio - 0.70) ** 2
-                -60.0 * max(0.0, psi_safe_ratio - 1.00) ** 2
-            )
-            reward_omega_margin = (
-                -15.0 * max(0.0, omega_safe_ratio - 0.70) ** 2
-                -60.0 * max(0.0, omega_safe_ratio - 1.00) ** 2
-            )
-            reward_terminal_alignment = -60.0 * p3_handoff_gate * max(
-                0.0,
-                p3_alignment_ratio - 1.0,
-            ) ** 2
-            reward_unsafe_forward_progress = -25.0 * unsafe_forward_progress
-            no_progress = False
-            reward_no_progress = 0.0
-            reward_speed_margin = 0.0
 
             reward = (
                 reward_position
@@ -558,14 +506,7 @@ class Docking3DoFGymEnv(gym.Env):
                     "progress_port": float(distance_progress),
                     "rho_progress": float(lateral_progress),
                     "speed_ratio": float(speed_ratio),
-                    "sdot_ratio": float(sdot_ratio),
-                    "speed_gate": float(speed_gate),
-                    "velocity_progress_gate": float(velocity_progress_gate),
-                    "alignment_progress_gate": float(alignment_progress_gate),
-                    "geometry_progress_gate": float(geometry_progress_gate),
-                    "progress_gate": float(progress_gate),
-                    "safe_progress": float(safe_progress),
-                    "unsafe_forward_progress": float(unsafe_forward_progress),
+                    "progress_gate": float(safe_progress_scale),
                     "cone_radius_at_s": float(cone_radius_at_s),
                     "rho_ratio": float(rho_ratio),
                     "corridor_excess": float(corridor_excess),
@@ -585,6 +526,8 @@ class Docking3DoFGymEnv(gym.Env):
                     "alignment_gate": float(alignment_gate),
                     "no_progress": float(no_progress),
                     "too_fast": float(
+                        max(0.0, speed_ratio - 0.75)
+                        + max(0.0, sdot_ratio - 0.75)
                         max(0.0, speed_ratio - 0.75)
                         + max(0.0, sdot_ratio - 0.75)
                     ),
@@ -738,6 +681,7 @@ class Docking3DoFGymEnv(gym.Env):
             reward += reward_warning
             reward_components["reward_warning"] = float(reward_warning)
 
+        if info.get("failure", False):
         if info.get("failure", False):
             reward_failure = -1000.0
             reward += reward_failure

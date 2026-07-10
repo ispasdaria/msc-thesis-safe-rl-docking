@@ -457,16 +457,19 @@ class Docking3DoFGymEnv(gym.Env):
                 p3_lateral_ratio = 0.0
                 p3_lateral_violation = 0.0
                 p3_handoff_gate = 0.0
+                p3_psi_ratio = 0.0
+                p3_omega_ratio = 0.0
+                p3_alignment_ratio = 0.0
 
             reward_position = -0.002 * pos_error
             reward_velocity = -0.5 * vel_error
             reward_attitude = -0.5 * attitude_error
             reward_rate = -0.1 * rate_error
             reward_action = -0.01 * action_norm
-            reward_progress = 20.0 * progress_port * safe_progress_scale
+            reward_progress = 20.0 * distance_progress * safe_progress_scale
             no_progress = (
                 pos_error > 50.0
-                and progress_port < 0.01
+                and distance_progress < 0.01
                 and speed_gate <= 0.75
             )
             reward_no_progress = -0.05 if no_progress else 0.0
@@ -479,20 +482,12 @@ class Docking3DoFGymEnv(gym.Env):
             reward = (
                 reward_position
                 + reward_velocity
-                + reward_s_dot
                 + reward_attitude
                 + reward_rate
                 + reward_action
                 + reward_progress
-                + reward_rho_progress
                 + reward_no_progress
-                + reward_unsafe_forward_progress
                 + reward_lateral
-                + reward_rho_corridor
-                + reward_terminal_corridor
-                + reward_psi_margin
-                + reward_omega_margin
-                + reward_terminal_alignment
                 + reward_speed_margin
             )
 
@@ -528,27 +523,15 @@ class Docking3DoFGymEnv(gym.Env):
                     "too_fast": float(
                         max(0.0, speed_ratio - 0.75)
                         + max(0.0, sdot_ratio - 0.75)
-                        max(0.0, speed_ratio - 0.75)
-                        + max(0.0, sdot_ratio - 0.75)
                     ),
                     "reward_position": float(reward_position),
                     "reward_velocity": float(reward_velocity),
-                    "reward_s_dot": float(reward_s_dot),
                     "reward_attitude": float(reward_attitude),
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
                     "reward_progress": float(reward_progress),
-                    "reward_rho_progress": float(reward_rho_progress),
                     "reward_no_progress": float(reward_no_progress),
-                    "reward_unsafe_forward_progress": float(
-                        reward_unsafe_forward_progress
-                    ),
                     "reward_lateral": float(reward_lateral),
-                    "reward_rho_corridor": float(reward_rho_corridor),
-                    "reward_psi_margin": float(reward_psi_margin),
-                    "reward_omega_margin": float(reward_omega_margin),
-                    "reward_terminal_corridor": float(reward_terminal_corridor),
-                    "reward_terminal_alignment": float(reward_terminal_alignment),
                     "reward_speed_margin": float(reward_speed_margin),
                 }
             )
@@ -681,7 +664,6 @@ class Docking3DoFGymEnv(gym.Env):
             reward += reward_warning
             reward_components["reward_warning"] = float(reward_warning)
 
-        if info.get("failure", False):
         if info.get("failure", False):
             reward_failure = -1000.0
             reward += reward_failure

@@ -32,7 +32,9 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "eval_multiseed")
+BUFFER100K_300K_MODEL_DIR = os.path.join(MODEL_DIR, "optuna12_300ksteps_buffer100k")
 BUFFER100K_600K_MODEL_DIR = os.path.join(MODEL_DIR, "optuna12_600ksteps_buffer100k")
+BUFFER600K_600K_MODEL_DIR = os.path.join(MODEL_DIR, "optuna12_600ksteps_buffer600k")
 BUFFER100K_600K_RESULTS_DIR = os.path.join(
     SCRIPT_DIR,
     "results",
@@ -258,10 +260,20 @@ def main():
     if args.buffer_size is None and args.total_timesteps == 600_000:
         args.buffer_size = 100_000
 
-    use_legacy_600k_buffer100k_dir = (
-        args.total_timesteps == 600_000 and args.buffer_size == 100_000
+    experiment_model_dirs = {
+        (300_000, 100_000): BUFFER100K_300K_MODEL_DIR,
+        (600_000, 100_000): BUFFER100K_600K_MODEL_DIR,
+        (600_000, 600_000): BUFFER600K_600K_MODEL_DIR,
+    }
+    model_dir = experiment_model_dirs.get(
+        (args.total_timesteps, args.buffer_size),
+        MODEL_DIR,
     )
-    results_dir = BUFFER100K_600K_RESULTS_DIR if use_legacy_600k_buffer100k_dir else RESULTS_DIR
+    results_dir = (
+        BUFFER100K_600K_RESULTS_DIR
+        if args.total_timesteps == 600_000 and args.buffer_size == 100_000
+        else RESULTS_DIR
+    )
     run_dir = os.path.join(
         results_dir,
         f"train_seeds_{args.train_seed_start}_{args.train_seed_end}",
@@ -295,7 +307,6 @@ def main():
             buffer_size=args.buffer_size,
             best=args.best,
         )
-        model_dir = BUFFER100K_600K_MODEL_DIR if use_legacy_600k_buffer100k_dir else MODEL_DIR
         model_path = os.path.join(model_dir, model_name + ".zip")
         vecnorm_path = os.path.join(model_dir, model_name + "_vecnormalize.pkl")
 

@@ -1,29 +1,29 @@
 SAC final-approach training-seed robustness summary
 ================================================================================
 Number of trained models: 20
-Mean success rate:        0.1350
-Std success rate:         0.3260
-Mean failure rate:        0.8650
-Std failure rate:         0.3260
+Mean success rate:        0.2550
+Std success rate:         0.3943
+Mean failure rate:        0.7450
+Std failure rate:         0.3943
 
 Per-model summary:
-train_seed=0   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=261.8038 m | mean_final_rho=6.1775 m | reasons=safety_violation:10 | constraints=velocity:10
-train_seed=1   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=268.3073 m | mean_final_rho=5.2787 m | reasons=safety_violation:10 | constraints=alignment:10
-train_seed=2   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=3.2353 m | mean_final_rho=0.3277 m | reasons=safety_violation:10 | constraints=geometry:10
-train_seed=3   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=1.6092 m | mean_final_rho=0.1639 m | reasons=safety_violation:10 | constraints=geometry:10
-train_seed=4   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=223.0259 m | mean_final_rho=0.7293 m | reasons=safety_violation:10 | constraints=alignment:6;velocity:2;geometry:2
-train_seed=5   | success=1.0000 | failure=0.0000 | time_limit=0.0000 | mean_final_port=0.0822 m | mean_final_rho=0.0006 m | reasons=success_docking:10 | constraints=
-train_seed=6   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=274.2008 m | mean_final_rho=3.6493 m | reasons=safety_violation:10 | constraints=velocity:10
-train_seed=7   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=113.2097 m | mean_final_rho=0.3812 m | reasons=safety_violation:10 | constraints=geometry:6;velocity:4
-train_seed=8   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=4.4158 m | mean_final_rho=0.4475 m | reasons=safety_violation:10 | constraints=geometry:10
-train_seed=9   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=248.0561 m | mean_final_rho=1.8973 m | reasons=safety_violation:10 | constraints=alignment:10
-train_seed=10  | success=1.0000 | failure=0.0000 | time_limit=0.0000 | mean_final_port=0.0744 m | mean_final_rho=0.0029 m | reasons=success_docking:10 | constraints=
-train_seed=11  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=276.3409 m | mean_final_rho=2.8566 m | reasons=safety_violation:10 | constraints=velocity:10
-train_seed=12  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.5168 m | mean_final_rho=0.0567 m | reasons=safety_violation:10 | constraints=geometry:10
-train_seed=13  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.3302 m | mean_final_rho=0.0346 m | reasons=safety_violation:10 | constraints=geometry:10
-train_seed=14  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=260.5054 m | mean_final_rho=3.7027 m | reasons=safety_violation:10 | constraints=velocity:5;alignment:6
-train_seed=15  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.4499 m | mean_final_rho=0.0469 m | reasons=safety_violation:10 | constraints=geometry:10
-train_seed=16  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=276.5699 m | mean_final_rho=3.4799 m | reasons=safety_violation:10 | constraints=velocity:10
-train_seed=17  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=253.1240 m | mean_final_rho=2.0852 m | reasons=safety_violation:10 | constraints=velocity:10
-train_seed=18  | success=0.7000 | failure=0.3000 | time_limit=0.0000 | mean_final_port=0.0694 m | mean_final_rho=0.0048 m | reasons=success_docking:7;safety_violation:3 | constraints=geometry:3
-train_seed=19  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.3189 m | mean_final_rho=0.0431 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=0   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=269.9133 m | mean_final_rho=0.6503 m | reasons=safety_violation:10 | constraints=velocity:10
+train_seed=1   | success=0.1000 | failure=0.9000 | time_limit=0.0000 | mean_final_port=0.1342 m | mean_final_rho=0.0164 m | reasons=safety_violation:9;success_docking:1 | constraints=geometry:9
+train_seed=2   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=1.0355 m | mean_final_rho=0.1080 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=3   | success=1.0000 | failure=0.0000 | time_limit=0.0000 | mean_final_port=0.0797 m | mean_final_rho=0.0031 m | reasons=success_docking:10 | constraints=
+train_seed=4   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.3447 m | mean_final_rho=0.0385 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=5   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.1712 m | mean_final_rho=0.0205 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=6   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=2.5841 m | mean_final_rho=0.2694 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=7   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.3116 m | mean_final_rho=0.0364 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=8   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.7726 m | mean_final_rho=0.0842 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=9   | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=1.4095 m | mean_final_rho=0.1435 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=10  | success=0.7000 | failure=0.3000 | time_limit=0.0000 | mean_final_port=0.0747 m | mean_final_rho=0.0065 m | reasons=safety_violation:3;success_docking:7 | constraints=geometry:3
+train_seed=11  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=1.9828 m | mean_final_rho=0.2029 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=12  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=2.1081 m | mean_final_rho=0.2153 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=13  | success=0.1000 | failure=0.9000 | time_limit=0.0000 | mean_final_port=0.5281 m | mean_final_rho=0.0558 m | reasons=safety_violation:9;success_docking:1 | constraints=geometry:9
+train_seed=14  | success=0.3000 | failure=0.7000 | time_limit=0.0000 | mean_final_port=0.0747 m | mean_final_rho=0.0088 m | reasons=success_docking:3;safety_violation:7 | constraints=geometry:7
+train_seed=15  | success=0.9000 | failure=0.1000 | time_limit=0.0000 | mean_final_port=0.0760 m | mean_final_rho=0.0039 m | reasons=safety_violation:1;success_docking:9 | constraints=geometry:1
+train_seed=16  | success=1.0000 | failure=0.0000 | time_limit=0.0000 | mean_final_port=0.0699 m | mean_final_rho=0.0025 m | reasons=success_docking:10 | constraints=
+train_seed=17  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=1.6536 m | mean_final_rho=0.1678 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=18  | success=0.0000 | failure=1.0000 | time_limit=0.0000 | mean_final_port=0.1726 m | mean_final_rho=0.0198 m | reasons=safety_violation:10 | constraints=geometry:10
+train_seed=19  | success=1.0000 | failure=0.0000 | time_limit=0.0000 | mean_final_port=0.0880 m | mean_final_rho=0.0034 m | reasons=success_docking:10 | constraints=

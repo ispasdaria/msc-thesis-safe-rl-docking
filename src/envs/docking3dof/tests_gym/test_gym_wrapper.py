@@ -27,7 +27,20 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 def expected_observation(env):
     if env.phase == "closing":
-        return env.core_env.state.astype(np.float32)
+        q = env.core_env.get_derived_quantities(env.core_env.state)
+        port_state = np.array(
+            [
+                q["r_p"][0],
+                q["r_p"][1],
+                q["v_p"][0],
+                q["v_p"][1],
+                q["psi_e"],
+                q["omega"],
+            ]
+        )
+        error = env.core_env.state - env.core_env.p3_target
+        error[4] = env.core_env.wrap_to_pi(error[4])
+        return np.concatenate((port_state, error)).astype(np.float32)
 
     q = env.core_env.get_derived_quantities(env.core_env.state)
     return np.array(
@@ -41,6 +54,44 @@ def expected_observation(env):
         ],
         dtype=np.float32,
     )
+
+
+def check_closing_observation_is_augmented():
+    env = Docking3DoFGymEnv(phase="closing", mode="testing", seed=7)
+    obs, info = env.reset(seed=7)
+
+    expected = expected_observation(env)
+
+    assert np.allclose(obs, expected)
+    assert info["observation_labels"] == (
+        "rpx",
+        "rpy",
+        "vpx",
+        "vpy",
+        "psi_e",
+        "omegaz",
+        "p3_rx_error",
+        "p3_ry_error",
+        "p3_vx_error",
+        "p3_vy_error",
+        "p3_psi_error",
+        "p3_omega_error",
+    )
+
+    env.close()
+
+
+def check_closing_observation_wraps_attitude_error():
+    env = Docking3DoFGymEnv(phase="closing", mode="testing", seed=11)
+    env.reset(seed=11)
+
+    env.core_env.state[4] = np.pi - 0.1
+    env.core_env.p3_target[4] = -np.pi + 0.1
+
+    obs = env._get_obs()
+
+    assert np.isclose(obs[10], -0.2, atol=1e-6)
+    env.close()
 
 
 def test_single_phase(phase):
@@ -73,7 +124,10 @@ def test_single_phase(phase):
     print("info keys:", list(info.keys()))
 
     assert isinstance(obs, np.ndarray), "reset() observation must be a NumPy array."
-    assert obs.shape == (6,), "Observation must have shape (6,)."
+    expected_shape = (12,) if phase == "closing" else (6,)
+    assert obs.shape == expected_shape, (
+        f"{phase} observation must have shape {expected_shape}."
+    )
     assert obs.dtype == np.float32, "Observation must have dtype float32."
     assert isinstance(info, dict), "reset() info must be a dictionary."
 
@@ -105,7 +159,9 @@ def test_single_phase(phase):
     print("info keys:", list(info.keys()))
 
     assert isinstance(obs, np.ndarray), "step() observation must be a NumPy array."
-    assert obs.shape == (6,), "Step observation must have shape (6,)."
+    assert obs.shape == expected_shape, (
+        f"{phase} step observation must have shape {expected_shape}."
+    )
     assert obs.dtype == np.float32, "Step observation must have dtype float32."
     assert isinstance(reward, float), "Reward must be a Python float."
     assert isinstance(terminated, bool), "terminated must be a bool."
@@ -134,6 +190,8 @@ def test_single_phase(phase):
 
 
 def main():
+    check_closing_observation_is_augmented()
+    check_closing_observation_wraps_attitude_error()
     test_single_phase("closing")
     test_single_phase("final")
 

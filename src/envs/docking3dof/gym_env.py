@@ -31,11 +31,26 @@ class Docking3DoFGymEnv(gym.Env):
             [ax_Bc, ay_Bc, alphaz_Bc]
 
     Closing:
-        observation = [rx, ry, vx, vy, psi, omegaz]
+        observation = [
+            rpx,
+            rpy,
+            vpx,
+            vpy,
+            psi_e,
+            omegaz,
+            rx - rx_P3,
+            ry - ry_P3,
+            vx - vx_P3,
+            vy - vy_P3,
+            wrap(psi - psi_P3),
+            omegaz - omegaz_P3,
+        ]
 
-    The simulator state remains [rx, ry, vx, vy, psi, omegaz]. Only the final
-    approach agent observes docking-port errors because docking is accepted at
-    port level.
+    The simulator state remains [rx, ry, vx, vy, psi, omegaz]. The closing
+    agent observes both the docking-port state used by the safety constraints
+    and its error relative to the episode's sampled P3 target. The
+    final-approach agent observes only docking-port errors because docking is
+    accepted at port level.
     The phase changes:
         - reset distribution
         - terminal condition
@@ -45,7 +60,20 @@ class Docking3DoFGymEnv(gym.Env):
     """
 
     metadata = {"render_modes": []}
-    closing_observation_labels = ("rx", "ry", "vx", "vy", "psi", "omegaz")
+    closing_observation_labels = (
+        "rpx",
+        "rpy",
+        "vpx",
+        "vpy",
+        "psi_e",
+        "omegaz",
+        "p3_rx_error",
+        "p3_ry_error",
+        "p3_vx_error",
+        "p3_vy_error",
+        "p3_psi_error",
+        "p3_omega_error",
+    )
     final_observation_labels = ("rpx", "rpy", "vpx", "vpy", "psi_e", "omegaz")
 
     def __init__(
@@ -85,10 +113,11 @@ class Docking3DoFGymEnv(gym.Env):
             seed=seed,
         )
 
+        observation_size = 12 if self.phase == "closing" else 6
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(6,),
+            shape=(observation_size,),
             dtype=np.float32,
         )
 
@@ -131,13 +160,37 @@ class Docking3DoFGymEnv(gym.Env):
         """
         Returns the current Gymnasium observation.
 
-        In the final phase, the SAC policy receives the docking-port relative
-        position and velocity used by the docking acceptance conditions. In the
-        closing phase, it keeps the original CoM-relative state observation.
+        In the closing phase, the SAC policy receives both the docking-port
+        state used by the safety constraints and the error relative to the
+        sampled P3 handoff state. In the final phase, it receives only the
+        docking-port relative state used by the docking acceptance conditions.
         """
 
         if self.phase == "closing":
-            return self.core_env.state.astype(np.float32)
+            if self.core_env.p3_target is None:
+                raise RuntimeError(
+                    "Closing observation requires a sampled P3 target. "
+                    "Call reset() without a provided initial state, or set "
+                    "core_env.p3_target before requesting an observation."
+                )
+
+            error = self.core_env.state - self.core_env.p3_target
+            error[4] = self.core_env.wrap_to_pi(error[4])
+
+            q = self.core_env.get_derived_quantities(self.core_env.state)
+            port_state = np.array(
+                [
+                    q["r_p"][0],
+                    q["r_p"][1],
+                    q["v_p"][0],
+                    q["v_p"][1],
+                    q["psi_e"],
+                    q["omega"],
+                ],
+                dtype=np.float64,
+            )
+
+            return np.concatenate((port_state, error)).astype(np.float32)
 
         q = self.core_env.get_derived_quantities(self.core_env.state)
 

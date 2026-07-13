@@ -94,8 +94,9 @@ def make_training_env(seed=12):
     """
     Creates one monitored closing training environment.
 
-    The environment returns raw CoM-relative physical observations.
-    VecNormalize normalizes observations and rewards externally.
+    The environment returns the augmented docking-port safety state and the
+    physical state error relative to the sampled P3 target. VecNormalize
+    normalizes observations and rewards externally.
     """
 
     env = Docking3DoFGymEnv(
@@ -355,7 +356,6 @@ class BestModelCallback(BaseCallback):
         max_steps=12000,
     ):
         super().__init__()
-        self.check_freq = int(check_freq)
         self.best_model_path = best_model_path
         self.best_vecnorm_path = best_vecnorm_path
         self.eval_seeds = list(eval_seeds)
@@ -634,9 +634,9 @@ def main():
     # -----------------------------------------------------------------
 
     seed = 0
-    total_timesteps = 1_000_000
+    total_timesteps = 300_000
     
-    model_name = "sac_closing_rewardv7_1Msteps_seed0_buffer1M"
+    model_name = "sac_closing_p3augobs_rewardv7_300ksteps_seed0_buffer300k"
 
     model_path = os.path.join(MODEL_DIR, model_name)
     best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")
@@ -704,7 +704,7 @@ def main():
         policy="MlpPolicy",
         env=train_env,
         learning_rate=0.0003395686575052769,
-        buffer_size=1_000_000,
+        buffer_size=300_000,
         learning_starts=1_000,
         batch_size=256,
         tau=0.005,
@@ -730,7 +730,6 @@ def main():
         moving_average_window=10,
     )
     best_model_callback = BestModelCallback(
-        check_freq=50_000,
         best_model_path=best_model_path,
         best_vecnorm_path=best_vecnorm_path,
         eval_seeds=range(10),

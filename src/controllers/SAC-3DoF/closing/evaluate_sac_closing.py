@@ -39,7 +39,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_closing_rewardv7_1Msteps_seed0_buffer1M_best"
+MODEL_NAME = "sac_closing_p3augobs_rewardv7_300ksteps_seed0_buffer300k"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "reward_shaping_trials")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -99,10 +99,10 @@ def normalize_observation(vecnorm, obs):
     Normalizes a single raw observation using VecNormalize statistics.
 
     Input:
-        obs shape: (6,) = [rx, ry, vx, vy, psi, omega]
+        obs shape: (12,) = docking-port safety state plus P3-relative error
 
     Output:
-        normalized obs shape: (1, 6)
+        normalized obs shape: (1, 12)
     """
 
     obs_batch = obs.reshape(1, -1)

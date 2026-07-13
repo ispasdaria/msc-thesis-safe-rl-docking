@@ -636,7 +636,7 @@ def main():
     seed = 0
     total_timesteps = 1_000_000
     
-    model_name = "sac_closing_rewardv7_1Mksteps_seed0_buffer1M"
+    model_name = "sac_closing_rewardv7_1Msteps_seed0_buffer1M"
 
     model_path = os.path.join(MODEL_DIR, model_name)
     best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")

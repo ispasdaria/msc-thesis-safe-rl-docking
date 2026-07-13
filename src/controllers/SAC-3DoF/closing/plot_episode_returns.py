@@ -2,10 +2,10 @@
 
 The input is the ``learning_curve.csv`` produced by ``train_sac_closing.py``.
 By default, the plot is saved to
-``closing/results/episode_return_learning_curves/<model_name>.png``.
+``closing/results/reward_shaping_trials/episode_return_learning_curves/<model_name>.png``.
 
 Examples:
-    python plot_episode_returns.py results/learning_curves/<model_name>/learning_curve.csv
+    python plot_episode_returns.py results/reward_shaping_trials/learning_curves/<model_name>/learning_curve.csv
     python plot_episode_returns.py path/to/learning_curve.csv --output custom.png
     python plot_episode_returns.py path/to/learning_curve.csv --window 20
     python plot_episode_returns.py path/to/learning_curve.csv --show-best-checkpoint false
@@ -24,7 +24,12 @@ import numpy as np
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-OUTPUT_DIR = SCRIPT_DIR / "results" / "episode_return_learning_curves"
+OUTPUT_DIR = (
+    SCRIPT_DIR
+    / "results"
+    / "reward_shaping_trials"
+    / "episode_return_learning_curves"
+)
 
 
 def infer_model_name(csv_path):
@@ -190,7 +195,8 @@ def parse_args():
         default=None,
         help=(
             "Output PNG path. By default, uses "
-            "closing/results/episode_return_learning_curves/<model_name>.png."
+            "closing/results/reward_shaping_trials/"
+            "episode_return_learning_curves/<model_name>.png."
         ),
     )
     parser.add_argument(

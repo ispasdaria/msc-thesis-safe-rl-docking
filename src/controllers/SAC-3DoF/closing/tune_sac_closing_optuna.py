@@ -430,7 +430,7 @@ def parse_args():
     )
     parser.add_argument(
         "--study-name",
-        default="sac_closing_p3augobs_rewardv7_optuna_v1",
+        default="sac_closing_p3augobs_rewardv13_optuna_v1",
     )
     parser.add_argument("--n-trials", type=int, default=20)
     parser.add_argument("--train-steps", type=int, default=300_000)

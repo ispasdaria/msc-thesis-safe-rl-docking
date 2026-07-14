@@ -94,6 +94,135 @@ def check_closing_observation_wraps_attitude_error():
     env.close()
 
 
+def check_closing_reward_v13_adds_attitude_progress():
+    env = Docking3DoFGymEnv(phase="closing", mode="testing", seed=13)
+    env.reset(seed=13)
+
+    state = env.core_env.state.copy()
+    state[2] = -0.20
+    state[5] = 0.0
+    target_error = state - env.core_env.p3_target
+    target_error[4] = env.core_env.wrap_to_pi(target_error[4])
+    pos_error = np.linalg.norm(target_error[0:2])
+
+    env.prev_closing_pos_error = pos_error + 0.1
+    reward, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.array([0.0, 0.0, 0.4]),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    assert np.isfinite(reward)
+    assert np.isclose(components["progress_port"], 0.1)
+    assert np.isclose(components["reward_progress"], 2.0)
+    assert np.isclose(components["progress_gate"], 1.0)
+    assert np.isclose(components["reward_speed_margin"], 0.0)
+    assert np.isclose(components["reward_alpha"], 0.0)
+    assert np.isclose(
+        components["reward_lateral_speed"],
+        -5.0 * abs(target_error[3]),
+    )
+    assert np.isclose(components["s_dot"], -0.20)
+    assert np.isclose(components["reward_s_dot"], -5.0)
+
+    # Reducing the wrapped P3-relative attitude error by 2 deg earns the same
+    # magnitude that increasing it by 2 deg loses.
+    target_psi = env.core_env.p3_target[4]
+    attitude_state = state.copy()
+    env.prev_closing_attitude_error = np.deg2rad(10.0)
+    attitude_state[4] = target_psi + np.deg2rad(8.0)
+    _, improving_components = env._compute_sac_reward(
+        state=attitude_state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    expected_attitude_progress_reward = 50.0 * np.deg2rad(2.0)
+    assert np.isclose(
+        improving_components["attitude_progress"],
+        np.deg2rad(2.0),
+    )
+    assert np.isclose(
+        improving_components["reward_attitude_progress"],
+        expected_attitude_progress_reward,
+    )
+
+    attitude_state[4] = target_psi + np.deg2rad(10.0)
+    _, worsening_components = env._compute_sac_reward(
+        state=attitude_state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    assert np.isclose(
+        worsening_components["attitude_progress"],
+        -np.deg2rad(2.0),
+    )
+    assert np.isclose(
+        worsening_components["reward_attitude_progress"],
+        -expected_attitude_progress_reward,
+    )
+
+    # Isolate total port-speed shaping from axial-speed shaping: pure lateral
+    # motion at 0.30 m/s is halfway through the [0.25, 0.35] m/s warning band.
+    lateral_state = state.copy()
+    lateral_state[2] = 0.0
+    lateral_state[3] = 0.30
+    lateral_state[5] = 0.0
+    lateral_target_error = lateral_state - env.core_env.p3_target
+    lateral_target_error[4] = env.core_env.wrap_to_pi(lateral_target_error[4])
+    env.prev_closing_pos_error = np.linalg.norm(lateral_target_error[0:2])
+    _, lateral_components = env._compute_sac_reward(
+        state=lateral_state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    assert np.isclose(lateral_components["port_speed"], 0.30)
+    assert np.isclose(lateral_components["s_dot"], 0.0)
+    assert np.isclose(lateral_components["reward_s_dot"], 0.0)
+    assert np.isclose(lateral_components["reward_speed_margin"], -5.0)
+
+    env.prev_closing_pos_error = pos_error
+    _, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    assert np.isclose(components["no_progress"], 1.0)
+    assert np.isclose(components["reward_no_progress"], -0.05)
+
+    env.prev_closing_pos_error = pos_error + 0.1
+    _, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": True, "failure": True, "success": False},
+        terminated=True,
+        truncated=False,
+    )
+
+    assert np.isclose(components["reward_warning"], -10.0)
+    assert np.isclose(components["reward_failure"], -1000.0)
+    env.close()
+
+
 def test_single_phase(phase):
     print("=" * 80)
     print(f"Testing Gym wrapper for phase: {phase}")
@@ -192,6 +321,7 @@ def test_single_phase(phase):
 def main():
     check_closing_observation_is_augmented()
     check_closing_observation_wraps_attitude_error()
+    check_closing_reward_v13_adds_attitude_progress()
     test_single_phase("closing")
     test_single_phase("final")
 

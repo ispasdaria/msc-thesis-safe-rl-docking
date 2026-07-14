@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_closing_p3augobs_rewardv7_300ksteps_seed0_buffer300k"
+MODEL_NAME = "sac_closing_p3augobs_rewardv13_300ksteps_seed0_buffer300k"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -155,6 +155,9 @@ def load_rollout(filepath):
         "vel_errors": get_array(data, "vel_errors", n_steps),
         "attitude_errors": get_array(data, "attitude_errors", n_steps),
         "rate_errors": get_array(data, "rate_errors", n_steps),
+        "attitude_progress": get_array(
+            data, "attitude_progress_values", n_steps
+        ),
 
         # Reward-specific terms
         "desired_s_dot": get_array(data, "desired_s_dot_values", n_steps),
@@ -217,6 +220,9 @@ def load_rollout(filepath):
             data, "reward_rho_corridor_values", n_steps
         ),
         "reward_lateral_speed": get_array(data, "reward_lateral_speed_values", n_steps),
+        "reward_attitude_progress": get_array(
+            data, "reward_attitude_progress_values", n_steps
+        ),
         "reward_progress": get_array(data, "reward_progress_values", n_steps),
         "reward_no_progress": get_array(data, "reward_no_progress_values", n_steps),
         "reward_unsafe_forward_progress": get_array(
@@ -297,6 +303,7 @@ def plot_one_rollout(result, rollout_id):
     vel_errors = result["vel_errors"]
     attitude_errors = result["attitude_errors"]
     rate_errors = result["rate_errors"]
+    attitude_progress = result["attitude_progress"]
 
     desired_s_dot = result["desired_s_dot"]
     s_dot_error = result["s_dot_error"]
@@ -335,6 +342,7 @@ def plot_one_rollout(result, rollout_id):
     reward_lateral = result["reward_lateral"]
     reward_rho_corridor = result["reward_rho_corridor"]
     reward_lateral_speed = result["reward_lateral_speed"]
+    reward_attitude_progress = result["reward_attitude_progress"]
     reward_progress = result["reward_progress"]
     reward_no_progress = result["reward_no_progress"]
     reward_unsafe_forward_progress = result["reward_unsafe_forward_progress"]
@@ -701,6 +709,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_mid_field_centering, label="mid-field centering")
     plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_attitudes, label="attitude")
+    plt.plot(t_steps, reward_attitude_progress, label="attitude progress")
     plt.plot(t_steps, reward_rates, label="rate")
     plt.plot(t_steps, reward_actions, label="action")
     plt.plot(t_steps, reward_alphas, label="alpha")
@@ -742,6 +751,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_near_field_centering, label="near-field centering")
     plt.plot(t_steps, reward_mid_field_centering, label="mid-field centering")
     plt.plot(t_steps, reward_attitudes, label="attitude")
+    plt.plot(t_steps, reward_attitude_progress, label="attitude progress")
     plt.plot(t_steps, reward_rates, label="rate")
     plt.plot(t_steps, reward_actions, label="action")
     plt.plot(t_steps, reward_alphas, label="alpha")
@@ -795,6 +805,21 @@ def plot_one_rollout(result, rollout_id):
     plt.legend()
     plt.grid(True)
     save_plot(f"rollout_{rollout_id:03d}_p3_target_attitude_errors.png")
+
+    if np.any(np.isfinite(attitude_progress)):
+        plt.figure()
+        plt.plot(
+            t_steps,
+            np.rad2deg(attitude_progress),
+            label="attitude error reduction",
+        )
+        plt.axhline(0.0, linestyle=":", linewidth=1, label="zero")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Attitude progress [deg/step]")
+        plt.title(f"SAC Closing P3 Attitude Progress\n{title_suffix}")
+        plt.legend()
+        plt.grid(True)
+        save_plot(f"rollout_{rollout_id:03d}_p3_attitude_progress.png")
 
 
 def main():

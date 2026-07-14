@@ -39,7 +39,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_closing_p3augobs_rewardv7_300ksteps_seed0_buffer300k"
+MODEL_NAME = "sac_closing_p3augobs_rewardv13_300ksteps_seed0_buffer300k"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "reward_shaping_trials")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -194,6 +194,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
     vel_errors = []
     attitude_errors = []
     rate_errors = []
+    attitude_progress_values = []
 
     # Reward-specific diagnostics
     desired_s_dot_values = []
@@ -237,6 +238,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
     reward_lateral_values = []
     reward_rho_corridor_values = []
     reward_lateral_speed_values = []
+    reward_attitude_progress_values = []
     reward_progress_values = []
     reward_no_progress_values = []
     reward_unsafe_forward_progress_values = []
@@ -322,6 +324,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         vel_errors.append(rc.get("vel_error", np.nan))
         attitude_errors.append(rc.get("attitude_error", np.nan))
         rate_errors.append(rc.get("rate_error", np.nan))
+        attitude_progress_values.append(rc.get("attitude_progress", np.nan))
 
         # -------------------------------------------------------------
         # Reward-specific diagnostics
@@ -384,6 +387,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
             rc.get("reward_rho_corridor", np.nan)
         )
         reward_lateral_speed_values.append(rc.get("reward_lateral_speed", np.nan))
+        reward_attitude_progress_values.append(
+            rc.get("reward_attitude_progress", np.nan)
+        )
         reward_rho_progress_values.append(rc.get("reward_rho_progress", np.nan))
         reward_cone_preference_values.append(
             rc.get("reward_cone_preference", np.nan)
@@ -489,6 +495,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         "vel_errors": vel_errors_array,
         "attitude_errors": attitude_errors_array,
         "rate_errors": rate_errors_array,
+        "attitude_progress_values": np.array(attitude_progress_values),
 
         # Reward-specific diagnostics
         "desired_s_dot_values": np.array(desired_s_dot_values),
@@ -529,6 +536,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         "reward_lateral_values": np.array(reward_lateral_values),
         "reward_rho_corridor_values": np.array(reward_rho_corridor_values),
         "reward_lateral_speed_values": np.array(reward_lateral_speed_values),
+        "reward_attitude_progress_values": np.array(
+            reward_attitude_progress_values
+        ),
         "reward_progress_values": np.array(reward_progress_values),
         "reward_no_progress_values": np.array(reward_no_progress_values),
         "reward_unsafe_forward_progress_values": np.array(
@@ -619,6 +629,7 @@ def save_rollout(result, rollout_id):
         vel_errors=result["vel_errors"],
         attitude_errors=result["attitude_errors"],
         rate_errors=result["rate_errors"],
+        attitude_progress_values=result["attitude_progress_values"],
 
         # Reward-specific diagnostics
         desired_s_dot_values=result["desired_s_dot_values"],
@@ -659,6 +670,9 @@ def save_rollout(result, rollout_id):
         reward_lateral_values=result["reward_lateral_values"],
         reward_rho_corridor_values=result["reward_rho_corridor_values"],
         reward_lateral_speed_values=result["reward_lateral_speed_values"],
+        reward_attitude_progress_values=result[
+            "reward_attitude_progress_values"
+        ],
         reward_progress_values=result["reward_progress_values"],
         reward_no_progress_values=result["reward_no_progress_values"],
         reward_unsafe_forward_progress_values=result[

@@ -283,6 +283,7 @@ class Docking3DoFGymEnv(gym.Env):
             )
             self.prev_closing_pos_error = np.linalg.norm(target_error[0:2])
             self.prev_closing_lateral_error = abs(target_error[1])
+            self.prev_closing_attitude_error = abs(target_error[4])
 
         obs = self._get_obs()
         info = self._get_reset_info()
@@ -410,6 +411,7 @@ class Docking3DoFGymEnv(gym.Env):
             "safe_progress": None,
             "unsafe_forward_progress": None,
             "no_progress": None,
+            "attitude_progress": None,
 
             # Reward terms
             "reward_position": 0.0,
@@ -421,6 +423,7 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_rho_corridor": 0.0,
             "reward_lateral_speed": 0.0,
             "reward_attitude": 0.0,
+            "reward_attitude_progress": 0.0,
             "reward_rate": 0.0,
             "reward_action": 0.0,
             "reward_alpha": 0.0,
@@ -478,16 +481,28 @@ class Docking3DoFGymEnv(gym.Env):
 
             self.prev_closing_lateral_error = lateral_error
 
+            attitude_progress = 0.0
+            if hasattr(self, "prev_closing_attitude_error"):
+                attitude_progress = (
+                    self.prev_closing_attitude_error - attitude_error
+                )
+
+            self.prev_closing_attitude_error = attitude_error
+
             vp_safe = self.core_env.vp_safe_close
+            vp_unsafe = self.core_env.vp_unsafe_close
             sdot_safe = self.core_env.sdot_safe_close
+            sdot_unsafe = self.core_env.sdot_unsafe_close
             speed_ratio = port_speed / max(vp_safe, 1e-6)
             sdot_ratio = abs(q["s_dot"]) / max(sdot_safe, 1e-6)
             speed_gate = max(speed_ratio, sdot_ratio)
-            safe_progress_scale = np.clip(
-                1.0 - max(0.0, speed_gate - 0.8) / 0.4,
-                0.0,
-                1.0,
-            )
+            # Closing reward v12: reward task progress uniformly throughout the
+            # state space. Velocity safety remains safety-critical through the
+            # warning and hard-failure rewards below, while the progress term
+            # no longer prescribes a conservative operating speed inside the
+            # safe velocity set. Keep this diagnostic at one so saved rollout
+            # formats remain compatible with earlier reward versions.
+            safe_progress_scale = 1.0
             cone_radius_at_s = self.core_env.cone_slope * max(q["s"], 1e-6)
             rho_ratio = q["rho"] / max(cone_radius_at_s, 1e-6)
             corridor_ratio = q["rho"] / max(self.core_env.corridor_radius, 1e-6)
@@ -517,27 +532,60 @@ class Docking3DoFGymEnv(gym.Env):
             reward_position = -0.002 * pos_error
             reward_velocity = -0.5 * vel_error
             reward_attitude = -0.5 * attitude_error
+            # Reward v13 adds only P3-relative attitude progress to v12. This
+            # rewards reducing alignment error and penalizes the observed
+            # rotation toward the 180-degree anti-aligned state without
+            # prescribing an attitude trajectory or penalizing angular action.
+            reward_attitude_progress = 50.0 * attitude_progress
             reward_rate = -0.1 * rate_error
             reward_action = -0.01 * action_norm
-            reward_progress = 20.0 * distance_progress * safe_progress_scale
+            # Reward v12 retains v10's lateral P3-relative velocity penalty. It
+            # does not prescribe axial closing speed and does not retain reward
+            # v9's angular-action penalty.
+            lateral_velocity_error = (
+                abs(error[3])
+                if self.core_env.p3_target is not None
+                else abs(q["v_p"][1])
+            )
+            reward_lateral_speed = -5.0 * lateral_velocity_error
+            # Apply no axial-speed penalty inside the safe set. Once the axial
+            # speed enters the warning band, increase the penalty smoothly up
+            # to the hard safety boundary.
+            sdot_warning_depth = np.clip(
+                (abs(q["s_dot"]) - sdot_safe)
+                / max(sdot_unsafe - sdot_safe, 1e-6),
+                0.0,
+                1.0,
+            )
+            reward_s_dot = -20.0 * sdot_warning_depth**2
+            # Apply the same warning-depth shaping to total docking-port speed.
+            # This remains zero throughout the safe set and therefore does not
+            # prescribe a velocity schedule. It only distinguishes safe states
+            # from increasingly critical states inside the warning band.
+            port_speed_warning_depth = np.clip(
+                (port_speed - vp_safe)
+                / max(vp_unsafe - vp_safe, 1e-6),
+                0.0,
+                1.0,
+            )
+            reward_speed_margin = -20.0 * port_speed_warning_depth**2
+            reward_progress = 20.0 * distance_progress
             no_progress = (
                 pos_error > 50.0
                 and distance_progress < 0.01
-                and speed_gate <= 0.75
             )
             reward_no_progress = -0.05 if no_progress else 0.0
             reward_lateral = 0.0
-            reward_speed_margin = (
-                -80.0 * max(0.0, speed_ratio - 0.75) ** 2
-                -80.0 * max(0.0, sdot_ratio - 0.75) ** 2
-            )
 
             reward = (
                 reward_position
                 + reward_velocity
                 + reward_attitude
+                + reward_attitude_progress
                 + reward_rate
                 + reward_action
+                + reward_lateral_speed
+                + reward_s_dot
                 + reward_progress
                 + reward_no_progress
                 + reward_lateral
@@ -573,6 +621,7 @@ class Docking3DoFGymEnv(gym.Env):
                     "omega_gate": float(p3_omega_ratio),
                     "alignment_gate": float(alignment_gate),
                     "no_progress": float(no_progress),
+                    "attitude_progress": float(attitude_progress),
                     "too_fast": float(
                         max(0.0, speed_ratio - 0.75)
                         + max(0.0, sdot_ratio - 0.75)
@@ -580,8 +629,13 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_position": float(reward_position),
                     "reward_velocity": float(reward_velocity),
                     "reward_attitude": float(reward_attitude),
+                    "reward_attitude_progress": float(
+                        reward_attitude_progress
+                    ),
                     "reward_rate": float(reward_rate),
                     "reward_action": float(reward_action),
+                    "reward_lateral_speed": float(reward_lateral_speed),
+                    "reward_s_dot": float(reward_s_dot),
                     "reward_progress": float(reward_progress),
                     "reward_no_progress": float(reward_no_progress),
                     "reward_lateral": float(reward_lateral),

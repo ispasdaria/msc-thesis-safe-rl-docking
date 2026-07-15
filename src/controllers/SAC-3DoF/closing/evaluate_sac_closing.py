@@ -39,7 +39,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_closing_p3augobs_rewardv13_300ksteps_seed0_buffer300k"
+MODEL_NAME = "sac_closing_p3augobs_rewardv17_300ksteps_seed0_buffer300k"
 
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "reward_shaping_trials")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
@@ -214,6 +214,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
     p3_lateral_ratio_values = []
     p3_lateral_violation_values = []
     p3_handoff_gate_values = []
+    axial_overshoot_values = []
     psi_ratio_values = []
     omega_ratio_values = []
     speed_ratio_values = []
@@ -240,6 +241,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
     reward_lateral_speed_values = []
     reward_attitude_progress_values = []
     reward_progress_values = []
+    reward_axial_overshoot_values = []
     reward_no_progress_values = []
     reward_unsafe_forward_progress_values = []
     reward_speed_margin_values = []
@@ -348,6 +350,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
             rc.get("p3_lateral_violation", np.nan)
         )
         p3_handoff_gate_values.append(rc.get("p3_handoff_gate", np.nan))
+        axial_overshoot_values.append(rc.get("axial_overshoot", np.nan))
         psi_ratio_values.append(rc.get("psi_ratio", np.nan))
         omega_ratio_values.append(rc.get("omega_ratio", np.nan))
         speed_ratio_values.append(rc.get("speed_ratio", np.nan))
@@ -373,6 +376,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         )
 
         reward_progress_values.append(rc.get("reward_progress", np.nan))
+        reward_axial_overshoot_values.append(
+            rc.get("reward_axial_overshoot", np.nan)
+        )
         reward_no_progress_values.append(rc.get("reward_no_progress", np.nan))
         reward_unsafe_forward_progress_values.append(
             rc.get("reward_unsafe_forward_progress", np.nan)
@@ -437,6 +443,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
     closing_vel_error = safe_last(vel_errors_array)
     closing_attitude_error = safe_last(attitude_errors_array)
     closing_rate_error = safe_last(rate_errors_array)
+    axial_overshoot_values_array = np.array(axial_overshoot_values)
+    closing_axial_overshoot = safe_last(axial_overshoot_values_array)
+    max_axial_overshoot = safe_max(axial_overshoot_values_array)
 
     return {
         "seed": seed,
@@ -460,6 +469,8 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         "closing_vel_error": closing_vel_error,
         "closing_attitude_error": closing_attitude_error,
         "closing_rate_error": closing_rate_error,
+        "closing_axial_overshoot": closing_axial_overshoot,
+        "max_axial_overshoot": max_axial_overshoot,
 
         # Core history arrays
         "times": times,
@@ -515,6 +526,7 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
         "p3_lateral_ratio_values": np.array(p3_lateral_ratio_values),
         "p3_lateral_violation_values": np.array(p3_lateral_violation_values),
         "p3_handoff_gate_values": np.array(p3_handoff_gate_values),
+        "axial_overshoot_values": axial_overshoot_values_array,
         "psi_ratio_values": np.array(psi_ratio_values),
         "omega_ratio_values": np.array(omega_ratio_values),
         "speed_ratio_values": np.array(speed_ratio_values),
@@ -540,6 +552,9 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=12000):
             reward_attitude_progress_values
         ),
         "reward_progress_values": np.array(reward_progress_values),
+        "reward_axial_overshoot_values": np.array(
+            reward_axial_overshoot_values
+        ),
         "reward_no_progress_values": np.array(reward_no_progress_values),
         "reward_unsafe_forward_progress_values": np.array(
             reward_unsafe_forward_progress_values
@@ -594,6 +609,8 @@ def save_rollout(result, rollout_id):
         closing_vel_error=result["closing_vel_error"],
         closing_attitude_error=result["closing_attitude_error"],
         closing_rate_error=result["closing_rate_error"],
+        closing_axial_overshoot=result["closing_axial_overshoot"],
+        max_axial_overshoot=result["max_axial_overshoot"],
 
         # Core history arrays
         times=result["times"],
@@ -649,6 +666,7 @@ def save_rollout(result, rollout_id):
         p3_lateral_ratio_values=result["p3_lateral_ratio_values"],
         p3_lateral_violation_values=result["p3_lateral_violation_values"],
         p3_handoff_gate_values=result["p3_handoff_gate_values"],
+        axial_overshoot_values=result["axial_overshoot_values"],
         psi_ratio_values=result["psi_ratio_values"],
         omega_ratio_values=result["omega_ratio_values"],
         speed_ratio_values=result["speed_ratio_values"],
@@ -674,6 +692,9 @@ def save_rollout(result, rollout_id):
             "reward_attitude_progress_values"
         ],
         reward_progress_values=result["reward_progress_values"],
+        reward_axial_overshoot_values=result[
+            "reward_axial_overshoot_values"
+        ],
         reward_no_progress_values=result["reward_no_progress_values"],
         reward_unsafe_forward_progress_values=result[
             "reward_unsafe_forward_progress_values"
@@ -742,6 +763,12 @@ def save_evaluation_summary(results):
     mean_closing_rho = np.nanmean([r["closing_rho"] for r in results])
     mean_closing_pos_error = np.nanmean([r["closing_pos_error"] for r in results])
     mean_min_pos_error = np.nanmean([r["min_pos_error"] for r in results])
+    mean_closing_axial_overshoot = np.nanmean(
+        [r["closing_axial_overshoot"] for r in results]
+    )
+    mean_max_axial_overshoot = np.nanmean(
+        [r["max_axial_overshoot"] for r in results]
+    )
 
     reasons = Counter(r["termination_reason"] for r in results)
 
@@ -776,6 +803,15 @@ def save_evaluation_summary(results):
         f.write("P3 target-error summary:\n")
         f.write(f"Mean min position error:   {mean_min_pos_error:.2f} m\n")
         f.write(f"Mean closing position error: {mean_closing_pos_error:.2f} m\n\n")
+        f.write("Axial overshoot summary:\n")
+        f.write(
+            "Mean maximum overshoot beyond P3 tolerance: "
+            f"{mean_max_axial_overshoot:.2f} m\n"
+        )
+        f.write(
+            "Mean closing overshoot beyond P3 tolerance: "
+            f"{mean_closing_axial_overshoot:.2f} m\n\n"
+        )
 
         f.write("Termination reasons:\n")
         for reason, count in reasons.items():
@@ -803,6 +839,7 @@ def save_evaluation_summary(results):
                 f"closing_s={result['closing_s']:.2f} m | "
                 f"max_rho={result['max_rho']:.2f} m | "
                 f"closing_rho={result['closing_rho']:.2f} m | "
+                f"axial_overshoot={result['closing_axial_overshoot']:.2f} m | "
                 f"target_error={result['closing_pos_error']:.2f} m\n"
             )
 

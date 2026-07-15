@@ -624,6 +624,21 @@ r_close =
     + w_success * I_P3
 ```
 
+Current experimental version (reward v17) retains reward v15's lateral
+position and lateral-velocity shaping and restores its symmetric P3-distance
+progress term:
+
+```
+r_progress = 20 * delta_d_P3
+r_axial_overshoot = -0.05 * max(0, -e_x_P3 - epsilon_x_P3)
+```
+
+Here, `delta_d_P3` is the previous P3 position error minus the current error.
+The axial overshoot penalty remains zero throughout the valid P3 axial band
+and activates only after the chaser passes beyond its negative axial tolerance
+`epsilon_x_P3`. It discourages fly-through without penalizing lateral
+corrections or prescribing a distance-dependent velocity schedule.
+
 ### 8.2 Final-Approach Reward
 
 Encourages:

@@ -428,6 +428,7 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_action": 0.0,
             "reward_alpha": 0.0,
             "reward_progress": 0.0,
+            "reward_axial_overshoot": 0.0,
             "reward_no_progress": 0.0,
             "reward_unsafe_forward_progress": 0.0,
             "reward_speed_margin": 0.0,
@@ -520,6 +521,7 @@ class Docking3DoFGymEnv(gym.Env):
                 p3_psi_ratio = attitude_error / max(p3_tol[4], 1e-6)
                 p3_omega_ratio = rate_error / max(p3_tol[5], 1e-6)
                 p3_alignment_ratio = max(p3_psi_ratio, p3_omega_ratio)
+                axial_overshoot = max(0.0, -error[0] - p3_tol[0])
             else:
                 p3_position_ratio = 0.0
                 p3_lateral_ratio = 0.0
@@ -528,10 +530,13 @@ class Docking3DoFGymEnv(gym.Env):
                 p3_psi_ratio = 0.0
                 p3_omega_ratio = 0.0
                 p3_alignment_ratio = 0.0
+                axial_overshoot = 0.0
 
             reward_position = -0.002 * pos_error
             reward_velocity = -0.5 * vel_error
-            reward_attitude = -0.5 * attitude_error
+            # Reward v14 strengthens the persistent P3-relative attitude
+            # penalty while retaining v13's attitude-progress term.
+            reward_attitude = -5.0 * attitude_error
             # Reward v13 adds only P3-relative attitude progress to v12. This
             # rewards reducing alignment error and penalizes the observed
             # rotation toward the 180-degree anti-aligned state without
@@ -569,13 +574,22 @@ class Docking3DoFGymEnv(gym.Env):
                 1.0,
             )
             reward_speed_margin = -20.0 * port_speed_warning_depth**2
+            # Reward v17 restores v15's symmetric P3-distance progress term.
+            # It replaces v16's Euclidean-regression penalty with a persistent
+            # axial overshoot cost that activates only after the chaser passes
+            # beyond the valid negative axial tolerance around P3. This leaves
+            # lateral correction unconstrained and does not prescribe speed.
             reward_progress = 20.0 * distance_progress
+            reward_axial_overshoot = -0.05 * axial_overshoot
             no_progress = (
                 pos_error > 50.0
                 and distance_progress < 0.01
             )
             reward_no_progress = -0.05 if no_progress else 0.0
-            reward_lateral = 0.0
+            # Reward v15 adds a persistent P3-relative lateral-position cost.
+            # Together with reward_lateral_speed, this creates a position-plus-
+            # damping objective without prescribing a lateral velocity profile.
+            reward_lateral = -0.01 * lateral_error
 
             reward = (
                 reward_position
@@ -587,6 +601,7 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_lateral_speed
                 + reward_s_dot
                 + reward_progress
+                + reward_axial_overshoot
                 + reward_no_progress
                 + reward_lateral
                 + reward_speed_margin
@@ -614,6 +629,7 @@ class Docking3DoFGymEnv(gym.Env):
                     "p3_lateral_violation": float(p3_lateral_violation),
                     "p3_handoff_gate": float(p3_handoff_gate),
                     "p3_alignment_ratio": float(p3_alignment_ratio),
+                    "axial_overshoot": float(axial_overshoot),
                     "psi_ratio": float(psi_safe_ratio),
                     "omega_ratio": float(omega_safe_ratio),
                     "rho_gate": float(corridor_ratio),
@@ -637,6 +653,7 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_lateral_speed": float(reward_lateral_speed),
                     "reward_s_dot": float(reward_s_dot),
                     "reward_progress": float(reward_progress),
+                    "reward_axial_overshoot": float(reward_axial_overshoot),
                     "reward_no_progress": float(reward_no_progress),
                     "reward_lateral": float(reward_lateral),
                     "reward_speed_margin": float(reward_speed_margin),

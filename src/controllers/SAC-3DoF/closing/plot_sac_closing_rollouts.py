@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_NAME = "sac_closing_p3augobs_rewardv13_300ksteps_seed0_buffer300k"
+MODEL_NAME = "sac_closing_p3augobs_rewardv17_300ksteps_seed0_buffer300k"
 
 ROLLOUT_DIR = os.path.join(
     SCRIPT_DIR,
@@ -179,6 +179,7 @@ def load_rollout(filepath):
             data, "p3_lateral_violation_values", n_steps
         ),
         "p3_handoff_gate": get_array(data, "p3_handoff_gate_values", n_steps),
+        "axial_overshoot": get_array(data, "axial_overshoot_values", n_steps),
         "psi_ratio": get_array(data, "psi_ratio_values", n_steps),
         "omega_ratio": get_array(data, "omega_ratio_values", n_steps),
         "speed_ratio": get_array(data, "speed_ratio_values", n_steps),
@@ -224,6 +225,9 @@ def load_rollout(filepath):
             data, "reward_attitude_progress_values", n_steps
         ),
         "reward_progress": get_array(data, "reward_progress_values", n_steps),
+        "reward_axial_overshoot": get_array(
+            data, "reward_axial_overshoot_values", n_steps
+        ),
         "reward_no_progress": get_array(data, "reward_no_progress_values", n_steps),
         "reward_unsafe_forward_progress": get_array(
             data, "reward_unsafe_forward_progress_values", n_steps
@@ -344,6 +348,7 @@ def plot_one_rollout(result, rollout_id):
     reward_lateral_speed = result["reward_lateral_speed"]
     reward_attitude_progress = result["reward_attitude_progress"]
     reward_progress = result["reward_progress"]
+    reward_axial_overshoot = result["reward_axial_overshoot"]
     reward_no_progress = result["reward_no_progress"]
     reward_unsafe_forward_progress = result["reward_unsafe_forward_progress"]
     reward_speed_margin = result["reward_speed_margin"]
@@ -354,6 +359,7 @@ def plot_one_rollout(result, rollout_id):
     reward_mid_field_centering = result["reward_mid_field_centering"]
     reward_psi_margin = result["reward_psi_margin"]
     reward_omega_margin = result["reward_omega_margin"]
+    axial_overshoot = result["axial_overshoot"]
 
     # History convention:
     # states has length N+1 because it includes reset state.
@@ -460,7 +466,7 @@ def plot_one_rollout(result, rollout_id):
 
     plt.figure()
     plt.plot(t_steps, rho_values, label="rho")
-    plt.plot(t_steps, v_lateral, label="v_lateral")
+    plt.plot(t_steps, v_lateral, label="P3 lateral position error")
     if np.any(np.isfinite(rho_ratio)):
         plt.plot(t_steps, rho_ratio, label="rho / cone radius")
     if np.any(np.isfinite(center_quality)):
@@ -473,7 +479,7 @@ def plot_one_rollout(result, rollout_id):
         plt.plot(t_steps, p3_lateral_violation, label="P3 lateral violation")
     plt.xlabel("Time [s]")
     plt.ylabel("Lateral diagnostic")
-    plt.title(f"SAC Closing Lateral Offset and Velocity\n{title_suffix}")
+    plt.title(f"SAC Closing Lateral Offset Diagnostics\n{title_suffix}")
     plt.legend()
     plt.grid(True)
     save_plot(f"rollout_{rollout_id:03d}_lateral_diagnostics.png")
@@ -695,6 +701,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_lateral, label="lateral")
     plt.plot(t_steps, reward_rho_corridor, label="rho corridor")
     plt.plot(t_steps, reward_progress, label="progress")
+    plt.plot(t_steps, reward_axial_overshoot, label="axial overshoot")
     plt.plot(t_steps, reward_no_progress, label="no progress")
     plt.plot(
         t_steps,
@@ -738,6 +745,7 @@ def plot_one_rollout(result, rollout_id):
     plt.plot(t_steps, reward_rho_corridor, label="rho corridor")
     plt.plot(t_steps, reward_lateral_speed, label="lateral speed")
     plt.plot(t_steps, reward_progress, label="progress")
+    plt.plot(t_steps, reward_axial_overshoot, label="axial overshoot")
     plt.plot(t_steps, reward_no_progress, label="no progress")
     plt.plot(
         t_steps,
@@ -789,6 +797,8 @@ def plot_one_rollout(result, rollout_id):
     plt.figure()
     plt.plot(t_steps, pos_errors, label="position error")
     plt.plot(t_steps, vel_errors, label="velocity error")
+    if np.any(np.isfinite(axial_overshoot)):
+        plt.plot(t_steps, axial_overshoot, label="axial overshoot beyond tolerance")
     plt.xlabel("Time [s]")
     plt.ylabel("Target error")
     plt.title(f"SAC Closing P3 Target Translational Errors\n{title_suffix}")

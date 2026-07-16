@@ -5,7 +5,7 @@ Port distance is recorded only as a diagnostic because the closing phase should
 end near P3 (roughly 300 m from the target), not at the docking port.
 
 Example:
-    python tune_sac_closing_optuna.py --n-trials 20 --train-steps 300000
+    python tune_sac_closing_optuna.py --n-trials 20 --train-steps 300000 --fresh
 """
 
 import argparse
@@ -275,7 +275,7 @@ def score_summary(summary):
 def suggest_sac_params(trial):
     train_update = trial.suggest_categorical(
         "train_update",
-        ["4_4", "8_8", "16_16", "8_16"],
+        ["8_8", "16_16", "16_8", "8_16"],
     )
     train_freq, gradient_steps = [
         int(value) for value in train_update.split("_")
@@ -285,12 +285,12 @@ def suggest_sac_params(trial):
         "learning_rate": trial.suggest_float(
             "learning_rate",
             1e-4,
-            7e-4,
+            5e-4,
             log=True,
         ),
         "batch_size": trial.suggest_categorical(
             "batch_size",
-            [128, 256, 512],
+            [256, 512, 1024],
         ),
         "tau": trial.suggest_categorical(
             "tau",
@@ -298,15 +298,15 @@ def suggest_sac_params(trial):
         ),
         "gamma": trial.suggest_categorical(
             "gamma",
-            [0.95, 0.97, 0.98, 0.99],
+            [0.98, 0.99, 0.995, 0.997],
         ),
         "learning_starts": trial.suggest_categorical(
             "learning_starts",
-            [0, 250, 500, 1000, 2000, 5000],
+            [1000, 5000, 10000],
         ),
         "ent_coef": trial.suggest_categorical(
             "ent_coef",
-            ["auto", "auto_0.1", "auto_0.5"],
+            ["auto_0.05", "auto_0.1", "auto_0.2"],
         ),
         "train_freq": train_freq,
         "gradient_steps": gradient_steps,
@@ -337,7 +337,9 @@ def build_objective(args, metrics_csv):
     eval_seeds = list(range(args.eval_seeds))
 
     def objective(trial):
-        seed = args.seed + trial.number
+        # Keep the training seed fixed so trial-to-trial differences reflect
+        # hyperparameters rather than a different stochastic training run.
+        seed = args.seed
         params = suggest_sac_params(trial)
         train_env = None
 
@@ -430,7 +432,7 @@ def parse_args():
     )
     parser.add_argument(
         "--study-name",
-        default="sac_closing_p3augobs_rewardv17_optuna_v1",
+        default="sac_closing_p3augobs_rewardv15_optuna_v2",
     )
     parser.add_argument("--n-trials", type=int, default=20)
     parser.add_argument("--train-steps", type=int, default=300_000)
@@ -496,6 +498,7 @@ def main():
     print(f"Trials:         {args.n_trials}")
     print(f"Train steps:    {args.train_steps}")
     print(f"Buffer size:    {args.buffer_size}")
+    print(f"Training seed:  {args.seed} (fixed across trials)")
     print(f"Eval seeds:     {list(range(args.eval_seeds))}")
     print(f"Max eval steps: {args.max_eval_steps}")
     print("=" * 80)

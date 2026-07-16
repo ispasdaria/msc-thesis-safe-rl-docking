@@ -574,13 +574,12 @@ class Docking3DoFGymEnv(gym.Env):
                 1.0,
             )
             reward_speed_margin = -20.0 * port_speed_warning_depth**2
-            # Reward v17 restores v15's symmetric P3-distance progress term.
-            # It replaces v16's Euclidean-regression penalty with a persistent
-            # axial overshoot cost that activates only after the chaser passes
-            # beyond the valid negative axial tolerance around P3. This leaves
-            # lateral correction unconstrained and does not prescribe speed.
+            # Reward v15 uses symmetric P3-distance progress together with
+            # persistent lateral position and velocity shaping. Axial
+            # overshoot remains available as a rollout diagnostic, but it is
+            # deliberately not part of this reward version.
             reward_progress = 20.0 * distance_progress
-            reward_axial_overshoot = -0.05 * axial_overshoot
+            reward_axial_overshoot = 0.0
             no_progress = (
                 pos_error > 50.0
                 and distance_progress < 0.01

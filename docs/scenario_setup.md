@@ -378,30 +378,66 @@ Where:
 ### 7.2 Control Input
 
 ```
-u(t) = [a_c(t), alpha_c(t)]
+u_Bc(t) = [a_Bc(t), alpha_Bc(t)]
 ```
 
-Where `a_c` is the commanded translational acceleration and `alpha_c` is the commanded angular acceleration. 
+For the implemented reduced 3-DoF model:
+
+```
+a_Bc(t) = [a_x_Bc(t), a_y_Bc(t)]
+alpha_Bc(t) = alpha_z_Bc(t)
+```
+
+Here, `a_Bc` is the commanded translational acceleration expressed along the chaser body axes, and `alpha_z_Bc` is the commanded angular acceleration about the common body/orbital z-axis. The command is saturated in the chaser body frame and the translational part is then rotated into the target-centered orbital frame before it is applied to the equations of motion.
 
 This means that the simulator does not model individual thrusters, vehicle mass, or moment of inertia. The control input represents the effective acceleration that would result from a lower-level actuator allocation system. This simplification is used to focus on the guidance, control, safety, and reinforcement-learning architecture rather than on vehicle-specific actuation.
 
 ### 7.3 Admissible Control Set
 
 ```
-U = { u : ||a_c|| <= a_max AND ||alpha_c|| <= alpha_max }
+U = { u_Bc :
+    -a_x_max <= a_x_Bc <= a_x_max,
+    -a_y_max <= a_y_Bc <= a_y_max,
+    -alpha_z_max <= alpha_z_Bc <= alpha_z_max
+}
 ```
 
-The translational acceleration bound is selected from the required velocity-correction capability during close-proximity docking. In the final approach phase, the relative velocity limits are on the order of 0.10–0.15 m/s. Therefore, the controller should be able to correct a representative velocity error of approximately 0.10 m/s over a short but not instantaneous time interval.
+with:
 
-A correction time of 10 s is selected as a reasonable guidance-level response time for fine docking control. This gives: a_max = delta_v / delta_t = 0.10 / 10 = 0.01 m/s^2
+```
+a_x_max = a_y_max = 0.01 m/s^2
+alpha_z_max = 0.003 rad/s^2
+```
 
-The controller can change the relative velocity by 0.10 m/s in 10 s. This is comparable to the final-approach velocity limits, so the controller has sufficient authority to regulate the motion without being allowed to brake or translate unrealistically fast.
+The translational limits are selected from the velocity-correction capability required during close-proximity docking. In the final-approach phase, the implemented safety limits constrain the docking-port speed to `0.15 m/s` and the axial range rate to `0.10 m/s`. A representative component-wise velocity correction of `delta_v = 0.10 m/s` is therefore considered. Requiring this correction to be achievable over a guidance-level response time of `delta_t = 10 s` gives:
 
-The maximum commanded angular acceleration is defined as: alpha_max = 0.003 rad/s^2
+```
+a_i_max = delta_v / delta_t = 0.10 / 10 = 0.01 m/s^2
+```
 
-This value is selected as a physically motivated order-of-magnitude estimate based on a representative spacecraft attitude slew maneuver. The reference maneuver assumes a 30 deg slew completed in 60 s using a trapezoidal angular-rate profile, where 5% of the maneuver time is spent accelerating, 90% coasting, and 5% decelerating. For a 60 s maneuver, this corresponds to 3 s of angular acceleration, 54 s of nearly constant angular rate, and 3 s of angular deceleration.
+Thus, under a sustained maximum command and neglecting the orbital-dynamics terms, the controller can change one body-axis velocity component by `0.10 m/s` in approximately `10 s`. With the implemented `1 s` control timestep, the maximum commanded change per step is `0.01 m/s` along either body axis. This provides sufficient upper control authority for final-approach velocity regulation while preventing instantaneous velocity corrections; it does not prescribe the nominal acceleration used throughout the maneuver.
 
-The total attitude change is equal to the area under the angular-rate profile: theta = omega_max * (t_coast + 0.5 * t_acc + 0.5 * t_dec). Using theta = 30 deg = 0.5236 rad, t_acc = t_dec = 3 s, and t_coast = 54 s: omega_max = 0.5236 / 57 = 0.0092 rad/s. The angular acceleration required to reach this angular rate in 3 s is then: alpha = omega_max / t_acc = 0.0092 / 3 = 0.0031 rad/s^2. Therefore, alpha_max = 0.003 rad/s^2 is used as a representative upper bound for the commanded rotational acceleration. This value is not intended to model a specific thruster layout, spacecraft inertia matrix, reaction-control pulse logic, or actuator-allocation scheme. Instead, it represents the maximum effective angular acceleration that a lower-level attitude-control and actuator-allocation system could generate during a moderate slew maneuver (Space Mission and Analysis Design, W.J. Larson and J.R. Wertz).
+The translational admissible set is therefore a component-wise box in the chaser body frame, rather than a Euclidean-norm ball. Consequently, simultaneous maximum commands on both translational axes have magnitude `sqrt(2) * 0.01 = 0.0141 m/s^2`. The body-to-orbital rotation preserves this magnitude but rotates the admissible box with the chaser attitude.
+
+The maximum commanded angular acceleration is defined as `alpha_z_max = 0.003 rad/s^2`. This is an effective guidance-level control-authority limit rather than the output of a modeled physical actuator. With the implemented `1 s` control interval, a sustained maximum command produces a commanded angular-rate change of:
+
+```
+delta_omega_max = alpha_z_max * delta_t
+                = 0.003 rad/s
+                = 0.172 deg/s
+```
+
+This is of the same order as the implemented safe and unsafe angular-rate limits of `0.15 deg/s` and `0.20 deg/s`, respectively, and provides authority to correct the initial angular-rate deviations, which are at most `0.10 deg/s` in the closing-phase training set. The value represents maximum available authority, not a nominal command: the controller can apply smaller accelerations to remain within the angular-rate safety envelope, whereas a sustained maximum command would cause that envelope to be exceeded.
+
+As an independent order-of-magnitude sizing check, a hypothetical moderate attitude maneuver is considered using the standard trapezoidal angular-rate construction (Space Mission and Analysis Design, W.J. Larson and J.R. Wertz). The reference maneuver consists of a `30 deg` rotation completed in `60 s`, with 5% of the duration assigned to acceleration, 90% to approximately constant angular rate, and 5% to deceleration. Thus, `t_acc = t_dec = 3 s` and `t_coast = 54 s`. From the area under the angular-rate profile:
+
+```
+theta = omega_max * (t_coast + 0.5 * t_acc + 0.5 * t_dec)
+omega_max = 0.5236 / 57 = 0.0092 rad/s
+alpha = omega_max / t_acc = 0.0092 / 3 = 0.0031 rad/s^2
+```
+
+The adopted value `alpha_z_max = 0.003 rad/s^2` is therefore consistent with this reference maneuver. The trapezoidal profile is used only to size the limit; it is not prescribed or explicitly executed by the simulator. In the simulation, the controller may command any angular acceleration within the admissible interval, and the attitude evolves according to the resulting closed-loop command sequence. A real spacecraft would convert the requested acceleration into torque and reaction-control thruster pulses using its inertia matrix, thruster geometry, and actuator-allocation logic; those lower-level effects are outside the present model.
 
 ### 7.4 Derived Docking Quantities
 
@@ -624,20 +660,18 @@ r_close =
     + w_success * I_P3
 ```
 
-Current experimental version (reward v17) retains reward v15's lateral
-position and lateral-velocity shaping and restores its symmetric P3-distance
-progress term:
+The current closing reward has been restored to reward v15. It combines
+persistent lateral position and lateral-velocity shaping with symmetric
+P3-distance progress:
 
 ```
 r_progress = 20 * delta_d_P3
-r_axial_overshoot = -0.05 * max(0, -e_x_P3 - epsilon_x_P3)
 ```
 
 Here, `delta_d_P3` is the previous P3 position error minus the current error.
-The axial overshoot penalty remains zero throughout the valid P3 axial band
-and activates only after the chaser passes beyond its negative axial tolerance
-`epsilon_x_P3`. It discourages fly-through without penalizing lateral
-corrections or prescribing a distance-dependent velocity schedule.
+Positive and negative changes therefore use the same coefficient. Axial
+overshoot beyond the P3 tolerance is retained as an evaluation diagnostic but
+does not contribute to reward v15.
 
 ### 8.2 Final-Approach Reward
 
@@ -737,13 +771,13 @@ Use each item as:
 27. Spacecraft has non-zero residual magnetic dipole.
 28. Gravity-gradient torque arises from spatial non-uniformity of gravity field.
 29. SRP torque arises from CoP-CoM offset.
-30. The control inputs are modeled as continuous effective acceleration commands, assuming that thes are applied directly to the translational and rotational equations of motion at each integration step.
-31. Only magnitude bounds are enforced on accelerations; actuator dynamics, delays, and detailed saturation effects are neglected.
-32. The translational acceleration bound is sized from the required velocity-correction of 0.1 m/s within 10 s capability during close-proximity docking, and is assumed to be 0.01 m/s^2.
-33. The same translational acceleration bound is applied along all translational axes, because direction-dependent thruster geometry is outside the scope of the simulator.
-34. The angular acceleration bound is estimated to be 0.003 rad/s^2 from a representative single-axis attitude slew maneuver of 30 deg in 60 s, with 5% of the maneuver time spent accelerating, 90% coasting, and 5% decelerating, starting and ending at zero angular rate.
-35. The angular acceleration is assumed constant during the acceleration and deceleration phases.
-36. The angular acceleration bound is used as an effective guidance-level rotational control limit and does not model a specific inertia matrix, thruster layout, or pulse logic.
+30. The control inputs are modeled as continuous effective acceleration commands that are applied directly to the translational and rotational equations of motion at each integration step.
+31. The implemented commands are saturated component-wise in the chaser body frame; actuator dynamics, delays, pulse logic, and detailed allocation effects are neglected.
+32. Each translational acceleration bound is sized from the capability to correct a corresponding velocity component by 0.1 m/s within 10 s and is set to 0.01 m/s^2.
+33. The same component-wise acceleration bound is applied along both translational body axes in the reduced 3-DoF model because direction-dependent thruster geometry is outside the scope of the simulator.
+34. The angular acceleration bound of 0.003 rad/s^2 is an effective guidance-level control-authority limit whose one-step angular-rate change is of the same order as the implemented angular-rate safety envelope.
+35. A representative 30 deg slew in 60 s with a trapezoidal angular-rate profile is used only as an independent order-of-magnitude sizing check; this profile is not prescribed by the simulator.
+36. The angular acceleration input assumes an ideal lower-level attitude-control and actuator-allocation system and does not model a specific inertia matrix, thruster layout, pulse logic, delay, or minimum impulse.
 
 ### 9.7 Safety Geometry and Limits
 

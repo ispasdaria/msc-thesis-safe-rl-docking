@@ -1,0 +1,43 @@
+{
+  "buffer_size": 300000,
+  "checkpoint_steps": [
+    300000,
+    400000,
+    500000,
+    600000
+  ],
+  "device": "auto",
+  "experiment_name": "sac_closing_rewardv15_trial16_multiseed_600ksteps",
+  "max_eval_steps": 12000,
+  "total_timesteps": 600000,
+  "training_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "trial_16_params": {
+    "batch_size": 512,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.99,
+    "gradient_steps": 8,
+    "learning_rate": 0.00026276728418436003,
+    "learning_starts": 10000,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ]
+}

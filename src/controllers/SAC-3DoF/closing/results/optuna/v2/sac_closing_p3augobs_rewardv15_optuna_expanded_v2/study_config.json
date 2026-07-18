@@ -1,0 +1,64 @@
+{
+  "arguments": {
+    "buffer_size": 300000,
+    "device": "auto",
+    "eval_seeds": 5,
+    "fresh": true,
+    "max_eval_steps": 12000,
+    "n_trials": 40,
+    "progress_bar": true,
+    "save_models": true,
+    "seed": 0,
+    "storage": null,
+    "study_name": "sac_closing_p3augobs_rewardv15_optuna_expanded_v2",
+    "train_steps": 300000
+  },
+  "log_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\logs\\optuna\\v2",
+  "metrics_csv": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\optuna\\v2\\sac_closing_p3augobs_rewardv15_optuna_expanded_v2\\trial_metrics.csv",
+  "optuna_version": "v2",
+  "results_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\optuna\\v2\\sac_closing_p3augobs_rewardv15_optuna_expanded_v2",
+  "search_space": {
+    "batch_size": [
+      256,
+      512
+    ],
+    "ent_coef": [
+      "auto_0.01",
+      "auto_0.02",
+      "auto_0.05",
+      "auto_0.1"
+    ],
+    "gamma": [
+      0.99,
+      0.9925,
+      0.995,
+      0.997
+    ],
+    "learning_rate": {
+      "high": 0.00035,
+      "log": true,
+      "low": 0.00018
+    },
+    "learning_starts": [
+      5000,
+      10000,
+      20000,
+      30000
+    ],
+    "tau": [
+      0.005,
+      0.01,
+      0.015,
+      0.02
+    ],
+    "train_update": [
+      "8_8",
+      "16_8",
+      "16_4",
+      "32_8",
+      "32_16"
+    ]
+  },
+  "storage": "sqlite:///D:/Daria Master Thesis/msc-thesis-safe-rl-docking/src/controllers/SAC-3DoF/closing/results/optuna/v2/sac_closing_p3augobs_rewardv15_optuna_expanded_v2/study.db",
+  "study_name": "sac_closing_p3augobs_rewardv15_optuna_expanded_v2"
+}

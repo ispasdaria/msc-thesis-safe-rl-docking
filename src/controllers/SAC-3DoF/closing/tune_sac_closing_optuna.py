@@ -1,15 +1,16 @@
-"""Tune SAC hyperparameters for the 3-DoF docking closing phase.
+"""Run the expanded-v2 SAC search for the 3-DoF closing phase.
 
 The objective is safety-first and is based on the sampled six-state P3 target.
 Port distance is recorded only as a diagnostic because the closing phase should
 end near P3 (roughly 300 m from the target), not at the docking port.
 
 Example:
-    python tune_sac_closing_optuna.py --n-trials 20 --train-steps 300000 --fresh
+    python tune_sac_closing_optuna.py --n-trials 40 --train-steps 300000 --fresh
 """
 
 import argparse
 import csv
+import json
 import os
 import sys
 from pathlib import Path
@@ -33,8 +34,33 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "optuna")
-RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "optuna")
+OPTUNA_VERSION = "v2"
+LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "optuna", OPTUNA_VERSION)
+RESULTS_DIR = os.path.join(
+    SCRIPT_DIR,
+    "results",
+    "optuna",
+    OPTUNA_VERSION,
+)
+
+SEARCH_SPACE = {
+    "learning_rate": {
+        "low": 1.8e-4,
+        "high": 3.5e-4,
+        "log": True,
+    },
+    "batch_size": [256, 512],
+    "tau": [0.005, 0.01, 0.015, 0.02],
+    "gamma": [0.99, 0.9925, 0.995, 0.997],
+    "learning_starts": [5_000, 10_000, 20_000, 30_000],
+    "ent_coef": [
+        "auto_0.01",
+        "auto_0.02",
+        "auto_0.05",
+        "auto_0.1",
+    ],
+    "train_update": ["8_8", "16_8", "16_4", "32_8", "32_16"],
+}
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -125,12 +151,16 @@ def evaluate_model(model, vecnorm, seeds, max_steps):
                 abs_psi_values = []
                 abs_omega_values = []
                 warning_steps = 0
+                episode_return = 0.0
 
                 for step in range(max_steps):
                     norm_obs = normalize_observation(vecnorm, obs)
                     action, _ = model.predict(norm_obs, deterministic=True)
-                    obs, _, terminated, truncated, info = env.step(action[0])
+                    obs, reward, terminated, truncated, info = env.step(
+                        action[0]
+                    )
                     final_info = info
+                    episode_return += float(reward)
 
                     current_error = target_error(env)
                     min_position_error = min(
@@ -159,6 +189,7 @@ def evaluate_model(model, vecnorm, seeds, max_steps):
                     {
                         "seed": seed,
                         "steps": step + 1,
+                        "episode_return": episode_return,
                         "success": bool(final_info.get("success", False)),
                         "failure": bool(final_info.get("failure", False)),
                         "time_limit": bool(final_info.get("time_limit", False)),
@@ -275,7 +306,7 @@ def score_summary(summary):
 def suggest_sac_params(trial):
     train_update = trial.suggest_categorical(
         "train_update",
-        ["8_8", "16_16", "16_8", "8_16"],
+        SEARCH_SPACE["train_update"],
     )
     train_freq, gradient_steps = [
         int(value) for value in train_update.split("_")
@@ -284,29 +315,29 @@ def suggest_sac_params(trial):
     return {
         "learning_rate": trial.suggest_float(
             "learning_rate",
-            1e-4,
-            5e-4,
-            log=True,
+            SEARCH_SPACE["learning_rate"]["low"],
+            SEARCH_SPACE["learning_rate"]["high"],
+            log=SEARCH_SPACE["learning_rate"]["log"],
         ),
         "batch_size": trial.suggest_categorical(
             "batch_size",
-            [256, 512, 1024],
+            SEARCH_SPACE["batch_size"],
         ),
         "tau": trial.suggest_categorical(
             "tau",
-            [0.002, 0.005, 0.01],
+            SEARCH_SPACE["tau"],
         ),
         "gamma": trial.suggest_categorical(
             "gamma",
-            [0.98, 0.99, 0.995, 0.997],
+            SEARCH_SPACE["gamma"],
         ),
         "learning_starts": trial.suggest_categorical(
             "learning_starts",
-            [1000, 5000, 10000],
+            SEARCH_SPACE["learning_starts"],
         ),
         "ent_coef": trial.suggest_categorical(
             "ent_coef",
-            ["auto_0.05", "auto_0.1", "auto_0.2"],
+            SEARCH_SPACE["ent_coef"],
         ),
         "train_freq": train_freq,
         "gradient_steps": gradient_steps,
@@ -432,7 +463,7 @@ def parse_args():
     )
     parser.add_argument(
         "--study-name",
-        default="sac_closing_p3augobs_rewardv15_optuna_v2",
+        default="sac_closing_p3augobs_rewardv15_optuna_expanded_v2",
     )
     parser.add_argument("--n-trials", type=int, default=20)
     parser.add_argument("--train-steps", type=int, default=300_000)
@@ -446,7 +477,10 @@ def parse_args():
     parser.add_argument(
         "--storage",
         default=None,
-        help="Optuna storage URL. Defaults to a SQLite DB in results/optuna.",
+        help=(
+            "Optuna storage URL. Defaults to a SQLite DB in "
+            "results/optuna/v2."
+        ),
     )
     parser.add_argument(
         "--fresh",
@@ -468,6 +502,25 @@ def main():
         storage = f"sqlite:///{database_path}"
 
     metrics_csv = os.path.join(study_dir, "trial_metrics.csv")
+    config_path = os.path.join(study_dir, "study_config.json")
+
+    with open(config_path, "w", encoding="utf-8") as file:
+        json.dump(
+            {
+                "optuna_version": OPTUNA_VERSION,
+                "study_name": args.study_name,
+                "storage": storage,
+                "metrics_csv": metrics_csv,
+                "log_dir": LOG_DIR,
+                "results_dir": study_dir,
+                "arguments": vars(args),
+                "search_space": SEARCH_SPACE,
+            },
+            file,
+            indent=2,
+            sort_keys=True,
+        )
+        file.write("\n")
 
     if args.fresh:
         try:
@@ -495,6 +548,8 @@ def main():
     print(f"Study name:     {args.study_name}")
     print(f"Storage:        {storage}")
     print(f"Metrics CSV:    {metrics_csv}")
+    print(f"Study config:   {config_path}")
+    print(f"TensorBoard:    {LOG_DIR}")
     print(f"Trials:         {args.n_trials}")
     print(f"Train steps:    {args.train_steps}")
     print(f"Buffer size:    {args.buffer_size}")

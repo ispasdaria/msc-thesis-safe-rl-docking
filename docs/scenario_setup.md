@@ -484,7 +484,7 @@ R_KOS = 200 m
 Docking cone:
 
 ```
-C_dock = { x :
+C_cone = { x :
     0 <= s <= 2000 AND
     rho <= (200 / 2000) * s
 }
@@ -503,12 +503,13 @@ Where `d_P3` is axial distance from P3 to docking point.
 
 ### 7.6 Alignment Sets
 
+Final approach phase:
+
 ```
 A_safe = { x : theta_e <= 3 deg AND ||w_e|| <= 0.15 deg/s }
 A_warn = {
-    (3 deg < theta_e <= 4 deg) OR
-    (0.15 < ||w_e|| <= 0.2 deg/s)
-}
+    x : theta_e <= 4 deg AND ||w_e|| <= 0.2 deg/s
+} \ A_safe
 A_unsafe = {
     theta_e > 4 deg OR
     ||w_e|| > 0.2 deg/s
@@ -525,9 +526,9 @@ V_safe_close = {
     |s_dot| <= 0.15 m/s
 }
 V_warn_close = {
-    (0.25 < ||v_p|| <= 0.35) OR
-    (0.15 < |s_dot| <= 0.25)
-}
+    x : ||v_p|| <= 0.35 m/s AND
+    |s_dot| <= 0.25 m/s
+} \ V_safe_close
 V_unsafe_close = {
     ||v_p|| > 0.35 OR
     |s_dot| > 0.25
@@ -542,9 +543,9 @@ V_safe_final = {
     |s_dot| <= 0.1
 }
 V_warn_final = {
-    (0.15 < ||v_p|| <= 0.2) OR
-    (0.1 < |s_dot| <= 0.15)
-}
+    x : ||v_p|| <= 0.2 m/s AND
+    |s_dot| <= 0.15 m/s
+} \ V_safe_final
 V_unsafe_final = {
     ||v_p|| > 0.2 OR
     |s_dot| > 0.15
@@ -557,8 +558,8 @@ V_unsafe_final = {
 X_dock = {
     ||r_p|| <= 0.1 m AND
     ||v_p|| <= 0.1 m/s AND
-    theta_e <= 4 deg AND
-    ||w_e|| <= 0.2 deg/s
+    |theta_e| <= 4 deg AND
+    |w_e| <= 0.2 deg/s
 }
 ```
 
@@ -566,21 +567,39 @@ X_dock = {
 
 ```
 X_P2 = {
-    s in [d_P2_min, d_P2_max],
-    rho <= rho_P2,
-    v_parallel in [v_min_P2, v_max_P2],
-    ||v_perp|| <= v_perp_P2,
-    theta_e <= theta_P2,
-    ||w_e|| <= w_P2
+    r_x in [r_x_P2_min, r_x_P2_max],
+    r_y in [r_y_P2_min, r_y_P2_max],
+    r_z in [r_z_P2_min, r_z_P2_max],
+
+    v_x in [v_x_P2_min, v_x_P2_max],
+    v_y in [v_y_P2_min, v_y_P2_max],
+    v_z in [v_z_P2_min, v_z_P2_max],
+
+    theta_e,x in [theta_x_P2_min, theta_x_P2_max],
+    theta_e,y in [theta_y_P2_min, theta_y_P2_max],
+    theta_e,z in [theta_z_P2_min, theta_z_P2_max],
+
+    w_e,x in [w_x_P2_min, w_x_P2_max],
+    w_e,y in [w_y_P2_min, w_y_P2_max],
+    w_e,z in [w_z_P2_min, w_z_P2_max]
 }
 
 X_P3 = {
-    s in [d_P3_min, d_P3_max],
-    rho <= rho_P3,
-    v_parallel in [v_min_P3, v_max_P3],
-    ||v_perp|| <= v_perp_P3,
-    theta_e <= theta_P3,
-    ||w_e|| <= w_P3
+    r_x in [r_x_P3_min, r_x_P3_max],
+    r_y in [r_y_P3_min, r_y_P3_max],
+    r_z in [r_z_P3_min, r_z_P3_max],
+
+    v_x in [v_x_P3_min, v_x_P3_max],
+    v_y in [v_y_P3_min, v_y_P3_max],
+    v_z in [v_z_P3_min, v_z_P3_max],
+
+    theta_e,x in [theta_x_P3_min, theta_x_P3_max],
+    theta_e,y in [theta_y_P3_min, theta_y_P3_max],
+    theta_e,z in [theta_z_P3_min, theta_z_P3_max],
+
+    w_e,x in [w_x_P3_min, w_x_P3_max],
+    w_e,y in [w_y_P3_min, w_y_P3_max],
+    w_e,z in [w_z_P3_min, w_z_P3_max]
 }
 ```
 

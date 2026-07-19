@@ -608,9 +608,9 @@ X_P3 = {
 Closing phase geometry layer:
 
 ```
-G_safe_close = (E_AE \ S_KOS) ∩ C_dock   with   d_P3 <= s <= d_P2
-G_unsafe_close = S_KOS \ C_dock
-G_warn_close = (E_AE \ (S_KOS ∪ C_dock)) ∪ (S_KOS ∩ C_dock)
+G_safe_close = (E_AE \ S_KOS) ∩ C_cone   with   d_P3 <= s <= d_P2
+G_unsafe_close = S_KOS \ C_cone
+G_warn_close = (E_AE \ (S_KOS ∪ C_cone)) ∪ (S_KOS ∩ C_cone)
 G_out_close = E_AE_complement
 ```
 
@@ -625,9 +625,9 @@ X_warn_close = (G_warn_close ∪ V_warn_close) \ X_unsafe_close
 Final approach geometry layer:
 
 ```
-G_safe_final = C_dock ∩ C_corr
-G_unsafe_final = C_dock_complement
-G_warn_final = C_dock \ C_corr
+G_safe_final = C_cone ∩ C_corr
+G_unsafe_final = C_cone_complement
+G_warn_final = C_cone \ C_corr
 ```
 
 Final approach combined sets:

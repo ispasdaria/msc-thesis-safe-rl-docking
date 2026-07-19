@@ -353,7 +353,12 @@ def policy_paths(experiment_name, training_seed, variant):
     )
 
 
-def load_model_and_vecnorm(model_path, vecnorm_path, device):
+def load_model_and_vecnorm(
+    model_path,
+    vecnorm_path,
+    device,
+    closing_reward_version,
+):
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found: {model_path}")
     if not os.path.exists(vecnorm_path):
@@ -362,7 +367,14 @@ def load_model_and_vecnorm(model_path, vecnorm_path, device):
         )
 
     dummy_env = DummyVecEnv(
-        [lambda: Monitor(make_eval_env(seed=999_999))]
+        [
+            lambda: Monitor(
+                make_eval_env(
+                    seed=999_999,
+                    closing_reward_version=closing_reward_version,
+                )
+            )
+        ]
     )
     vecnorm = VecNormalize.load(vecnorm_path, dummy_env)
     vecnorm.training = False
@@ -411,6 +423,7 @@ def evaluate_one_policy(
     training_seed,
     test_seeds,
     policy_output_dir,
+    closing_reward_version,
 ):
     summary_json = os.path.join(policy_output_dir, "summary.json")
     if args.skip_existing and os.path.exists(summary_json):
@@ -442,12 +455,14 @@ def evaluate_one_policy(
             model_path=model_path,
             vecnorm_path=vecnorm_path,
             device=args.device,
+            closing_reward_version=closing_reward_version,
         )
         results = evaluate_model(
             model=model,
             vecnorm=vecnorm,
             seeds=test_seeds,
             max_steps=args.max_eval_steps,
+            closing_reward_version=closing_reward_version,
         )
         summary = summarize_policy_results(
             experiment_name=experiment_name,
@@ -547,6 +562,7 @@ def write_aggregate_outputs(run_dir, policy_summaries):
 def main():
     args = parse_args()
     experiment_config = load_experiment_config(args.experiment_name)
+    closing_reward_version = experiment_config.get("reward_version", "v15")
     (
         model_types,
         training_seeds,
@@ -574,6 +590,7 @@ def main():
         "test_seeds": test_seeds,
         "max_eval_steps": args.max_eval_steps,
         "device": args.device,
+        "reward_version": closing_reward_version,
         "output_name": output_name,
         "training_experiment_config": experiment_config,
     }
@@ -585,6 +602,7 @@ def main():
     print(f"Experiment:     {args.experiment_name}")
     print(f"Variants:       {[v['variant'] for v in variants]}")
     print(f"Training seeds: {training_seeds}")
+    print(f"Reward version: {closing_reward_version}")
     print(
         f"Testing seeds:  {test_seeds[0]} ... {test_seeds[-1]} "
         f"({len(test_seeds)} total)"
@@ -607,6 +625,7 @@ def main():
                 training_seed=training_seed,
                 test_seeds=test_seeds,
                 policy_output_dir=policy_output_dir,
+                closing_reward_version=closing_reward_version,
             )
             policy_summaries.append(summary)
             write_aggregate_outputs(run_dir, policy_summaries)

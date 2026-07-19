@@ -730,13 +730,10 @@ Termination logic:
 - If `I_dock = 1`: terminate final-approach episode successfully.
 - If `I_fail = 1`: terminate episode unsuccessfully.
 
-### 8.3 Failure Conditions (Preliminary)
-
-To be finalized. Candidate groups:
+### 8.3 Failure Conditions 
 
 - Geometric hard violations
 - Velocity/rate hard violations
-- Control saturation/violation
 - Time-limit termination without success
 
 ## 9. Assumptions Register

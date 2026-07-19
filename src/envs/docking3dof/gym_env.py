@@ -75,6 +75,14 @@ class Docking3DoFGymEnv(gym.Env):
         "p3_omega_error",
     )
     final_observation_labels = ("rpx", "rpy", "vpx", "vpy", "psi_e", "omegaz")
+    closing_reward_versions = ("v15", "v16")
+
+    # Reward v16 adds bounded P3-terminal error shaping to v15. The
+    # ratios are clipped so the very small velocity/alignment tolerances cannot
+    # dominate learning far outside the terminal region.
+    closing_v16_ratio_clip = 10.0
+    closing_v16_aggregate_weight = 0.05
+    closing_v16_worst_weight = 0.10
 
     def __init__(
         self,
@@ -85,6 +93,7 @@ class Docking3DoFGymEnv(gym.Env):
         integrator="rk4",
         normalize_action=True,
         seed=None,
+        closing_reward_version="v15",
     ):
         super().__init__()
 
@@ -93,6 +102,12 @@ class Docking3DoFGymEnv(gym.Env):
 
         if mode not in ["nominal", "testing", "training"]:
             raise ValueError("mode must be one of: 'nominal', 'testing', or 'training'.")
+
+        if closing_reward_version not in self.closing_reward_versions:
+            raise ValueError(
+                "closing_reward_version must be one of: "
+                f"{', '.join(self.closing_reward_versions)}."
+            )
 
         if max_time is None:
             if phase == "closing":
@@ -104,6 +119,7 @@ class Docking3DoFGymEnv(gym.Env):
         self.mode = mode
         self.normalize_action = normalize_action
         self.max_time = max_time
+        self.closing_reward_version = closing_reward_version
 
         self.core_env = Docking3DoFEnv(
             dt=dt,
@@ -361,6 +377,7 @@ class Docking3DoFGymEnv(gym.Env):
 
         reward_components = {
             "phase": self.phase,
+            "closing_reward_version": self.closing_reward_version,
 
             # Raw diagnostic quantities
             "port_distance": float(port_distance),
@@ -412,6 +429,14 @@ class Docking3DoFGymEnv(gym.Env):
             "unsafe_forward_progress": None,
             "no_progress": None,
             "attitude_progress": None,
+            "p3_axial_ratio": None,
+            "p3_vx_ratio": None,
+            "p3_vy_ratio": None,
+            "p3_attitude_ratio": None,
+            "p3_rate_ratio": None,
+            "p3_normalized_error_mean": None,
+            "p3_normalized_error_max": None,
+            "p3_terminal_weight": None,
 
             # Reward terms
             "reward_position": 0.0,
@@ -441,6 +466,8 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_omega_margin": 0.0,
             "reward_terminal_corridor": 0.0,
             "reward_terminal_alignment": 0.0,
+            "reward_tolerance_aggregate": 0.0,
+            "reward_tolerance_worst": 0.0,
             "reward_warning": 0.0,
             "reward_failure": 0.0,
             "reward_success": 0.0,
@@ -590,6 +617,49 @@ class Docking3DoFGymEnv(gym.Env):
             # damping objective without prescribing a lateral velocity profile.
             reward_lateral = -0.01 * lateral_error
 
+            # Reward v16 extends v15 with P3-tolerance-normalized terminal
+            # shaping. Each state component is divided by the exact tolerance
+            # used by the P3 success condition, so all six conditions must
+            # become small together. The mean rewards balanced convergence;
+            # the maximum prevents a single bad component from being hidden by
+            # the other five. Ratio clipping bounds the scale and avoids a
+            # distance gate that the policy could exploit by remaining just
+            # outside the shaped region.
+            p3_error_ratios = np.zeros(6, dtype=np.float64)
+            clipped_p3_error_ratios = np.zeros(6, dtype=np.float64)
+            p3_normalized_error_mean = 0.0
+            p3_normalized_error_max = 0.0
+            p3_terminal_weight = 0.0
+            reward_tolerance_aggregate = 0.0
+            reward_tolerance_worst = 0.0
+            if (
+                self.closing_reward_version == "v16"
+                and self.core_env.p3_target is not None
+            ):
+                p3_error_ratios = np.abs(error) / np.maximum(p3_tol, 1e-12)
+                clipped_p3_error_ratios = np.clip(
+                    p3_error_ratios,
+                    0.0,
+                    self.closing_v16_ratio_clip,
+                )
+                p3_normalized_error_mean = float(
+                    np.mean(clipped_p3_error_ratios)
+                )
+                p3_normalized_error_max = float(
+                    np.max(clipped_p3_error_ratios)
+                )
+                p3_terminal_weight = 1.0
+                reward_tolerance_aggregate = (
+                    -self.closing_v16_aggregate_weight
+                    * p3_terminal_weight
+                    * p3_normalized_error_mean
+                )
+                reward_tolerance_worst = (
+                    -self.closing_v16_worst_weight
+                    * p3_terminal_weight
+                    * p3_normalized_error_max
+                )
+
             reward = (
                 reward_position
                 + reward_velocity
@@ -604,6 +674,8 @@ class Docking3DoFGymEnv(gym.Env):
                 + reward_no_progress
                 + reward_lateral
                 + reward_speed_margin
+                + reward_tolerance_aggregate
+                + reward_tolerance_worst
             )
 
             reward_components.update(
@@ -637,6 +709,18 @@ class Docking3DoFGymEnv(gym.Env):
                     "alignment_gate": float(alignment_gate),
                     "no_progress": float(no_progress),
                     "attitude_progress": float(attitude_progress),
+                    "p3_axial_ratio": float(p3_error_ratios[0]),
+                    "p3_vx_ratio": float(p3_error_ratios[2]),
+                    "p3_vy_ratio": float(p3_error_ratios[3]),
+                    "p3_attitude_ratio": float(p3_error_ratios[4]),
+                    "p3_rate_ratio": float(p3_error_ratios[5]),
+                    "p3_normalized_error_mean": float(
+                        p3_normalized_error_mean
+                    ),
+                    "p3_normalized_error_max": float(
+                        p3_normalized_error_max
+                    ),
+                    "p3_terminal_weight": float(p3_terminal_weight),
                     "too_fast": float(
                         max(0.0, speed_ratio - 0.75)
                         + max(0.0, sdot_ratio - 0.75)
@@ -656,6 +740,12 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_no_progress": float(reward_no_progress),
                     "reward_lateral": float(reward_lateral),
                     "reward_speed_margin": float(reward_speed_margin),
+                    "reward_tolerance_aggregate": float(
+                        reward_tolerance_aggregate
+                    ),
+                    "reward_tolerance_worst": float(
+                        reward_tolerance_worst
+                    ),
                 }
             )
 

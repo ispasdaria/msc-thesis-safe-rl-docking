@@ -66,7 +66,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 
-def make_training_env(seed=0):
+def make_training_env(seed=0, closing_reward_version="v15"):
     env = Docking3DoFGymEnv(
         phase="closing",
         mode="training",
@@ -75,11 +75,12 @@ def make_training_env(seed=0):
         integrator="rk4",
         normalize_action=True,
         seed=seed,
+        closing_reward_version=closing_reward_version,
     )
     return Monitor(env)
 
 
-def make_eval_env(seed=0):
+def make_eval_env(seed=0, closing_reward_version="v15"):
     return Docking3DoFGymEnv(
         phase="closing",
         mode="testing",
@@ -88,6 +89,7 @@ def make_eval_env(seed=0):
         integrator="rk4",
         normalize_action=True,
         seed=seed,
+        closing_reward_version=closing_reward_version,
     )
 
 
@@ -121,7 +123,13 @@ def target_error_metrics(error, tolerance):
     }
 
 
-def evaluate_model(model, vecnorm, seeds, max_steps):
+def evaluate_model(
+    model,
+    vecnorm,
+    seeds,
+    max_steps,
+    closing_reward_version="v15",
+):
     results = []
 
     old_training = vecnorm.training
@@ -131,7 +139,10 @@ def evaluate_model(model, vecnorm, seeds, max_steps):
 
     try:
         for seed in seeds:
-            env = make_eval_env(seed=seed)
+            env = make_eval_env(
+                seed=seed,
+                closing_reward_version=closing_reward_version,
+            )
 
             try:
                 obs, info = env.reset(seed=seed)

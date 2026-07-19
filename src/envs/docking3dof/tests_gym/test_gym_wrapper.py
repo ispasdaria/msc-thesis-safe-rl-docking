@@ -95,7 +95,12 @@ def check_closing_observation_wraps_attitude_error():
 
 
 def check_closing_reward_v15_uses_symmetric_progress():
-    env = Docking3DoFGymEnv(phase="closing", mode="testing", seed=13)
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        seed=13,
+        closing_reward_version="v15",
+    )
     env.reset(seed=13)
 
     state = env.core_env.state.copy()
@@ -293,6 +298,83 @@ def check_closing_reward_v15_uses_symmetric_progress():
     env.close()
 
 
+def check_closing_reward_v16_normalizes_terminal_errors():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        seed=17,
+        closing_reward_version="v16",
+    )
+    env.reset(seed=17)
+
+    tolerance = env.core_env.p3_target_tolerance
+    state = env.core_env.p3_target + tolerance
+    state[4] = env.core_env.p3_target[4] + tolerance[4]
+    pos_error = np.linalg.norm(tolerance[0:2])
+    env.prev_closing_pos_error = pos_error
+    env.prev_closing_lateral_error = tolerance[1]
+    env.prev_closing_attitude_error = tolerance[4]
+
+    _, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    expected_terminal_weight = 1.0
+    assert components["closing_reward_version"] == "v16"
+    assert np.isclose(components["p3_axial_ratio"], 1.0)
+    assert np.isclose(components["p3_lateral_ratio"], 1.0)
+    assert np.isclose(components["p3_vx_ratio"], 1.0)
+    assert np.isclose(components["p3_vy_ratio"], 1.0)
+    assert np.isclose(components["p3_attitude_ratio"], 1.0)
+    assert np.isclose(components["p3_rate_ratio"], 1.0)
+    assert np.isclose(components["p3_normalized_error_mean"], 1.0)
+    assert np.isclose(components["p3_normalized_error_max"], 1.0)
+    assert np.isclose(
+        components["p3_terminal_weight"],
+        expected_terminal_weight,
+    )
+    assert np.isclose(
+        components["reward_tolerance_aggregate"],
+        -0.05 * expected_terminal_weight,
+    )
+    assert np.isclose(
+        components["reward_tolerance_worst"],
+        -0.10 * expected_terminal_weight,
+    )
+
+    # Ratios are clipped rather than distance-gated, avoiding an incentive to
+    # remain just outside a terminal shaping boundary.
+    far_state = env.core_env.p3_target.copy()
+    far_state[0] += 301.0
+    env.prev_closing_pos_error = 301.0
+    _, far_components = env._compute_sac_reward(
+        state=far_state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+    assert np.isclose(far_components["p3_axial_ratio"], 301.0 / 20.0)
+    assert np.isclose(far_components["p3_terminal_weight"], 1.0)
+    assert np.isclose(
+        far_components["p3_normalized_error_mean"],
+        10.0 / 6.0,
+    )
+    assert np.isclose(far_components["p3_normalized_error_max"], 10.0)
+    assert np.isclose(
+        far_components["reward_tolerance_aggregate"],
+        -0.05 * 10.0 / 6.0,
+    )
+    assert np.isclose(far_components["reward_tolerance_worst"], -1.0)
+    env.close()
+
+
 def test_single_phase(phase):
     print("=" * 80)
     print(f"Testing Gym wrapper for phase: {phase}")
@@ -392,6 +474,7 @@ def main():
     check_closing_observation_is_augmented()
     check_closing_observation_wraps_attitude_error()
     check_closing_reward_v15_uses_symmetric_progress()
+    check_closing_reward_v16_normalizes_terminal_errors()
     test_single_phase("closing")
     test_single_phase("final")
 

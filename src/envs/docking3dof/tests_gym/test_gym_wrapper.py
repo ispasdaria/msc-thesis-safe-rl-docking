@@ -375,6 +375,82 @@ def check_closing_reward_v16_normalizes_terminal_errors():
     env.close()
 
 
+def check_closing_reward_v17_uses_smooth_terminal_progress():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        seed=19,
+        closing_reward_version="v17",
+    )
+    env.reset(seed=19)
+
+    tolerance = env.core_env.p3_target_tolerance
+    previous_error = 2.0 * tolerance
+    previous_terminal = env._closing_v17_terminal_cost(
+        previous_error,
+        tolerance,
+    )
+    env.prev_closing_terminal_cost = previous_terminal["cost"]
+
+    state = env.core_env.p3_target + tolerance
+    state[4] = env.core_env.p3_target[4] + tolerance[4]
+    env.prev_closing_pos_error = np.linalg.norm(tolerance[0:2])
+    env.prev_closing_lateral_error = tolerance[1]
+    env.prev_closing_attitude_error = tolerance[4]
+    _, improving = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    expected_progress = np.log(3.0) - np.log(2.0)
+    assert improving["closing_reward_version"] == "v17"
+    assert np.isclose(improving["p3_log_error_mean"], np.log(2.0))
+    assert np.isclose(
+        improving["p3_log_error_smooth_max"],
+        np.log(2.0),
+    )
+    assert np.isclose(improving["p3_terminal_cost"], np.log(2.0))
+    assert np.isclose(
+        improving["p3_terminal_cost_progress"],
+        expected_progress,
+    )
+    assert np.isclose(
+        improving["reward_tolerance_progress"],
+        20.0 * expected_progress,
+    )
+    assert np.isclose(improving["reward_tolerance_aggregate"], 0.0)
+    assert np.isclose(improving["reward_tolerance_worst"], 0.0)
+
+    # Holding the same terminal error has no persistent v17 cost.
+    _, stationary = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+    assert np.isclose(stationary["p3_terminal_cost_progress"], 0.0)
+    assert np.isclose(stationary["reward_tolerance_progress"], 0.0)
+
+    # log1p remains sensitive above v16's former ratio-10 clipping boundary.
+    far_error = np.zeros(6)
+    far_error[0] = 100.0 * tolerance[0]
+    farther_error = np.zeros(6)
+    farther_error[0] = 101.0 * tolerance[0]
+    far_cost = env._closing_v17_terminal_cost(far_error, tolerance)["cost"]
+    farther_cost = env._closing_v17_terminal_cost(
+        farther_error,
+        tolerance,
+    )["cost"]
+    assert farther_cost > far_cost
+    env.close()
+
+
 def test_single_phase(phase):
     print("=" * 80)
     print(f"Testing Gym wrapper for phase: {phase}")
@@ -475,6 +551,7 @@ def main():
     check_closing_observation_wraps_attitude_error()
     check_closing_reward_v15_uses_symmetric_progress()
     check_closing_reward_v16_normalizes_terminal_errors()
+    check_closing_reward_v17_uses_smooth_terminal_progress()
     test_single_phase("closing")
     test_single_phase("final")
 

@@ -7,7 +7,7 @@ hyperparameter search.
 
 Defaults:
     - training seeds: 0, 1, 2, 3, 4, 5
-    - closing reward: v16 tolerance-normalized terminal shaping
+    - closing reward: v17 smooth tolerance-normalized terminal progress
     - training steps: 500,000 per seed
     - checkpoints: every 100k through 500k
     - validation seeds: 100 through 109 (disjoint from Optuna seeds 0--4)
@@ -124,11 +124,11 @@ def parse_args():
     )
     parser.add_argument(
         "--reward-version",
-        choices=["v15", "v16"],
-        default="v16",
+        choices=["v15", "v16", "v17"],
+        default="v17",
         help=(
-            "Closing reward implementation to use. v16 extends v15 with "
-            "tolerance-normalized near-P3 shaping (default: v16)."
+            "Closing reward implementation to use. v17 extends v15 with "
+            "smooth tolerance-normalized P3 progress (default: v17)."
         ),
     )
     parser.add_argument(

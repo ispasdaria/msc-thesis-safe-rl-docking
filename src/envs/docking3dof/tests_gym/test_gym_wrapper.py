@@ -422,6 +422,7 @@ def check_closing_reward_v17_uses_smooth_terminal_progress():
         improving["reward_tolerance_progress"],
         20.0 * expected_progress,
     )
+    assert np.isclose(improving["p3_terminal_progress_scale"], 20.0)
     assert np.isclose(improving["reward_tolerance_aggregate"], 0.0)
     assert np.isclose(improving["reward_tolerance_worst"], 0.0)
 
@@ -448,6 +449,52 @@ def check_closing_reward_v17_uses_smooth_terminal_progress():
         tolerance,
     )["cost"]
     assert farther_cost > far_cost
+    env.close()
+
+
+def check_closing_reward_v18_scales_v17_progress():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        seed=23,
+        closing_reward_version="v18",
+    )
+    env.reset(seed=23)
+
+    tolerance = env.core_env.p3_target_tolerance
+    previous_error = 2.0 * tolerance
+    env.prev_closing_terminal_cost = env._closing_v17_terminal_cost(
+        previous_error,
+        tolerance,
+    )["cost"]
+
+    state = env.core_env.p3_target + tolerance
+    state[4] = env.core_env.p3_target[4] + tolerance[4]
+    env.prev_closing_pos_error = np.linalg.norm(tolerance[0:2])
+    env.prev_closing_lateral_error = tolerance[1]
+    env.prev_closing_attitude_error = tolerance[4]
+    _, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    expected_progress = np.log(3.0) - np.log(2.0)
+    assert components["closing_reward_version"] == "v18"
+    assert np.isclose(components["p3_terminal_progress_scale"], 500.0)
+    assert np.isclose(
+        components["p3_terminal_cost_progress"],
+        expected_progress,
+    )
+    assert np.isclose(
+        components["reward_tolerance_progress"],
+        500.0 * expected_progress,
+    )
+    assert np.isclose(components["reward_tolerance_aggregate"], 0.0)
+    assert np.isclose(components["reward_tolerance_worst"], 0.0)
     env.close()
 
 
@@ -552,6 +599,7 @@ def main():
     check_closing_reward_v15_uses_symmetric_progress()
     check_closing_reward_v16_normalizes_terminal_errors()
     check_closing_reward_v17_uses_smooth_terminal_progress()
+    check_closing_reward_v18_scales_v17_progress()
     test_single_phase("closing")
     test_single_phase("final")
 

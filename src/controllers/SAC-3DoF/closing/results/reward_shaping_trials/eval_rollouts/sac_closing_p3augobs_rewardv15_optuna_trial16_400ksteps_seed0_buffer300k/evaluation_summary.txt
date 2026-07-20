@@ -1,0 +1,46 @@
+SAC closing evaluation summary
+================================================================================
+Model name: sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k
+Model path: d:\Daria Master Thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\models\reward_shaping_trials\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip
+VecNorm path: d:\Daria Master Thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\models\reward_shaping_trials\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl
+Results dir: d:\Daria Master Thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\results\reward_shaping_trials\eval_rollouts\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k
+
+Number of rollouts: 10
+Success rate:       0.00
+Failure rate:       0.00
+Time-limit rate:    1.00
+Mean steps:         12000.0
+
+Distance / geometry summary:
+Mean min port distance:   303.31 m
+Mean closing port distance: 303.48 m
+Mean min s:               301.52 m
+Mean closing s:             301.71 m
+Mean max rho:             92.17 m
+Mean closing rho:           25.40 m
+
+P3 target-error summary:
+Mean min position error:   50.70 m
+Mean closing position error: 61.71 m
+
+Axial overshoot summary:
+Mean maximum overshoot beyond P3 tolerance: 5.78 m
+Mean closing overshoot beyond P3 tolerance: 5.61 m
+
+Termination reasons:
+  timeout: 10
+
+Violated constraints:
+  none
+
+Per-rollout summary:
+seed=0   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=260.19 m | closing_port=260.19 m | min_s=259.90 m | closing_s=259.90 m | max_rho=88.83 m | closing_rho=12.44 m | axial_overshoot=0.28 m | target_error=23.28 m
+seed=1   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=287.33 m | closing_port=287.33 m | min_s=287.16 m | closing_s=287.16 m | max_rho=94.93 m | closing_rho=9.78 m | axial_overshoot=0.00 m | target_error=11.05 m
+seed=2   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=284.51 m | closing_port=284.51 m | min_s=284.37 m | closing_s=284.37 m | max_rho=85.30 m | closing_rho=8.80 m | axial_overshoot=0.00 m | target_error=24.04 m
+seed=3   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=253.66 m | closing_port=253.66 m | min_s=253.46 m | closing_s=253.46 m | max_rho=87.97 m | closing_rho=10.06 m | axial_overshoot=1.66 m | target_error=25.13 m
+seed=4   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=224.63 m | closing_port=226.31 m | min_s=224.15 m | closing_s=225.97 m | max_rho=60.47 m | closing_rho=12.37 m | axial_overshoot=42.09 m | target_error=63.91 m
+seed=5   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=526.02 m | closing_port=526.02 m | min_s=518.34 m | closing_s=518.34 m | max_rho=139.78 m | closing_rho=89.52 m | axial_overshoot=0.00 m | target_error=261.60 m
+seed=6   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=271.79 m | closing_port=271.79 m | min_s=271.56 m | closing_s=271.56 m | max_rho=83.68 m | closing_rho=11.21 m | axial_overshoot=0.00 m | target_error=17.25 m
+seed=7   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=224.47 m | closing_port=224.47 m | min_s=224.08 m | closing_s=224.08 m | max_rho=83.73 m | closing_rho=13.17 m | axial_overshoot=12.06 m | target_error=34.15 m
+seed=8   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=368.94 m | closing_port=368.94 m | min_s=360.75 m | closing_s=360.75 m | max_rho=124.41 m | closing_rho=77.34 m | axial_overshoot=0.00 m | target_error=114.96 m
+seed=9   | steps=12000 | success=False | failure=False | reason=timeout | violated=[] | min_port=331.60 m | closing_port=331.60 m | min_s=331.47 m | closing_s=331.47 m | max_rho=72.57 m | closing_rho=9.37 m | axial_overshoot=0.00 m | target_error=41.76 m

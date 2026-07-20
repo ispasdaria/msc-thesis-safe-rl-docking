@@ -53,6 +53,21 @@ EVALUATION_LEARNING_CURVES_DIR = os.path.join(
     "evaluation_learning_curves",
 )
 
+CLOSING_REWARD_VERSION = "v15"
+
+# Best configuration from trial 16 of the first 20-trial Optuna study,
+# ``sac_closing_p3augobs_rewardv15_optuna_v2``.
+TRIAL_16_PARAMS = {
+    "learning_rate": 0.00026276728418436003,
+    "batch_size": 512,
+    "tau": 0.01,
+    "gamma": 0.99,
+    "learning_starts": 10_000,
+    "train_freq": 16,
+    "gradient_steps": 8,
+    "ent_coef": "auto_0.05",
+}
+
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -107,6 +122,7 @@ def make_training_env(seed=12):
         integrator="rk4",
         normalize_action=True,
         seed=seed,
+        closing_reward_version=CLOSING_REWARD_VERSION,
     )
 
     env = Monitor(env)
@@ -130,6 +146,7 @@ def make_eval_env(seed=0):
         integrator="rk4",
         normalize_action=True,
         seed=seed,
+        closing_reward_version=CLOSING_REWARD_VERSION,
     )
 
     return env
@@ -634,9 +651,12 @@ def main():
     # -----------------------------------------------------------------
 
     seed = 0
-    total_timesteps = 300_000
-    
-    model_name = "sac_closing_p3augobs_rewardv15_300ksteps_seed0_buffer300k"
+    total_timesteps = 400_000
+
+    model_name = (
+        "sac_closing_p3augobs_rewardv15_optuna_trial16_"
+        "400ksteps_seed0_buffer300k"
+    )
 
     model_path = os.path.join(MODEL_DIR, model_name)
     best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")
@@ -693,7 +713,7 @@ def main():
         norm_reward=True,
         clip_obs=10.0,
         clip_reward=10.0,
-        gamma=0.98,
+        gamma=TRIAL_16_PARAMS["gamma"],
     )
 
     # -----------------------------------------------------------------
@@ -703,15 +723,15 @@ def main():
     model = SAC(
         policy="MlpPolicy",
         env=train_env,
-        learning_rate=0.0003395686575052769,
+        learning_rate=TRIAL_16_PARAMS["learning_rate"],
         buffer_size=300_000,
-        learning_starts=1_000,
-        batch_size=256,
-        tau=0.005,
-        gamma=0.98,
-        train_freq=8,
-        gradient_steps=8,
-        ent_coef="auto_0.1",
+        learning_starts=TRIAL_16_PARAMS["learning_starts"],
+        batch_size=TRIAL_16_PARAMS["batch_size"],
+        tau=TRIAL_16_PARAMS["tau"],
+        gamma=TRIAL_16_PARAMS["gamma"],
+        train_freq=TRIAL_16_PARAMS["train_freq"],
+        gradient_steps=TRIAL_16_PARAMS["gradient_steps"],
+        ent_coef=TRIAL_16_PARAMS["ent_coef"],
         target_update_interval=1,
         verbose=1,
         seed=seed,

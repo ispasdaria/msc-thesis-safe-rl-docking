@@ -75,7 +75,7 @@ class Docking3DoFGymEnv(gym.Env):
         "p3_omega_error",
     )
     final_observation_labels = ("rpx", "rpy", "vpx", "vpy", "psi_e", "omegaz")
-    closing_reward_versions = ("v15", "v16", "v17")
+    closing_reward_versions = ("v15", "v16", "v17", "v18")
 
     # Reward v16 adds bounded P3-terminal error shaping to v15. The
     # ratios are clipped so the very small velocity/alignment tolerances cannot
@@ -91,6 +91,11 @@ class Docking3DoFGymEnv(gym.Env):
     closing_v17_aggregate_weight = 0.5
     closing_v17_worst_weight = 0.5
     closing_v17_progress_scale = 20.0
+
+    # Reward v18 is the controlled scale-correction experiment: it keeps the
+    # complete v17 potential unchanged and increases only its progress scale so
+    # terminal-dimensional improvement is material beside distance progress.
+    closing_v18_progress_scale = 500.0
 
     def __init__(
         self,
@@ -481,6 +486,7 @@ class Docking3DoFGymEnv(gym.Env):
             "p3_log_error_smooth_max": None,
             "p3_terminal_cost": None,
             "p3_terminal_cost_progress": None,
+            "p3_terminal_progress_scale": None,
 
             # Reward terms
             "reward_position": 0.0,
@@ -679,6 +685,7 @@ class Docking3DoFGymEnv(gym.Env):
             p3_log_error_smooth_max = 0.0
             p3_terminal_cost = 0.0
             p3_terminal_cost_progress = 0.0
+            terminal_progress_scale = 0.0
             reward_tolerance_aggregate = 0.0
             reward_tolerance_worst = 0.0
             reward_tolerance_progress = 0.0
@@ -712,7 +719,7 @@ class Docking3DoFGymEnv(gym.Env):
                     * p3_normalized_error_max
                 )
             elif (
-                self.closing_reward_version == "v17"
+                self.closing_reward_version in {"v17", "v18"}
                 and self.core_env.p3_target is not None
             ):
                 terminal = self._closing_v17_terminal_cost(error, p3_tol)
@@ -731,9 +738,13 @@ class Docking3DoFGymEnv(gym.Env):
                 p3_normalized_error_mean = float(np.mean(p3_error_ratios))
                 p3_normalized_error_max = float(np.max(p3_error_ratios))
                 p3_terminal_weight = 1.0
+                terminal_progress_scale = (
+                    self.closing_v18_progress_scale
+                    if self.closing_reward_version == "v18"
+                    else self.closing_v17_progress_scale
+                )
                 reward_tolerance_progress = (
-                    self.closing_v17_progress_scale
-                    * p3_terminal_cost_progress
+                    terminal_progress_scale * p3_terminal_cost_progress
                 )
 
             reward = (
@@ -805,6 +816,9 @@ class Docking3DoFGymEnv(gym.Env):
                     "p3_terminal_cost": float(p3_terminal_cost),
                     "p3_terminal_cost_progress": float(
                         p3_terminal_cost_progress
+                    ),
+                    "p3_terminal_progress_scale": float(
+                        terminal_progress_scale
                     ),
                     "too_fast": float(
                         max(0.0, speed_ratio - 0.75)

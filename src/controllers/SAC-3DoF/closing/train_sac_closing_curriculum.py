@@ -43,10 +43,8 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from envs.docking3dof.gym_env import Docking3DoFGymEnv  # noqa: E402
-from train_sac_closing_multiseed import (  # noqa: E402
-    TRIAL_16_PARAMS,
-    TrainingReturnCallback,
-)
+from train_sac_closing import LearningCurveCallback  # noqa: E402
+from train_sac_closing_multiseed import TRIAL_16_PARAMS  # noqa: E402
 from tune_sac_closing_optuna import (  # noqa: E402
     evaluate_model,
     normalize_observation,
@@ -633,6 +631,7 @@ def record_evaluation(
     stage,
     stage_step,
     curriculum_step,
+    completed_training_episodes,
     eval_kind,
 ):
     summary = summarize_results(results)
@@ -641,6 +640,7 @@ def record_evaluation(
     summary_row = {
         "eval_kind": eval_kind,
         "curriculum_step": curriculum_step,
+        "completed_training_episodes": completed_training_episodes,
         "stage_index": stage_index,
         "stage_name": stage.name,
         "stage_step": stage_step,
@@ -653,6 +653,30 @@ def record_evaluation(
         **summary,
     }
     append_csv(result_dir / "curriculum_evaluations.csv", [summary_row])
+
+    if eval_kind == "current_stage":
+        learning_curve_row = {
+            "episode": completed_training_episodes,
+            "timestep": curriculum_step,
+            "stage_index": stage_index,
+            "stage_name": stage.name,
+            "stage_step": stage_step,
+            "mean_return": mean_return,
+            "std_return": std_return,
+            "mean_length": float(
+                np.mean([result["steps"] for result in results])
+            ),
+        }
+        for result in results:
+            seed = result["seed"]
+            learning_curve_row[f"seed_{seed}_return"] = result[
+                "episode_return"
+            ]
+            learning_curve_row[f"seed_{seed}_length"] = result["steps"]
+        append_csv(
+            result_dir / "evaluation_learning_curve.csv",
+            [learning_curve_row],
+        )
 
     rollout_rows = []
     for result in results:
@@ -710,6 +734,7 @@ def retention_is_satisfied(
     current_stage_index,
     stage_step,
     curriculum_step,
+    completed_training_episodes,
     args,
     result_dir,
 ):
@@ -723,6 +748,7 @@ def retention_is_satisfied(
             stage=previous_stage,
             stage_step=stage_step,
             curriculum_step=curriculum_step,
+            completed_training_episodes=completed_training_episodes,
             eval_kind=f"retention_for_stage_{current_stage_index}",
         )
         if not meets_promotion(summary, args, success_floor=retention_floor):
@@ -730,37 +756,45 @@ def retention_is_satisfied(
     return True
 
 
-def write_evaluation_plot(result_dir):
-    csv_path = result_dir / "curriculum_evaluations.csv"
+def write_evaluation_learning_curve(result_dir, experiment_name):
+    """Plot deterministic evaluation return against training episodes."""
+    csv_path = result_dir / "evaluation_learning_curve.csv"
     if not csv_path.exists():
         return
     with csv_path.open(newline="", encoding="utf-8") as csv_file:
-        rows = [
-            row
-            for row in csv.DictReader(csv_file)
-            if row["eval_kind"] == "current_stage"
-        ]
+        rows = list(csv.DictReader(csv_file))
     if not rows:
         return
 
-    steps = np.asarray([int(row["curriculum_step"]) for row in rows])
-    successes = np.asarray([float(row["success_rate"]) for row in rows])
-    failures = np.asarray([float(row["failure_rate"]) for row in rows])
+    episodes = np.asarray([int(row["episode"]) for row in rows])
+    mean_returns = np.asarray([float(row["mean_return"]) for row in rows])
+    std_returns = np.asarray([float(row["std_return"]) for row in rows])
 
     plt.figure(figsize=(10, 6))
-    plt.plot(steps, successes, marker="o", label="Success rate")
-    plt.plot(steps, failures, marker="o", label="Failure rate")
-    for left, right in zip(rows, rows[1:]):
-        if left["stage_index"] != right["stage_index"]:
-            plt.axvline(int(right["curriculum_step"]), color="gray", alpha=0.3)
-    plt.xlabel("Curriculum training timestep")
-    plt.ylabel("Episode fraction")
-    plt.title("Curriculum Validation Success and Failure Rates")
-    plt.ylim(-0.02, 1.02)
-    plt.grid(alpha=0.25)
+    plt.plot(
+        episodes,
+        mean_returns,
+        color="tab:green",
+        linewidth=2.0,
+        marker="o",
+        markersize=4,
+        label="Mean evaluation return",
+    )
+    plt.fill_between(
+        episodes,
+        mean_returns - std_returns,
+        mean_returns + std_returns,
+        color="tab:green",
+        alpha=0.2,
+        label="1 std across seeds",
+    )
+    plt.xlabel("Completed training episodes")
+    plt.ylabel("Mean total evaluation reward")
+    plt.title(f"Deterministic Evaluation Learning Curve\n{experiment_name}")
+    plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(result_dir / "curriculum_validation_curve.png", dpi=200)
+    plt.savefig(result_dir / "evaluation_learning_curve.png", dpi=200)
     plt.close()
 
 
@@ -844,9 +878,10 @@ def main():
     vecnorm = None
     try:
         model, vecnorm = build_training_stack(args, stages[0], log_dir)
-        training_callback = TrainingReturnCallback(
-            training_seed=args.seed,
-            result_dir=str(result_dir),
+        training_callback = LearningCurveCallback(
+            csv_path=result_dir / "learning_curve.csv",
+            plot_path=result_dir / "episode_return_learning_curve.png",
+            model_name=experiment_name,
         )
         first_learn_call = True
         curriculum_step = 0
@@ -890,6 +925,7 @@ def main():
                 first_learn_call = False
                 stage_step += chunk
                 curriculum_step += chunk
+                completed_training_episodes = len(training_callback.episodes)
 
                 results = evaluate_stage(model, vecnorm, stage, args)
                 summary = record_evaluation(
@@ -899,8 +935,10 @@ def main():
                     stage=stage,
                     stage_step=stage_step,
                     curriculum_step=curriculum_step,
+                    completed_training_episodes=completed_training_episodes,
                     eval_kind="current_stage",
                 )
+                write_evaluation_learning_curve(result_dir, experiment_name)
                 save_bundle(model, vecnorm, model_dir, "latest")
 
                 rank = checkpoint_rank(summary)
@@ -937,6 +975,7 @@ def main():
                         current_stage_index=stage_index,
                         stage_step=stage_step,
                         curriculum_step=curriculum_step,
+                        completed_training_episodes=completed_training_episodes,
                         args=args,
                         result_dir=result_dir,
                     )
@@ -960,9 +999,10 @@ def main():
                 stage=stage,
                 stage_step=stage_step,
                 curriculum_step=curriculum_step,
+                completed_training_episodes=len(training_callback.episodes),
                 eval_kind="full_test_probe",
             )
-            write_evaluation_plot(result_dir)
+            write_evaluation_learning_curve(result_dir, experiment_name)
 
             state = {
                 "curriculum_step": curriculum_step,
@@ -988,7 +1028,7 @@ def main():
                 break
 
         save_bundle(model, vecnorm, model_dir, "final")
-        write_evaluation_plot(result_dir)
+        write_evaluation_learning_curve(result_dir, experiment_name)
         print("=" * 80)
         if stopped_before_full_curriculum:
             print("Curriculum stopped at an unsolved stage.")

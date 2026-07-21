@@ -29,7 +29,6 @@ import gc
 import json
 import os
 import sys
-from pathlib import Path
 
 import matplotlib
 
@@ -257,29 +256,39 @@ def write_json(path, data):
 
 
 class TrainingReturnCallback(BaseCallback):
-    """Persist raw Monitor episode returns and a rolling-mean curve."""
+    """Persist episode-number versus raw Monitor return learning curves."""
 
     def __init__(
         self,
         training_seed,
         result_dir,
+        model_name,
         moving_average_window=10,
         save_every_episodes=10,
     ):
         super().__init__()
         self.training_seed = int(training_seed)
         self.result_dir = result_dir
+        self.model_name = model_name
         self.moving_average_window = int(moving_average_window)
         self.save_every_episodes = int(save_every_episodes)
         self.rows = []
+        self.best_checkpoint_episode = None
+        self.best_checkpoint_timestep = None
         self.csv_path = os.path.join(
             result_dir,
-            "training_episode_returns.csv",
+            "learning_curve.csv",
         )
         self.plot_path = os.path.join(
             result_dir,
-            "training_episode_returns.png",
+            "episode_return_learning_curve.png",
         )
+
+    def set_best_checkpoint(self, episode, timestep):
+        if episode is None or timestep is None:
+            return
+        self.best_checkpoint_episode = int(episode)
+        self.best_checkpoint_timestep = int(timestep)
 
     def _on_step(self):
         for info in self.locals.get("infos", []):
@@ -316,43 +325,80 @@ class TrainingReturnCallback(BaseCallback):
         if not self.rows:
             return
 
+        output_rows = [
+            {
+                **row,
+                "is_best_checkpoint": int(
+                    row["episode"] == self.best_checkpoint_episode
+                ),
+            }
+            for row in self.rows
+        ]
         with open(self.csv_path, "w", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(file, fieldnames=list(self.rows[0]))
+            writer = csv.DictWriter(file, fieldnames=list(output_rows[0]))
             writer.writeheader()
-            writer.writerows(self.rows)
+            writer.writerows(output_rows)
 
-        timesteps = np.asarray(
-            [row["timestep"] for row in self.rows],
+        episodes = np.asarray(
+            [row["episode"] for row in self.rows],
             dtype=np.int64,
         )
         returns = np.asarray(
             [row["episode_return"] for row in self.rows],
             dtype=np.float64,
         )
-        rolling = np.asarray(
-            [row["rolling_mean_return"] for row in self.rows],
-            dtype=np.float64,
-        )
+        if len(returns) >= self.moving_average_window:
+            weights = (
+                np.ones(self.moving_average_window)
+                / self.moving_average_window
+            )
+            averaged_returns = np.convolve(returns, weights, mode="valid")
+            averaged_episodes = episodes[self.moving_average_window - 1 :]
+        else:
+            averaged_returns = np.asarray([], dtype=np.float64)
+            averaged_episodes = np.asarray([], dtype=np.int64)
         plt.figure(figsize=(10, 6))
         plt.plot(
-            timesteps,
+            episodes,
             returns,
             color="tab:blue",
-            alpha=0.30,
             linewidth=1.0,
+            alpha=0.8,
             label="Episode return",
         )
-        plt.plot(
-            timesteps,
-            rolling,
-            color="tab:blue",
-            linewidth=2.0,
-            label=f"Rolling mean ({self.moving_average_window} episodes)",
-        )
-        plt.xlabel("Training timestep")
-        plt.ylabel("Raw episode return")
-        plt.title(f"Training Return Learning Curve — Seed {self.training_seed}")
-        plt.grid(alpha=0.25)
+        if len(averaged_returns) > 0:
+            plt.plot(
+                averaged_episodes,
+                averaged_returns,
+                color="tab:orange",
+                linewidth=2.0,
+                label=f"{self.moving_average_window}-episode moving average",
+            )
+        if self.best_checkpoint_episode is not None:
+            plt.axvline(
+                self.best_checkpoint_episode,
+                color="tab:red",
+                linestyle="--",
+                linewidth=1.6,
+                label="Best deterministic checkpoint",
+            )
+            matching_rows = [
+                row
+                for row in self.rows
+                if row["episode"] == self.best_checkpoint_episode
+            ]
+            if matching_rows:
+                plt.scatter(
+                    [self.best_checkpoint_episode],
+                    [matching_rows[0]["episode_return"]],
+                    color="tab:red",
+                    s=45,
+                    zorder=5,
+                )
+        plt.xlabel("Episode number")
+        plt.ylabel("Total reward per episode")
+        plt.title(f"Total Reward per Training Episode\n{self.model_name}")
+        plt.grid(True, alpha=0.3)
         plt.legend()
         plt.tight_layout()
         plt.savefig(self.plot_path, dpi=200)
@@ -371,6 +417,7 @@ class EvaluationCheckpointCallback(BaseCallback):
         closing_reward_version,
         model_dir,
         result_dir,
+        model_name,
     ):
         super().__init__()
         self.training_seed = int(training_seed)
@@ -380,12 +427,18 @@ class EvaluationCheckpointCallback(BaseCallback):
         self.closing_reward_version = closing_reward_version
         self.model_dir = model_dir
         self.result_dir = result_dir
+        self.model_name = model_name
 
         self.next_checkpoint_index = 0
+        self.completed_episodes = 0
         self.checkpoint_rows = []
+        self.evaluation_rows = []
+        self.evaluation_results = []
+        self.evaluation_lengths = []
         self.rollout_rows = []
         self.best_mean_return = -np.inf
         self.best_checkpoint = None
+        self.best_checkpoint_episode = None
 
         self.checkpoint_csv = os.path.join(
             self.result_dir,
@@ -403,8 +456,20 @@ class EvaluationCheckpointCallback(BaseCallback):
             self.result_dir,
             "evaluation_learning_curve.png",
         )
+        self.evaluation_csv = os.path.join(
+            self.result_dir,
+            "evaluation_learning_curve.csv",
+        )
+        self.evaluations_npz = os.path.join(
+            self.result_dir,
+            "evaluations.npz",
+        )
 
     def _on_step(self):
+        for info in self.locals.get("infos", []):
+            if info.get("episode") is not None:
+                self.completed_episodes += 1
+
         while self.next_checkpoint_index < len(self.checkpoint_steps):
             checkpoint = self.checkpoint_steps[self.next_checkpoint_index]
             if self.num_timesteps < checkpoint:
@@ -445,16 +510,36 @@ class EvaluationCheckpointCallback(BaseCallback):
         )
         mean_return = float(np.mean(returns))
         std_return = float(np.std(returns))
+        lengths = np.asarray(
+            [result["steps"] for result in results],
+            dtype=np.int64,
+        )
 
         checkpoint_row = {
             "training_seed": self.training_seed,
             "checkpoint": checkpoint,
+            "episode": self.completed_episodes,
             "score": score,
             "mean_return": mean_return,
             "std_return": std_return,
             **summary,
         }
         self.checkpoint_rows.append(checkpoint_row)
+
+        evaluation_row = {
+            "episode": self.completed_episodes,
+            "timestep": checkpoint,
+            "mean_return": mean_return,
+            "std_return": std_return,
+            "mean_length": float(np.mean(lengths)),
+        }
+        for result in results:
+            seed = result["seed"]
+            evaluation_row[f"seed_{seed}_return"] = result["episode_return"]
+            evaluation_row[f"seed_{seed}_length"] = result["steps"]
+        self.evaluation_rows.append(evaluation_row)
+        self.evaluation_results.append(returns)
+        self.evaluation_lengths.append(lengths)
 
         for result in results:
             self.rollout_rows.append(
@@ -471,6 +556,7 @@ class EvaluationCheckpointCallback(BaseCallback):
         if mean_return > self.best_mean_return:
             self.best_mean_return = mean_return
             self.best_checkpoint = checkpoint
+            self.best_checkpoint_episode = self.completed_episodes
             self.model.save(os.path.join(self.model_dir, "best_model"))
             vecnorm.save(
                 os.path.join(self.model_dir, "best_vecnormalize.pkl")
@@ -480,6 +566,7 @@ class EvaluationCheckpointCallback(BaseCallback):
                 {
                     "training_seed": self.training_seed,
                     "checkpoint": checkpoint,
+                    "episode": self.completed_episodes,
                     "selection_metric": "mean_return",
                     "mean_return": mean_return,
                     "std_return": std_return,
@@ -533,9 +620,60 @@ class EvaluationCheckpointCallback(BaseCallback):
                 writer.writeheader()
                 writer.writerows(self.rollout_rows)
 
+        if self.evaluation_rows:
+            with open(
+                self.evaluation_csv,
+                "w",
+                newline="",
+                encoding="utf-8",
+            ) as file:
+                writer = csv.DictWriter(
+                    file,
+                    fieldnames=list(self.evaluation_rows[0]),
+                )
+                writer.writeheader()
+                writer.writerows(self.evaluation_rows)
+
+            results = np.asarray(self.evaluation_results, dtype=np.float64)
+            mean_returns = np.mean(results, axis=1)
+            best_index = int(np.argmax(mean_returns))
+            np.savez(
+                self.evaluations_npz,
+                timesteps=np.asarray(
+                    [row["timestep"] for row in self.evaluation_rows],
+                    dtype=np.int64,
+                ),
+                episodes=np.asarray(
+                    [row["episode"] for row in self.evaluation_rows],
+                    dtype=np.int64,
+                ),
+                results=results,
+                ep_lengths=np.asarray(
+                    self.evaluation_lengths,
+                    dtype=np.int64,
+                ),
+                eval_seeds=np.asarray(
+                    self.validation_seeds,
+                    dtype=np.int64,
+                ),
+                best_eval_index=np.asarray(best_index, dtype=np.int64),
+                best_episode=np.asarray(
+                    self.evaluation_rows[best_index]["episode"],
+                    dtype=np.int64,
+                ),
+                best_timestep=np.asarray(
+                    self.evaluation_rows[best_index]["timestep"],
+                    dtype=np.int64,
+                ),
+                best_mean_return=np.asarray(
+                    mean_returns[best_index],
+                    dtype=np.float64,
+                ),
+            )
+
         if self.checkpoint_rows:
-            timesteps = np.asarray(
-                [row["checkpoint"] for row in self.checkpoint_rows],
+            episodes = np.asarray(
+                [row["episode"] for row in self.checkpoint_rows],
                 dtype=np.int64,
             )
             means = np.asarray(
@@ -548,35 +686,37 @@ class EvaluationCheckpointCallback(BaseCallback):
             )
             plt.figure(figsize=(10, 6))
             plt.plot(
-                timesteps,
+                episodes,
                 means,
-                color="tab:orange",
+                color="tab:green",
                 marker="o",
                 linewidth=2.0,
-                label="Mean deterministic evaluation return",
+                markersize=4,
+                label="Mean evaluation return",
             )
             plt.fill_between(
-                timesteps,
+                episodes,
                 means - stds,
                 means + stds,
-                color="tab:orange",
-                alpha=0.20,
-                label="±1 standard deviation",
+                color="tab:green",
+                alpha=0.2,
+                label="1 std across seeds",
             )
-            plt.xlabel("Training timestep")
-            plt.ylabel("Raw evaluation return")
-            plt.title(
-                "Evaluation Learning Curve — "
-                f"Training Seed {self.training_seed}"
-            )
-            plt.grid(alpha=0.25)
+            plt.xlabel("Completed training episodes")
+            plt.ylabel("Mean total evaluation reward")
+            plt.title(f"Deterministic Evaluation Learning Curve\n{self.model_name}")
+            plt.grid(True, alpha=0.3)
             plt.legend()
             plt.tight_layout()
             plt.savefig(self.plot_path, dpi=200)
             plt.close()
 
     def get_best_checkpoint(self):
-        return self.best_checkpoint, self.best_mean_return
+        return (
+            self.best_checkpoint,
+            self.best_mean_return,
+            self.best_checkpoint_episode,
+        )
 
 
 def seed_output_paths(experiment_name, seed):
@@ -674,10 +814,12 @@ def train_one_seed(args, experiment_name, checkpoint_steps, seed):
             closing_reward_version=args.reward_version,
             model_dir=model_dir,
             result_dir=result_dir,
+            model_name=f"{experiment_name} - seed {seed}",
         )
         training_return_callback = TrainingReturnCallback(
             training_seed=seed,
             result_dir=result_dir,
+            model_name=f"{experiment_name} - seed {seed}",
         )
 
         model.learn(
@@ -692,9 +834,14 @@ def train_one_seed(args, experiment_name, checkpoint_steps, seed):
             os.path.join(model_dir, "final_vecnormalize.pkl")
         )
 
-        best_checkpoint, best_mean_return = (
+        best_checkpoint, best_mean_return, best_checkpoint_episode = (
             checkpoint_callback.get_best_checkpoint()
         )
+        training_return_callback.set_best_checkpoint(
+            best_checkpoint_episode,
+            best_checkpoint,
+        )
+        training_return_callback.save_outputs()
         print(
             f"Completed training seed {seed} | "
             f"best checkpoint={best_checkpoint} | "
@@ -717,42 +864,43 @@ def read_checkpoint_rows(experiment_name, seeds):
         if not os.path.exists(csv_path):
             continue
 
+        learning_curve_path = os.path.join(result_dir, "learning_curve.csv")
+        if not os.path.exists(learning_curve_path):
+            learning_curve_path = os.path.join(
+                result_dir,
+                "training_episode_returns.csv",
+            )
+        episode_timesteps = []
+        if os.path.exists(learning_curve_path):
+            with open(
+                learning_curve_path,
+                newline="",
+                encoding="utf-8",
+            ) as file:
+                episode_timesteps = [
+                    int(row["timestep"]) for row in csv.DictReader(file)
+                ]
+
         with open(csv_path, newline="", encoding="utf-8") as file:
             for row in csv.DictReader(file):
-                rows.append(
-                    {
-                        key: (
-                            int(value)
-                            if key in {"training_seed", "checkpoint"}
-                            else float(value)
+                converted = {
+                    key: (
+                        int(value)
+                        if key in {"training_seed", "checkpoint", "episode"}
+                        else float(value)
+                    )
+                    for key, value in row.items()
+                }
+                if "episode" not in converted:
+                    converted["episode"] = int(
+                        np.searchsorted(
+                            episode_timesteps,
+                            converted["checkpoint"],
+                            side="right",
                         )
-                        for key, value in row.items()
-                    }
-                )
+                    )
+                rows.append(converted)
     return rows
-
-
-def read_tensorboard_training_curve(experiment_name, seed):
-    """Read SB3's rolling episode-return scalar for an existing run."""
-    try:
-        from tensorboard.backend.event_processing.event_accumulator import (
-            EventAccumulator,
-        )
-    except ImportError:
-        return []
-
-    log_root = Path(LOG_ROOT) / experiment_name
-    points_by_step = {}
-    for event_path in log_root.glob(
-        f"{experiment_name}_seed_{seed}_*/events.out.tfevents.*"
-    ):
-        accumulator = EventAccumulator(str(event_path))
-        accumulator.Reload()
-        if "rollout/ep_rew_mean" not in accumulator.Tags().get("scalars", []):
-            continue
-        for point in accumulator.Scalars("rollout/ep_rew_mean"):
-            points_by_step[int(point.step)] = float(point.value)
-    return sorted(points_by_step.items())
 
 
 def write_learning_curve_plots(experiment_name, seeds):
@@ -761,37 +909,82 @@ def write_learning_curve_plots(experiment_name, seeds):
     plot_dir = os.path.join(result_root, "learning_curves")
     os.makedirs(plot_dir, exist_ok=True)
 
-    plotted_training = False
+    training_curves = []
     plt.figure(figsize=(10, 6))
     for seed in seeds:
         _, result_dir = seed_output_paths(experiment_name, seed)
-        csv_path = os.path.join(result_dir, "training_episode_returns.csv")
+        csv_path = os.path.join(result_dir, "learning_curve.csv")
+        if not os.path.exists(csv_path):
+            csv_path = os.path.join(
+                result_dir,
+                "training_episode_returns.csv",
+            )
         if os.path.exists(csv_path):
             with open(csv_path, newline="", encoding="utf-8") as file:
                 rows = list(csv.DictReader(file))
-            timesteps = [int(row["timestep"]) for row in rows]
-            rolling = [float(row["rolling_mean_return"]) for row in rows]
+            episodes = [int(row["episode"]) for row in rows]
+            returns = [float(row["episode_return"]) for row in rows]
         else:
-            tensorboard_points = read_tensorboard_training_curve(
-                experiment_name,
-                seed,
-            )
-            timesteps = [point[0] for point in tensorboard_points]
-            rolling = [point[1] for point in tensorboard_points]
-        if not timesteps:
             continue
-        plt.plot(timesteps, rolling, linewidth=1.7, label=f"Seed {seed}")
-        plotted_training = True
+        if not episodes:
+            continue
+        per_seed_window = 10
+        if len(returns) >= per_seed_window:
+            weights = np.ones(per_seed_window) / per_seed_window
+            rolling = np.convolve(returns, weights, mode="valid")
+            rolling_episodes = episodes[per_seed_window - 1 :]
+            plt.plot(
+                rolling_episodes,
+                rolling,
+                linewidth=1.5,
+                alpha=0.65,
+                label=f"Seed {seed}",
+            )
+        training_curves.append((episodes, returns))
 
-    if plotted_training:
-        plt.xlabel("Training timestep")
-        plt.ylabel("Rolling mean episode return")
-        plt.title("Training Return Learning Curves Across Seeds")
-        plt.grid(alpha=0.25)
+    if training_curves:
+        common_episodes = min(len(returns) for _, returns in training_curves)
+        stacked_returns = np.asarray(
+            [returns[:common_episodes] for _, returns in training_curves],
+            dtype=np.float64,
+        )
+        episode_axis = np.arange(1, common_episodes + 1, dtype=np.int64)
+        mean_returns = np.mean(stacked_returns, axis=0)
+        std_returns = np.std(stacked_returns, axis=0)
+        aggregate_window = 10
+        if common_episodes >= aggregate_window:
+            weights = np.ones(aggregate_window) / aggregate_window
+            smoothed_mean = np.convolve(mean_returns, weights, mode="valid")
+            smoothed_episodes = episode_axis[aggregate_window - 1 :]
+            plt.plot(
+                smoothed_episodes,
+                smoothed_mean,
+                color="black",
+                linewidth=2.5,
+                label="Across-seed 10-episode moving average",
+            )
+        plt.fill_between(
+            episode_axis,
+            mean_returns - std_returns,
+            mean_returns + std_returns,
+            color="black",
+            alpha=0.10,
+            label="Across-seed 1 std",
+        )
+        plt.xlabel("Episode number")
+        plt.ylabel("Total reward per episode")
+        plt.title(
+            "Total Reward per Training Episode Across Seeds\n"
+            f"{experiment_name}"
+        )
+        plt.grid(True, alpha=0.3)
         plt.legend()
         plt.tight_layout()
         plt.savefig(
-            os.path.join(plot_dir, "training_returns_across_seeds.png"),
+            os.path.join(
+                plot_dir,
+                "episode_return_learning_curves.png",
+            ),
             dpi=200,
         )
     plt.close()
@@ -813,7 +1006,7 @@ def write_learning_curve_plots(experiment_name, seeds):
         if not seed_rows:
             continue
         plt.plot(
-            [row["checkpoint"] for row in seed_rows],
+            [row["episode"] for row in seed_rows],
             [row["mean_return"] for row in seed_rows],
             marker="o",
             alpha=0.65,
@@ -822,7 +1015,7 @@ def write_learning_curve_plots(experiment_name, seeds):
         )
 
     checkpoints = sorted({row["checkpoint"] for row in checkpoint_rows})
-    aggregate_steps = []
+    aggregate_episodes = []
     aggregate_means = []
     aggregate_stds = []
     for checkpoint in checkpoints:
@@ -834,15 +1027,20 @@ def write_learning_curve_plots(experiment_name, seeds):
             ],
             dtype=np.float64,
         )
-        aggregate_steps.append(checkpoint)
+        episode_values = [
+            row["episode"]
+            for row in checkpoint_rows
+            if row["checkpoint"] == checkpoint
+        ]
+        aggregate_episodes.append(float(np.mean(episode_values)))
         aggregate_means.append(float(np.mean(values)))
         aggregate_stds.append(float(np.std(values)))
 
-    aggregate_steps = np.asarray(aggregate_steps, dtype=np.int64)
+    aggregate_episodes = np.asarray(aggregate_episodes, dtype=np.float64)
     aggregate_means = np.asarray(aggregate_means, dtype=np.float64)
     aggregate_stds = np.asarray(aggregate_stds, dtype=np.float64)
     plt.plot(
-        aggregate_steps,
+        aggregate_episodes,
         aggregate_means,
         color="black",
         linewidth=2.5,
@@ -850,21 +1048,24 @@ def write_learning_curve_plots(experiment_name, seeds):
         label="Across-seed mean",
     )
     plt.fill_between(
-        aggregate_steps,
+        aggregate_episodes,
         aggregate_means - aggregate_stds,
         aggregate_means + aggregate_stds,
         color="black",
         alpha=0.12,
-        label="Across-seed ±1 std",
+        label="Across-seed 1 std",
     )
-    plt.xlabel("Training timestep")
-    plt.ylabel("Mean deterministic evaluation return")
-    plt.title("Evaluation Learning Curves Across Training Seeds")
-    plt.grid(alpha=0.25)
+    plt.xlabel("Completed training episodes")
+    plt.ylabel("Mean total evaluation reward")
+    plt.title(
+        "Deterministic Evaluation Learning Curves Across Training Seeds\n"
+        f"{experiment_name}"
+    )
+    plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
     plt.savefig(
-        os.path.join(plot_dir, "evaluation_returns_across_seeds.png"),
+        os.path.join(plot_dir, "evaluation_learning_curves.png"),
         dpi=200,
     )
     plt.close()

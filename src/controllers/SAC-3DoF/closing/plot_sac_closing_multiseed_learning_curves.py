@@ -25,6 +25,14 @@ def parse_args():
         default=None,
         help="Training seeds to plot; defaults to experiment_config.json.",
     )
+    parser.add_argument(
+        "--highlight-checkpoint",
+        type=int,
+        default=None,
+        help=(
+            "Training timestep to mark on both plots, for example 400000."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -38,7 +46,11 @@ def main():
     with open(config_path, encoding="utf-8") as file:
         config = json.load(file)
     seeds = args.seeds or config["training_seeds"]
-    write_learning_curve_plots(args.experiment_name, seeds)
+    write_learning_curve_plots(
+        args.experiment_name,
+        seeds,
+        highlight_checkpoint=args.highlight_checkpoint,
+    )
 
     plot_dir = os.path.join(result_root, "learning_curves")
     print(f"Learning-curve plots written to: {plot_dir}")

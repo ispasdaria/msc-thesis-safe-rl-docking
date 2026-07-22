@@ -68,11 +68,12 @@ DEFAULT_SOURCE_VECNORM = (
     DEFAULT_SOURCE_ROOT / "model_0400000_steps_vecnormalize.pkl"
 )
 
-# Stage 0 begins just outside the axial success tolerance. The remaining five
-# state errors already start comfortably inside their respective tolerances.
-EASY_AXIAL_TOLERANCE_RANGE = (1.05, 1.50)
-EASY_OTHER_TOLERANCE_FRACTION = 0.50
+# Stage 0 is a short success-acquisition task. Only axial position begins just
+# outside its success tolerance; all other errors begin near the target.
+EASY_AXIAL_TOLERANCE_RANGE = (1.001, 1.05)
+EASY_OTHER_TOLERANCE_FRACTION = 0.10
 DEFAULT_FINETUNE_LEARNING_RATE = 1.2e-4
+DEFAULT_CURRICULUM_LEARNING_STARTS = 5_000
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,8 @@ class ClosingCurriculumStage:
     max_difficulty: float
     default_budget: int
     full_reset_probability: float = 0.0
+    max_time: float = 12_000.0
+    min_completed_episodes: int = 0
 
     def __post_init__(self):
         if not 0.0 <= self.max_difficulty <= 1.0:
@@ -91,10 +94,20 @@ class ClosingCurriculumStage:
             raise ValueError("full_reset_probability must be in [0, 1].")
         if self.default_budget <= 0:
             raise ValueError("default_budget must be positive.")
+        if self.max_time <= 0.0:
+            raise ValueError("max_time must be positive.")
+        if self.min_completed_episodes < 0:
+            raise ValueError("min_completed_episodes must be non-negative.")
 
 
 DEFAULT_CLOSING_CURRICULUM_STAGES = (
-    ClosingCurriculumStage("success_acquisition", 0.00, 100_000),
+    ClosingCurriculumStage(
+        "success_acquisition",
+        0.00,
+        500_000,
+        max_time=2_000.0,
+        min_completed_episodes=200,
+    ),
     ClosingCurriculumStage("very_near_p3", 0.05, 100_000),
     ClosingCurriculumStage("near_field", 0.15, 150_000),
     ClosingCurriculumStage("mid_field", 0.35, 150_000),
@@ -188,6 +201,7 @@ class CurriculumDocking3DoFGymEnv(Docking3DoFGymEnv):
 
     def __init__(self, curriculum_stage, **kwargs):
         kwargs.setdefault("phase", "closing")
+        kwargs.setdefault("max_time", curriculum_stage.max_time)
         if kwargs["phase"] != "closing":
             raise ValueError("The closing curriculum requires phase='closing'.")
         super().__init__(**kwargs)
@@ -195,6 +209,8 @@ class CurriculumDocking3DoFGymEnv(Docking3DoFGymEnv):
 
     def set_curriculum_stage(self, curriculum_stage):
         self.curriculum_stage = curriculum_stage
+        self.max_time = float(curriculum_stage.max_time)
+        self.core_env.max_time = float(curriculum_stage.max_time)
 
     def reset(self, seed=None, options=None):
         options = {} if options is None else dict(options)
@@ -231,16 +247,30 @@ class CurriculumDocking3DoFGymEnv(Docking3DoFGymEnv):
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Warm-start reward-v15/trial-16 SAC and expand the closing reset "
+            "Train trial-16 SAC and expand the closing reset "
             "distribution through a success-gated curriculum."
         )
     )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
+        "--gamma",
+        type=float,
+        default=TRIAL_16_PARAMS["gamma"],
+        help=(
+            "SAC discount factor. The same value is used by VecNormalize "
+            "(default: trial-16 gamma)."
+        ),
+    )
+    parser.add_argument(
         "--reward-version",
-        choices=["v15"],
+        choices=["v15", "v19", "v20"],
         default="v15",
-        help="This controlled curriculum experiment keeps reward v15 fixed.",
+        help=(
+            "Closing reward used throughout the curriculum. v15 reproduces "
+            "the baseline; v19 uses one persistent tolerance-normalized P3 "
+            "state cost; v20 adds only the velocity warning margins needed "
+            "after the v19 safety diagnosis (default: v15)."
+        ),
     )
     parser.add_argument(
         "--stage-budgets",
@@ -275,6 +305,15 @@ def parse_args():
         help="Allowed success-rate drop on earlier stages during promotion.",
     )
     parser.add_argument("--buffer-size", type=int, default=300_000)
+    parser.add_argument(
+        "--learning-starts",
+        type=int,
+        default=DEFAULT_CURRICULUM_LEARNING_STARTS,
+        help=(
+            "Transitions collected before SAC updates begin "
+            "(default: 5000)."
+        ),
+    )
     parser.add_argument(
         "--finetune-learning-rate",
         type=float,
@@ -318,6 +357,8 @@ def parse_args():
 def validate_args(args):
     if args.device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA was requested but torch.cuda.is_available() is False.")
+    if not 0.0 < args.gamma < 1.0:
+        raise ValueError("--gamma must be strictly between 0 and 1.")
     if not 1 <= args.max_stages <= len(DEFAULT_CLOSING_CURRICULUM_STAGES):
         raise ValueError("--max-stages is outside the available stage range.")
     if any(budget <= 0 for budget in args.stage_budgets):
@@ -338,8 +379,16 @@ def validate_args(args):
         raise ValueError("--retention-drop must be in [0, 1].")
     if args.buffer_size <= 0:
         raise ValueError("--buffer-size must be positive.")
+    if args.learning_starts < 0:
+        raise ValueError("--learning-starts must be non-negative.")
     if args.finetune_learning_rate <= 0.0:
         raise ValueError("--finetune-learning-rate must be positive.")
+    if args.reward_version in {"v19", "v20"} and not args.from_scratch:
+        raise ValueError(
+            f"Reward {args.reward_version} must be trained with --from-scratch "
+            "so the controlled experiment starts with fresh model and "
+            "normalization statistics."
+        )
     if not args.from_scratch:
         if not args.source_model.is_file():
             raise FileNotFoundError(f"Source model not found: {args.source_model}")
@@ -365,7 +414,7 @@ def make_curriculum_env(stage, seed, reward_version="v15"):
         phase="closing",
         mode="training",
         dt=1.0,
-        max_time=None,
+        max_time=stage.max_time,
         integrator="rk4",
         normalize_action=True,
         seed=seed,
@@ -393,17 +442,17 @@ def build_training_stack(args, initial_stage, log_dir):
             norm_reward=True,
             clip_obs=10.0,
             clip_reward=10.0,
-            gamma=TRIAL_16_PARAMS["gamma"],
+            gamma=args.gamma,
         )
         model = SAC(
             policy="MlpPolicy",
             env=vecnorm,
             learning_rate=args.finetune_learning_rate,
             buffer_size=args.buffer_size,
-            learning_starts=TRIAL_16_PARAMS["learning_starts"],
+            learning_starts=args.learning_starts,
             batch_size=TRIAL_16_PARAMS["batch_size"],
             tau=TRIAL_16_PARAMS["tau"],
-            gamma=TRIAL_16_PARAMS["gamma"],
+            gamma=args.gamma,
             train_freq=TRIAL_16_PARAMS["train_freq"],
             gradient_steps=TRIAL_16_PARAMS["gradient_steps"],
             ent_coef=TRIAL_16_PARAMS["ent_coef"],
@@ -415,6 +464,7 @@ def build_training_stack(args, initial_stage, log_dir):
         )
     else:
         vecnorm = VecNormalize.load(args.source_vecnormalize, dummy_env)
+        vecnorm.gamma = args.gamma
         vecnorm.training = True
         vecnorm.norm_reward = True
         model = SAC.load(
@@ -428,11 +478,12 @@ def build_training_stack(args, initial_stage, log_dir):
                 "The warm-start model buffer size does not match --buffer-size: "
                 f"{model.buffer_size} != {args.buffer_size}."
             )
-        model.learning_starts = TRIAL_16_PARAMS["learning_starts"]
+        model.learning_starts = args.learning_starts
+        model.gamma = args.gamma
         model.learning_rate = args.finetune_learning_rate
         model.lr_schedule = get_schedule_fn(args.finetune_learning_rate)
         # Replay buffers are not part of SB3 model.zip files. Reset explicitly
-        # and restart timestep accounting so the 10k warm-up is applied again.
+        # and restart timestep accounting so the configured warm-up is applied.
         model.replay_buffer.reset()
 
     return model, vecnorm
@@ -632,6 +683,7 @@ def record_evaluation(
     stage_step,
     curriculum_step,
     completed_training_episodes,
+    completed_stage_training_episodes,
     eval_kind,
 ):
     summary = summarize_results(results)
@@ -641,6 +693,7 @@ def record_evaluation(
         "eval_kind": eval_kind,
         "curriculum_step": curriculum_step,
         "completed_training_episodes": completed_training_episodes,
+        "completed_stage_training_episodes": completed_stage_training_episodes,
         "stage_index": stage_index,
         "stage_name": stage.name,
         "stage_step": stage_step,
@@ -735,6 +788,7 @@ def retention_is_satisfied(
     stage_step,
     curriculum_step,
     completed_training_episodes,
+    completed_stage_training_episodes,
     args,
     result_dir,
 ):
@@ -749,6 +803,7 @@ def retention_is_satisfied(
             stage_step=stage_step,
             curriculum_step=curriculum_step,
             completed_training_episodes=completed_training_episodes,
+            completed_stage_training_episodes=completed_stage_training_episodes,
             eval_kind=f"retention_for_stage_{current_stage_index}",
         )
         if not meets_promotion(summary, args, success_floor=retention_floor):
@@ -828,7 +883,8 @@ def main():
         return
 
     experiment_name = args.experiment_name or (
-        f"sac_closing_rewardv15_trial16_curriculum_easy_s0_seed{args.seed}"
+        f"sac_closing_reward{args.reward_version}_trial16_"
+        f"curriculum_easy_s0_seed{args.seed}"
     )
     model_dir = MODEL_ROOT / experiment_name
     result_dir = RESULTS_ROOT / experiment_name
@@ -852,6 +908,7 @@ def main():
     config = {
         "experiment_name": experiment_name,
         "seed": args.seed,
+        "gamma": args.gamma,
         "reward_version": args.reward_version,
         "warm_start": not args.from_scratch,
         "source_model": None if args.from_scratch else str(args.source_model.resolve()),
@@ -863,6 +920,7 @@ def main():
         "easy_axial_tolerance_range": EASY_AXIAL_TOLERANCE_RANGE,
         "easy_other_tolerance_fraction": EASY_OTHER_TOLERANCE_FRACTION,
         "buffer_size": args.buffer_size,
+        "learning_starts": args.learning_starts,
         "validation_seeds": args.validation_seeds,
         "max_eval_steps": args.max_eval_steps,
         "eval_every": args.eval_every,
@@ -889,10 +947,12 @@ def main():
         stopped_before_full_curriculum = False
 
         print("=" * 80)
-        print("Reward-v15 / Optuna-trial-16 closing curriculum")
+        print(f"Reward-{args.reward_version} / trial-16 closing curriculum")
         print(f"Experiment: {experiment_name}")
         print(f"Warm start: {not args.from_scratch}")
+        print(f"Gamma:       {args.gamma}")
         print(f"Learning rate: {args.finetune_learning_rate}")
+        print(f"Learning starts: {args.learning_starts}")
         print(f"Stages:     {[stage.name for stage in stages]}")
         print(f"Device:     {model.device}")
         print("=" * 80)
@@ -904,12 +964,15 @@ def main():
             confirmations = 0
             best_rank = None
             promoted = False
+            stage_episode_start = len(training_callback.episodes)
 
             print("=" * 80)
             print(
                 f"Stage {stage_index}: {stage.name} | "
                 f"max difficulty={stage.max_difficulty} | "
-                f"budget={stage.default_budget}"
+                f"budget={stage.default_budget} | "
+                f"max time={stage.max_time:.0f} s | "
+                f"minimum episodes={stage.min_completed_episodes}"
             )
             print("=" * 80)
 
@@ -926,6 +989,9 @@ def main():
                 stage_step += chunk
                 curriculum_step += chunk
                 completed_training_episodes = len(training_callback.episodes)
+                completed_stage_training_episodes = (
+                    completed_training_episodes - stage_episode_start
+                )
 
                 results = evaluate_stage(model, vecnorm, stage, args)
                 summary = record_evaluation(
@@ -936,6 +1002,9 @@ def main():
                     stage_step=stage_step,
                     curriculum_step=curriculum_step,
                     completed_training_episodes=completed_training_episodes,
+                    completed_stage_training_episodes=(
+                        completed_stage_training_episodes
+                    ),
                     eval_kind="current_stage",
                 )
                 write_evaluation_learning_curve(result_dir, experiment_name)
@@ -955,7 +1024,14 @@ def main():
                         summary,
                     )
 
-                eligible = meets_promotion(summary, args)
+                episode_requirement_met = (
+                    completed_stage_training_episodes
+                    >= stage.min_completed_episodes
+                )
+                eligible = (
+                    episode_requirement_met
+                    and meets_promotion(summary, args)
+                )
                 confirmations = confirmations + 1 if eligible else 0
                 print(
                     f"step={curriculum_step} stage_step={stage_step} | "
@@ -963,6 +1039,8 @@ def main():
                     f"failure={summary['failure_rate']:.3f} "
                     f"timeout={summary['time_limit_rate']:.3f} | "
                     f"P3 error={summary['mean_final_position_error']:.3f} m | "
+                    f"episodes={completed_stage_training_episodes}/"
+                    f"{stage.min_completed_episodes} | "
                     f"confirmations={confirmations}/"
                     f"{args.promotion_confirmations}"
                 )
@@ -976,6 +1054,9 @@ def main():
                         stage_step=stage_step,
                         curriculum_step=curriculum_step,
                         completed_training_episodes=completed_training_episodes,
+                        completed_stage_training_episodes=(
+                            completed_stage_training_episodes
+                        ),
                         args=args,
                         result_dir=result_dir,
                     )
@@ -1000,6 +1081,9 @@ def main():
                 stage_step=stage_step,
                 curriculum_step=curriculum_step,
                 completed_training_episodes=len(training_callback.episodes),
+                completed_stage_training_episodes=(
+                    len(training_callback.episodes) - stage_episode_start
+                ),
                 eval_kind="full_test_probe",
             )
             write_evaluation_learning_curve(result_dir, experiment_name)
@@ -1009,6 +1093,9 @@ def main():
                 "last_stage_index": stage_index,
                 "last_stage_name": stage.name,
                 "last_stage_step": stage_step,
+                "last_stage_completed_training_episodes": (
+                    len(training_callback.episodes) - stage_episode_start
+                ),
                 "stage_promoted": promoted,
                 "completed_stages": [
                     previous.name for previous in completed_stages

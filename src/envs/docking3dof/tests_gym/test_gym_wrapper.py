@@ -498,6 +498,103 @@ def check_closing_reward_v18_scales_v17_progress():
     env.close()
 
 
+def check_closing_reward_v19_uses_persistent_terminal_state_cost():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        seed=29,
+        closing_reward_version="v19",
+    )
+    env.reset(seed=29)
+
+    tolerance = env.core_env.p3_target_tolerance
+    state = env.core_env.p3_target + tolerance
+    state[4] = env.core_env.p3_target[4] + tolerance[4]
+    env.prev_closing_pos_error = np.linalg.norm(tolerance[0:2])
+    env.prev_closing_lateral_error = tolerance[1]
+    env.prev_closing_attitude_error = tolerance[4]
+
+    _, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    assert components["closing_reward_version"] == "v19"
+    assert np.isclose(components["p3_terminal_cost"], np.log(2.0))
+    assert np.isclose(
+        components["reward_tolerance_state"],
+        -10.0 * np.log(2.0),
+    )
+    assert np.isclose(components["reward_tolerance_progress"], 0.0)
+    assert np.isclose(components["reward_progress"], 0.0)
+    assert np.isclose(components["reward_position"], 0.0)
+    assert np.isclose(
+        components["reward_total"],
+        components["reward_tolerance_state"],
+    )
+
+    # The state cost remains active without requiring progress on this step.
+    _, stationary = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+    assert np.isclose(
+        stationary["reward_tolerance_state"],
+        -10.0 * np.log(2.0),
+    )
+    env.close()
+
+
+def check_closing_reward_v20_restores_only_velocity_margins():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        seed=31,
+        closing_reward_version="v20",
+    )
+    env.reset(seed=31)
+
+    tolerance = env.core_env.p3_target_tolerance
+    state = env.core_env.p3_target + tolerance
+    state[4] = env.core_env.p3_target[4] + tolerance[4]
+    env.prev_closing_pos_error = np.linalg.norm(tolerance[0:2])
+    env.prev_closing_lateral_error = tolerance[1]
+    env.prev_closing_attitude_error = tolerance[4]
+
+    _, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    assert components["closing_reward_version"] == "v20"
+    assert np.isclose(
+        components["reward_tolerance_state"],
+        -10.0 * np.log(2.0),
+    )
+    assert np.isclose(components["reward_progress"], 0.0)
+    assert np.isclose(components["reward_position"], 0.0)
+    expected_total = (
+        components["reward_tolerance_state"]
+        + components["reward_action"]
+        + components["reward_s_dot"]
+        + components["reward_speed_margin"]
+    )
+    assert np.isclose(components["reward_total"], expected_total)
+    env.close()
+
+
 def test_single_phase(phase):
     print("=" * 80)
     print(f"Testing Gym wrapper for phase: {phase}")
@@ -600,6 +697,8 @@ def main():
     check_closing_reward_v16_normalizes_terminal_errors()
     check_closing_reward_v17_uses_smooth_terminal_progress()
     check_closing_reward_v18_scales_v17_progress()
+    check_closing_reward_v19_uses_persistent_terminal_state_cost()
+    check_closing_reward_v20_restores_only_velocity_margins()
     test_single_phase("closing")
     test_single_phase("final")
 

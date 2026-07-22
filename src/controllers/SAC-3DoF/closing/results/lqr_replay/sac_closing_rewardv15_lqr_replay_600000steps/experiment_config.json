@@ -1,0 +1,68 @@
+{
+  "buffer_margin": 50000,
+  "buffer_size": 1000000,
+  "checkpoint_steps": [
+    100000,
+    200000,
+    300000,
+    400000,
+    500000,
+    600000
+  ],
+  "demonstration_dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_28successes.npz",
+  "demonstration_metadata": {
+    "action_size": 3,
+    "controller": "LQRClosingController",
+    "mode": "training",
+    "normalize_action": true,
+    "observation_size": 12,
+    "only_complete_successes": true,
+    "phase": "closing",
+    "reward_version": "v15",
+    "schema_version": 1,
+    "successful_episodes": 28,
+    "transition_count": 301874
+  },
+  "experiment_name": "sac_closing_rewardv15_lqr_replay_600000steps",
+  "full_p2_resets_only": true,
+  "learning_starts": 0,
+  "lqr_used_during_online_training": false,
+  "max_eval_steps": 12000,
+  "reward_version": "v15",
+  "total_timesteps": 600000,
+  "training_seeds": [
+    0
+  ],
+  "trial_16_params": {
+    "batch_size": 512,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.99,
+    "gradient_steps": 8,
+    "learning_rate": 0.00026276728418436003,
+    "learning_starts": 10000,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "validation_seeds": [
+    1000,
+    1001,
+    1002,
+    1003,
+    1004,
+    1005,
+    1006,
+    1007,
+    1008,
+    1009,
+    1010,
+    1011,
+    1012,
+    1013,
+    1014,
+    1015,
+    1016,
+    1017,
+    1018,
+    1019
+  ]
+}

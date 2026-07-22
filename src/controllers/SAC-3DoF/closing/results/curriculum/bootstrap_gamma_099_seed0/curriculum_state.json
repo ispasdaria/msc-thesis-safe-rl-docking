@@ -1,0 +1,9 @@
+{
+  "completed_stages": [],
+  "curriculum_step": 500000,
+  "last_stage_completed_training_episodes": 491,
+  "last_stage_index": 0,
+  "last_stage_name": "success_acquisition",
+  "last_stage_step": 500000,
+  "stage_promoted": false
+}

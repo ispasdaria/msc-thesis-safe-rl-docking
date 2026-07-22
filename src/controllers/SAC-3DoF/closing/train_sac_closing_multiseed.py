@@ -903,11 +903,22 @@ def read_checkpoint_rows(experiment_name, seeds):
     return rows
 
 
-def write_learning_curve_plots(experiment_name, seeds):
+def write_learning_curve_plots(
+    experiment_name,
+    seeds,
+    highlight_checkpoint=None,
+):
     """Create cross-seed training and deterministic-evaluation plots."""
     result_root = os.path.join(RESULTS_ROOT, experiment_name)
     plot_dir = os.path.join(result_root, "learning_curves")
     os.makedirs(plot_dir, exist_ok=True)
+    checkpoint_rows = read_checkpoint_rows(experiment_name, seeds)
+    highlighted_rows = [
+        row
+        for row in checkpoint_rows
+        if highlight_checkpoint is not None
+        and row["checkpoint"] == highlight_checkpoint
+    ]
 
     training_curves = []
     plt.figure(figsize=(10, 6))
@@ -971,6 +982,21 @@ def write_learning_curve_plots(experiment_name, seeds):
             alpha=0.10,
             label="Across-seed 1 std",
         )
+        for index, row in enumerate(highlighted_rows):
+            seed = row["training_seed"]
+            plt.axvline(
+                row["episode"],
+                color="tab:red",
+                linestyle="--",
+                linewidth=1.8,
+                alpha=0.85,
+                label=(
+                    f"Highlighted checkpoint: {highlight_checkpoint // 1000}k "
+                    f"(Seed {seed})"
+                    if index == 0
+                    else None
+                ),
+            )
         plt.xlabel("Episode number")
         plt.ylabel("Total reward per episode")
         plt.title(
@@ -989,7 +1015,6 @@ def write_learning_curve_plots(experiment_name, seeds):
         )
     plt.close()
 
-    checkpoint_rows = read_checkpoint_rows(experiment_name, seeds)
     if not checkpoint_rows:
         return
 
@@ -1055,6 +1080,24 @@ def write_learning_curve_plots(experiment_name, seeds):
         alpha=0.12,
         label="Across-seed 1 std",
     )
+    for index, row in enumerate(highlighted_rows):
+        seed = row["training_seed"]
+        plt.scatter(
+            row["episode"],
+            row["mean_return"],
+            marker="*",
+            s=180,
+            color="tab:red",
+            edgecolor="black",
+            linewidth=0.7,
+            zorder=5,
+            label=(
+                f"Highlighted checkpoint: {highlight_checkpoint // 1000}k "
+                f"(Seed {seed})"
+                if index == 0
+                else None
+            ),
+        )
     plt.xlabel("Completed training episodes")
     plt.ylabel("Mean total evaluation reward")
     plt.title(

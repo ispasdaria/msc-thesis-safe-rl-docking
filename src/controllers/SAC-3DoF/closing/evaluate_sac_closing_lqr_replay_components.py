@@ -32,8 +32,16 @@ if str(SCRIPT_DIR) not in sys.path:
 from train_sac_closing_lqr_replay import make_closing_env  # noqa: E402
 
 
-MODEL_ROOT = SCRIPT_DIR / "models" / "lqr_replay"
-RESULTS_ROOT = SCRIPT_DIR / "results" / "lqr_replay"
+MODEL_ROOTS = {
+    "lqr_replay": SCRIPT_DIR / "models" / "lqr_replay",
+    "lqr_mixed_replay": SCRIPT_DIR / "models" / "lqr_mixed_replay",
+    "lqr_bc_warmstart": SCRIPT_DIR / "models" / "lqr_bc_warmstart",
+}
+RESULTS_ROOTS = {
+    "lqr_replay": SCRIPT_DIR / "results" / "lqr_replay",
+    "lqr_mixed_replay": SCRIPT_DIR / "results" / "lqr_mixed_replay",
+    "lqr_bc_warmstart": SCRIPT_DIR / "results" / "lqr_bc_warmstart",
+}
 COMPONENTS = ("rx", "ry", "vx", "vy", "psi", "omega")
 DISPLAY_LABELS = ("rx", "ry", "vx", "vy", "psi", "omega")
 UNITS = ("m", "m", "m/s", "m/s", "rad", "rad/s")
@@ -49,6 +57,12 @@ def parse_args():
     parser.add_argument(
         "--experiment-name",
         default="sac_closing_rewardv15_lqr_replay_600000steps",
+    )
+    parser.add_argument(
+        "--experiment-family",
+        choices=tuple(MODEL_ROOTS),
+        default="lqr_replay",
+        help="Select ordinary replay prefill or protected mixed replay outputs.",
     )
     parser.add_argument("--training-seed", type=int, default=0)
     parser.add_argument(
@@ -88,7 +102,7 @@ def parse_args():
 
 def resolve_model_paths(args):
     seed_dir = (
-        MODEL_ROOT
+        MODEL_ROOTS[args.experiment_family]
         / args.experiment_name
         / f"seed_{args.training_seed}"
     )
@@ -288,6 +302,7 @@ def summarize(records, args, model_path, vecnormalize_path):
 
     return {
         "experiment_name": args.experiment_name,
+        "experiment_family": args.experiment_family,
         "training_seed": args.training_seed,
         "model_type": args.model_type,
         "model_path": str(model_path.resolve()),
@@ -452,7 +467,7 @@ def main():
     seed_end = args.seed_start + args.num_rollouts - 1
     if args.output_dir is None:
         output_dir = (
-            RESULTS_ROOT
+            RESULTS_ROOTS[args.experiment_family]
             / args.experiment_name
             / f"seed_{args.training_seed}"
             / "component_evaluations"

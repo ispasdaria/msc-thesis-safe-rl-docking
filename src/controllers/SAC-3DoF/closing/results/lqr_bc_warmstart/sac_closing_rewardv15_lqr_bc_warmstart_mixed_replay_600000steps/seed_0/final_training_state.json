@@ -1,0 +1,15 @@
+{
+  "active_demo_fraction": 0.25,
+  "critic_warmup_gradient_updates": 25000,
+  "demo_fraction_switch_step": 300000,
+  "demonstration_count": 301874,
+  "initial_demo_fraction": 0.5,
+  "later_demo_fraction": 0.25,
+  "online_buffer_capacity": 700000,
+  "online_buffer_size": 600000,
+  "realized_demo_fraction": 0.37499333333333335,
+  "sample_calls": 300000,
+  "sampled_demo_transitions": 57598976,
+  "sampled_online_transitions": 96001024,
+  "total_online_transitions": 600000
+}

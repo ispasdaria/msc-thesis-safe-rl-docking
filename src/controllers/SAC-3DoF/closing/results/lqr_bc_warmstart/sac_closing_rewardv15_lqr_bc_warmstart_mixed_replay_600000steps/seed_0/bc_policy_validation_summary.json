@@ -1,0 +1,9 @@
+{
+  "failure_rate": 0.0,
+  "mean_final_max_target_ratio": 4.327372874165734,
+  "mean_return": -29185.189248696406,
+  "mean_steps": 12000.0,
+  "std_return": 2740.3564687124813,
+  "success_rate": 0.0,
+  "time_limit_rate": 1.0
+}

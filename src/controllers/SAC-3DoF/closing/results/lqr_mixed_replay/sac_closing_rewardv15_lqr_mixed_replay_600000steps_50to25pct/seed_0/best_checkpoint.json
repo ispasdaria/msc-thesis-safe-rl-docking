@@ -1,0 +1,12 @@
+{
+  "checkpoint": 500000,
+  "episode": 74,
+  "failure_rate": 0.0,
+  "mean_final_max_target_ratio": 19.22133913867646,
+  "mean_return": -10189.93826595117,
+  "mean_steps": 12000.0,
+  "std_return": 20391.528026193766,
+  "success_rate": 0.0,
+  "time_limit_rate": 1.0,
+  "training_seed": 0
+}

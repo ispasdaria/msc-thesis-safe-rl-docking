@@ -36,11 +36,13 @@ MODEL_ROOTS = {
     "lqr_replay": SCRIPT_DIR / "models" / "lqr_replay",
     "lqr_mixed_replay": SCRIPT_DIR / "models" / "lqr_mixed_replay",
     "lqr_bc_warmstart": SCRIPT_DIR / "models" / "lqr_bc_warmstart",
+    "lqr_bc_constrained": SCRIPT_DIR / "models" / "lqr_bc_constrained",
 }
 RESULTS_ROOTS = {
     "lqr_replay": SCRIPT_DIR / "results" / "lqr_replay",
     "lqr_mixed_replay": SCRIPT_DIR / "results" / "lqr_mixed_replay",
     "lqr_bc_warmstart": SCRIPT_DIR / "results" / "lqr_bc_warmstart",
+    "lqr_bc_constrained": SCRIPT_DIR / "results" / "lqr_bc_constrained",
 }
 COMPONENTS = ("rx", "ry", "vx", "vy", "psi", "omega")
 DISPLAY_LABELS = ("rx", "ry", "vx", "vy", "psi", "omega")
@@ -62,7 +64,7 @@ def parse_args():
         "--experiment-family",
         choices=tuple(MODEL_ROOTS),
         default="lqr_replay",
-        help="Select ordinary replay prefill or protected mixed replay outputs.",
+        help="Select the training family that owns the saved model outputs.",
     )
     parser.add_argument("--training-seed", type=int, default=0)
     parser.add_argument(

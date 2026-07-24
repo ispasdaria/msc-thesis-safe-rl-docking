@@ -1,0 +1,49 @@
+{
+  "active_demo_fraction": 0.5,
+  "bc_metrics": {
+    "best_epoch": 12,
+    "epochs_completed": 17,
+    "training": {
+      "action_mae": 0.004862961196080187,
+      "action_mae_alpha": 0.008430517995527409,
+      "action_mae_ax": 0.0029117246224535224,
+      "action_mae_ay": 0.0032466409702596286,
+      "action_mse": 0.0009165668495800109
+    },
+    "validation": {
+      "action_mae": 0.006029902514063302,
+      "action_mae_alpha": 0.009148528233913834,
+      "action_mae_ax": 0.005620284696464466,
+      "action_mae_ay": 0.003320894611811606,
+      "action_mse": 0.0014833680925358615
+    }
+  },
+  "critic_warmup_steps": 50000,
+  "dataset_metadata": {
+    "action_size": 3,
+    "controller": "LQRClosingController",
+    "coverage_expanded": true,
+    "mode": "training",
+    "normalize_action": true,
+    "observation_size": 12,
+    "only_complete_successes": true,
+    "phase": "closing",
+    "reward_version": "v15",
+    "schema_version": 1,
+    "successful_episodes": 200,
+    "transition_count": 2181927
+  },
+  "dataset_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_expanded_200successes.npz",
+  "demo_fraction_switch_step": 75000,
+  "demonstration_count": 2181927,
+  "initial_demo_fraction": 0.5,
+  "later_demo_fraction": 0.5,
+  "normalization_frozen_for_full_run": true,
+  "online_buffer_capacity": 200000,
+  "online_buffer_size": 0,
+  "realized_demo_fraction": 0.0,
+  "sample_calls": 0,
+  "sampled_demo_transitions": 0,
+  "sampled_online_transitions": 0,
+  "total_online_transitions": 0
+}

@@ -1,360 +1,572 @@
-# Simplified 3-DoF Scenario Setup
+# Implemented Simplified 3-DoF Scenario
 
-## 1. Scope and Relationship to General Scenario
+## 1. Purpose and Relationship to the General Scenario
 
-This document defines the 3-DoF planar variant of the docking problem.
+This document defines the planar environment implemented by `core.py` and `gym_env.py` in this directory. It is the implementation-specific companion to the [general 6-DoF scenario](../../../docs/scenario_setup.md).
 
-- All definitions from the general scenario remain valid unless explicitly overridden here.
-- This file focuses on additional, modified, or specialized concepts for the planar model.
+The general scenario remains the parent mission definition. This file records what is retained, projected, replaced, or omitted in order to obtain the current 3-DoF model. When an implementation detail differs from the general formulation, this document and the executable code describe the current environment.
 
-## 2. Modeled Problem (3-DoF Interpretation)
+| General 6-DoF element | Implemented 3-DoF treatment |
+|---|---|
+| Three relative-position and velocity components | Retains `x_O-y_O`; omits the third translational axis |
+| Three-axis attitude and angular velocity | Retains scalar attitude error `psi` and rate `omega_z` about `z_O` |
+| Unit-quaternion attitude propagation | Replaced by a wrapped scalar angle |
+| Full IDSS port offsets | Uses planar projections `[4.1, 0] m` and `[20, 0] m` |
+| Force and torque actuation | Replaced by directly commanded linear and angular accelerations |
+| Vehicle mass, inertia, and thruster allocation | Not modeled |
+| Absolute ECI/orbital propagation | Replaced by reduced target-relative planar equations |
+| 3D ellipsoid, sphere, cone, and corridor | Uses their planar ellipse, circle, wedge, and strip counterparts |
+| 3D attitude and rate norms | Uses `|psi|` and `|omega_z|` |
+| Environmental forces and torques | Omitted |
+| Physical contact and capture | Replaced by a port-level numerical acceptance tolerance |
 
-The mission is still split into two sequential control tasks:
+The mission remains split into closing (P2 -> P3) and final approach (P3 -> docking), with one policy trained for each phase.
 
-1. Closing phase (P2 -> P3)
-2. Final approach phase (P3 -> Docking)
+## 2. Planar State, Frames, and Port Kinematics
 
-In the simplified model, relative motion is represented by:
+### 2.1 State
 
-- Two translational DoFs in the target-centered docking plane (`x_O`, `y_O`)
-- One rotational DoF: relative in-plane angle about out-of-plane axis (`z_O`)
-
-Not modeled in this variant:
-
-- Out-of-plane translation
-- Full 3D attitude dynamics
-- Angular rates about axes other than `z_O`
-- Post-contact capture/latching dynamics
-
-Motivation: This is a practical intermediate model between pure translation and full 6-DoF docking, allowing interface-alignment effects to be represented with moderate complexity.
-
-### 2.1 Controller 1: Corridor Capture (P2 -> P3)
-
-Controller 1 drives the chaser from close-range point P2 to corridor-entry point P3 under planar and rotational constraints.
-
-Objectives:
-
-- Reduce relative range and stabilize near P3.
-- Reduce planar relative velocity.
-- Prepare planar approach geometry near nominal docking axis.
-- Reduce attitude error and angular rate for terminal-phase handover.
-
-### 2.2 Controller 2: Terminal Planar Docking (P3 -> Docking)
-
-Controller 2 performs the final in-plane corridor approach and contact alignment.
-
-Objectives:
-
-- Enter and follow the planar docking corridor.
-- Keep lateral deviation small.
-- Continue reducing closing speed near contact.
-- Achieve admissible planar attitude alignment.
-- Satisfy terminal translational and rotational docking conditions.
-
-## 3. Planar Docking-Port Geometry and Kinematics
-
-Relative-motion frame is centered at target CoM and restricted to the docking plane.
-
-Let:
-
-- `r = [x, y]^T`: chaser CoM relative position in target planar frame
-- `psi`: relative in-plane orientation of chaser
-- `R(psi)`: planar rotation mapping chaser-body vectors into target planar frame
-- `r_c = [r_cx, r_cy]^T`: chaser docking-port center offset from chaser CoM (body frame)
-- `r_t = [r_tx, r_ty]^T`: target docking-port center offset from target CoM (target planar frame)
-
-Docking-port relative position:
+The simulator state is
 
 ```
-r_p = r + R(psi) * r_c - r_t
+x_3DoF = [rx, ry, vx, vy, psi, omega_z].
 ```
 
-Planar rotation matrix:
+- `[rx, ry]` is the chaser-CoM position relative to the target CoM in the `x_O-y_O` plane.
+- `[vx, vy]` is the corresponding relative CoM velocity.
+- `psi` is the chaser attitude error about `z_O`, wrapped to `[-pi, pi)` where required.
+- `omega_z` is the corresponding relative angular velocity.
+
+The omitted states are `rz`, `vz`, two attitude-error components, and two angular-rate components. They are not constrained to evolve near zero; they do not exist in the state model. Consequently, the environment cannot represent out-of-plane escape, roll/pitch misalignment, or coupling through the omitted axes.
+
+### 2.2 Nominal Face-to-Face Convention
+
+The target docking axis is `+x_O`. The chaser begins on the positive `x_O` side and approaches toward decreasing `x_O`. At `psi = 0`, the chaser body `+x` axis points along `-x_O`, toward the target.
+
+The planar body-to-orbital rotation is
 
 ```
-R(psi) = 
-[[-cos(psi),  sin(psi)],
- [-sin(psi), -cos(psi)]]
+R_Bc_to_O(psi) =
+    [[-cos(psi),  sin(psi)],
+     [-sin(psi), -cos(psi)]].
 ```
 
-Docking contact condition:
+The minus signs encode the nominal face-to-face orientation; `psi = 0` is aligned, not anti-aligned.
+
+### 2.3 Port Offsets
+
+The selected general vehicle case is projected into the plane:
 
 ```
-r_p = 0
+r_c_body    = [4.1, 0] m
+r_t_orbital = [20.0, 0] m.
 ```
 
-If `v = [x_dot, y_dot]^T` and `omega = psi_dot`, docking-port relative velocity is:
+The chaser uses the IDSS-15T reference offset. The target uses the in-plane part of the IDSS-350T offset `[20, 0, 2] m`; its `2 m` third-axis component is omitted.
+
+### 2.4 Port-Relative Quantities
+
+The port-relative position is
 
 ```
-v_p = v + omega * S * R(psi) * r_c
+r_p = [rx, ry] + R_Bc_to_O(psi) r_c_body - r_t_orbital.
 ```
 
-with planar skew-symmetric matrix:
+With
 
 ```
-S = [[0, -1], [1, 0]]
+S = [[0, -1],
+     [1,  0]],
 ```
 
-This allows terminal constraints to be imposed at docking-port level on `r_p`, `v_p`, `psi`, and `omega`.
-
-## 4. Formal 3-DoF Problem Definition
-
-### 4.1 State
+the port-relative velocity is
 
 ```
-x(t) = [r(t), v(t), psi(t), omega(t)]
+v_p = [vx, vy] + omega_z S R_Bc_to_O(psi) r_c_body.
 ```
 
-Where:
+The target port is stationary in this relative-frame model. Target rotation and additional frame-transport terms are not included.
 
-- `r(t) in R^2`: relative position in target plane (`x_O`, `y_O`)
-- `v(t) in R^2`: relative velocity in target plane
-- `psi(t)`: relative in-plane orientation angle (about `z_O`)
-- `omega(t)`: scalar angular velocity (about `z_O`)
-
-### 4.2 Control Input
+The derived docking quantities are
 
 ```
-u(t) = [a_c(t), alpha_c(t)]
+s     = r_p,x
+rho   = |r_p,y|
+s_dot = v_p,x.
 ```
 
-Where:
+Thus, `s` and `rho` are port-based, while the stored position state and the approach ellipse/keep-out circle are CoM-based.
 
-- `a_c(t) in R^2`: commanded translational acceleration of the chaser in the x and y directions of the target-centered orbital frame
-- `alpha_c(t) in R`: commanded angular acceleration about the z-axis
+## 3. Implemented Dynamics and Numerical Propagation
 
-### 4.3 Admissible Control Set
+### 3.1 Orbit Reduction
 
-```
-U = { u :
-    ||a_c|| <= a_max AND
-    ||alpha_c|| <= alpha_max
-}
-```
-a_x_max = 0.01 m/s^2
-a_y_max = 0.01 m/s^2
-alpha_z_max = 0.003 rad/s^2
-
-## 5. 3-DoF Derived Quantities and Sets
-
-### 5.1 Docking Quantities
-
-Docking-port relative position:
+The general ISS-like orbit is reduced to two constants:
 
 ```
-r_p = r + R(psi) * r_c - r_t
+mu = 3.986004418e14 m^3/s^2
+r0 = 6,778,000 m
+n  = sqrt(mu / r0^3).
 ```
 
-Docking axis (planar projection):
+Inclination, RAAN, argument of perigee, true anomaly, absolute target position, and absolute chaser position are not propagated.
+
+### 3.2 Equations of Motion
+
+Let `[a_x_O, a_y_O, alpha_z]` be the body command after rotation into the orbital frame. The implemented equations are
 
 ```
-e_d = [1, 0]
+r_chaser = sqrt(r0^2 + rx^2 + ry^2)
+
+rx_dot = vx
+ry_dot = vy
+
+vx_dot = -mu rx / r_chaser^3 + n^2 rx + a_x_O
+vy_dot = -mu ry / r_chaser^3          + a_y_O
+
+psi_dot     = omega_z
+omega_z_dot = alpha_z.
 ```
 
-Longitudinal distance:
+These are reduced nonlinear relative equations. They do not implement a complete 3D LVLH model: the omitted radial state and the full Coriolis, centrifugal, and frame-coupling structure of a general rotating-frame formulation are absent.
+
+No mass or inertia appears because the action is already an effective acceleration command. Environmental forces and torques are zero.
+
+### 3.3 Integration and Time
+
+- Default timestep: `1 s`
+- Default integrator: fourth-order Runge--Kutta (`RK4`)
+- Optional integrator: forward Euler
+- Default Gymnasium horizon for closing: `12,000 s`
+- Default Gymnasium horizon for final approach: `5,000 s`
+- Direct construction of the lower-level core uses `10,800 s` unless overridden
+
+The horizon can be changed through `max_time`.
+
+## 4. Implemented Action
+
+### 4.1 Physical Action
+
+The core action is a chaser-body-frame acceleration command:
 
 ```
-s = dot(e_d, r_p)
+u_Bc = [a_x_Bc, a_y_Bc, alpha_z_Bc].
 ```
 
-Lateral offset:
+It is clipped component-wise to
 
 ```
-rho = | y-component of r_p |
+-0.01  <= a_x_Bc   <= 0.01  m/s^2
+-0.01  <= a_y_Bc   <= 0.01  m/s^2
+-0.003 <= alpha_z  <= 0.003 rad/s^2.
 ```
 
-### 5.2 Primitive Geometric Sets (Planar Versions)
+The translational admissible set is therefore a box in the rotating chaser body frame, not a Euclidean-norm ball. A simultaneous maximum command on both axes has magnitude `sqrt(2) * 0.01 = 0.0141 m/s^2`.
 
-Approach ellipsoid becomes 2D ellipse:
+The translational command is rotated with `R_Bc_to_O(psi)` before use in the dynamics. At `psi = 0`, positive chaser-body x acceleration maps to negative `x_O` acceleration.
 
-```
-E_AE = { r : r^T Q_AE r <= 1 }
-Q_AE = diag(1/2000^2, 1/1000^2)
-```
+### 4.2 Gymnasium Action
 
-Keep-out sphere becomes circle:
+With the default normalized interface, the agent action lies in `[-1, 1]^3` and is scaled component-wise by
 
 ```
-S_KOS = { r : ||r|| <= 200 }
+[0.01, 0.01, 0.003].
 ```
 
-Docking cone becomes 2D wedge:
+The environment does not model thruster selection, minimum impulse, pulse-width modulation, propellant, delays, mass variation, or actuator allocation.
+
+## 5. Implemented Initialization and Handover
+
+All sampled positions below are CoM coordinates. Port position is derived afterward from the sampled attitude and port offsets.
+
+### 5.1 P2 Reset Distribution
+
+Nominal:
 
 ```
-C_dock = { x :
-    0 <= s <= 2000 AND
-    rho <= (200 / 2000) * s
-}
+[rx, ry, vx, vy, psi, omega_z]
+= [1700, 0, -0.10, 0, 0, 0].
 ```
 
-Docking corridor becomes strip:
+Testing:
 
 ```
-C_corr = { x :
-    0 <= s <= d_P3 AND
-    rho <= 5
-}
+rx      in [1600, 1800] m
+ry      in [-100, 100] m
+vx      in [-0.15, -0.05] m/s
+vy      in [-0.02, 0.02] m/s
+psi     in [-3, 3] deg
+omega_z in [-0.05, 0.05] deg/s.
 ```
 
-### 5.3 Alignment Sets (Planar)
+Training:
 
 ```
-A_safe = {
-    |psi_e| <= 3 deg AND
-    |omega| <= 0.15 deg/s
-}
-
-A_warn = {
-    (3 < |psi_e| <= 4) OR
-    (0.15 < |omega| <= 0.2)
-}
-
-A_unsafe = {
-    |psi_e| > 4 OR
-    |omega| > 0.2
-}
+rx      in [1500, 1900] m
+ry      in [-150, 150] m
+vx      in [-0.20, -0.03] m/s
+vy      in [-0.03, 0.03] m/s
+psi     in [-5, 5] deg
+omega_z in [-0.10, 0.10] deg/s.
 ```
 
-### 5.4 Velocity Sets
-
-Closing phase:
+At nominal alignment, `rx = 1700 m` gives a port-axial separation of `1675.9 m` because
 
 ```
-V_safe_close = {
-    ||v_p|| <= 0.25 AND
-    |s_dot| <= 0.15
-}
-
-V_warn_close = {
-    (0.25 < ||v_p|| <= 0.35) OR
-    (0.15 < |s_dot| <= 0.25)
-}
-
-V_unsafe_close = {
-    ||v_p|| > 0.35 OR
-    |s_dot| > 0.25
-}
+s = 1700 - 4.1 - 20 = 1675.9 m.
 ```
 
-Final approach phase:
+### 5.2 P3 Reset Distribution
+
+Nominal:
 
 ```
-V_safe_final = {
-    ||v_p|| <= 0.15 AND
-    |s_dot| <= 0.1
-}
-
-V_warn_final = {
-    (0.15 < ||v_p|| <= 0.2) OR
-    (0.1 < |s_dot| <= 0.15)
-}
-
-V_unsafe_final = {
-    ||v_p|| > 0.2 OR
-    |s_dot| > 0.15
-}
+[rx, ry, vx, vy, psi, omega_z]
+= [300, 0, -0.03, 0, 0, 0].
 ```
 
-### 5.5 Terminal Docking Set
+Testing:
 
 ```
-X_dock = {
-    ||r_p|| <= 0.1 AND
-    ||v_p|| <= 0.1 AND
-    |psi_e| <= 4 deg AND
-    |omega| <= 0.2 deg/s
-}
+rx      in [280, 320] m
+ry      in [-3, 3] m
+vx      in [-0.05, -0.01] m/s
+vy      in [-0.01, 0.01] m/s
+psi     in [-1, 1] deg
+omega_z in [-0.05, 0.05] deg/s.
 ```
 
-### 5.6 Initialization Sets
+Training:
 
 ```
-X_P2 = {
-    s in [d_P2_min, d_P2_max],
-    rho <= rho_P2,
-    v_parallel in [v_min_P2, v_max_P2],
-    |v_perp| <= v_perp_P2,
-    |psi_e| <= psi_P2,
-    |omega| <= w_P2
-}
-
-X_P3 = {
-    s in [d_P3_min, d_P3_max],
-    rho <= rho_P3,
-    v_parallel in [v_min_P3, v_max_P3],
-    |v_perp| <= v_perp_P3,
-    |psi_e| <= psi_P3,
-    |omega| <= w_P3
-}
+rx      in [250, 350] m
+ry      in [-5, 5] m
+vx      in [-0.06, -0.01] m/s
+vy      in [-0.02, 0.02] m/s
+psi     in [-2, 2] deg
+omega_z in [-0.10, 0.10] deg/s.
 ```
 
-## 6. Safety and Phase Logic
+At nominal alignment, `rx = 300 m` gives `s = 275.9 m`.
 
-### 6.1 Safety Sets
+Some extreme P3 training samples can begin outside the `5 m` port corridor because lateral safety is evaluated at port level after attitude and port-offset effects are applied. Such states are warnings when they remain inside the cone; they are not automatically hard failures.
 
-Closing phase geometry layer:
+### 5.3 Sampled Closing Target
 
-```
-G_safe_close = (E_AE \ S_KOS) ∩ C_dock   with   d_P3 <= s <= d_P2
-G_unsafe_close = S_KOS \ C_dock
-G_warn_close = (E_AE \ (S_KOS ∪ C_dock)) ∪ (S_KOS ∩ C_dock)
-G_out_close = E_AE_complement
-```
-
-Closing combined sets:
+A closing reset samples both an initial P2 state and a separate P3 target from the same selected mode. Closing does not succeed merely by entering the full P3 reset range. It succeeds when every state component is within the following tolerance of the episode's sampled target:
 
 ```
-X_safe_close = G_safe_close ∩ V_safe_close
-X_unsafe_close = G_unsafe_close ∪ V_unsafe_close
-X_warn_close = (G_warn_close ∪ V_warn_close) \ X_unsafe_close
+|rx - rx_target|             <= 20 m
+|ry - ry_target|             <= 2 m
+|vx - vx_target|             <= 0.01 m/s
+|vy - vy_target|             <= 0.01 m/s
+|wrap(psi - psi_target)|     <= 0.5 deg
+|omega_z - omega_z,target|   <= 0.05 deg/s.
 ```
 
-Final-approach geometry layer:
+This set is denoted `X_P3,target`.
+
+The episode-specific axial values are also computed from port geometry:
+
+- closing `d_P2`: port-axial separation of the sampled initial state;
+- closing `d_P3`: port-axial separation of the sampled P3 target;
+- final `d_P3`: port-axial separation of the sampled initial P3 state.
+
+## 6. Planar Safety Sets
+
+### 6.1 Primitive Geometry
+
+The general 3D sets are reduced as follows.
+
+Approach ellipse, evaluated using CoM position:
 
 ```
-G_safe_final = C_dock ∩ C_corr
-G_unsafe_final = C_dock_complement
-G_warn_final = C_dock \ C_corr
+E_AE = {(rx, ry) : (rx/2000)^2 + (ry/1000)^2 <= 1}.
 ```
 
-Final-approach combined sets:
+Keep-out circle, evaluated using CoM position:
 
 ```
-X_safe_final = G_safe_final ∩ V_safe_final ∩ A_safe
-X_unsafe_final = G_unsafe_final ∪ V_unsafe_final ∪ A_unsafe
-X_warn_final = (G_warn_final ∪ V_warn_final ∪ A_warn) \ X_unsafe_final
+S_KOS = {(rx, ry) : sqrt(rx^2 + ry^2) <= 200 m}.
 ```
 
-### 6.2 Phase Definitions
+Docking wedge, called `C_dock` in the code and corresponding to the general docking cone:
 
-Closing phase (P2 -> P3):
+```
+C_cone = {x : 0 <= s <= 2000 m and rho <= 0.1 s}.
+```
 
-- Initial: `x(t_P2) in X_P2`
-- During: `x(t) in X_safe_close`, `u(t) in U`
-- Final: `x(t_P3) in X_P3`
+Final corridor strip:
 
-Final approach phase (P3 -> Docking):
+```
+C_corr = {x : 0 <= s <= d_P3 and rho <= 5 m}.
+```
 
-- Initial: `x(t_P3) in X_P3`
-- During: `x(t) in X_safe_final`, `u(t) in U`
-- Final: `x(t_f) in X_dock`
+### 6.2 Planar Alignment Classification
 
-## 7. 3-DoF Assumptions Register
+```
+A_safe = {x : |psi| <= 3 deg and |omega_z| <= 0.15 deg/s}
 
-Use each item as:
+A_warn =
+    {x : |psi| <= 4 deg and |omega_z| <= 0.20 deg/s}
+    \ A_safe
 
-- Assumption
-- Consequence:
-- Limitation:
+A_unsafe = {x : |psi| > 4 deg or |omega_z| > 0.20 deg/s}.
+```
 
-1. The model includes in-plane relative translation and one in-plane rotational DoF.
-   Consequence:
-   Limitation:
+Alignment is calculated in both phases. It affects hard safety only in final approach. During closing it is a diagnostic and reward/handover quantity, so even an alignment state that meets the final phase's `A_unsafe` criterion does not by itself terminate a closing episode.
 
-2. Docking motion is planar in the target-attached `x_T-y_T` plane.
-   Consequence:
-   Limitation:
+### 6.3 Velocity Classification
 
-3. Out-of-plane position and out-of-plane velocity are assumed zero in this scenario.
-   Consequence:
-   Limitation:
+Closing:
+
+```
+V_safe_close = {x : ||v_p|| <= 0.25 m/s and |s_dot| <= 0.15 m/s}
+
+V_warn_close =
+    {x : ||v_p|| <= 0.35 m/s and |s_dot| <= 0.25 m/s}
+    \ V_safe_close
+
+V_unsafe_close = {x : ||v_p|| > 0.35 m/s or |s_dot| > 0.25 m/s}.
+```
+
+Final approach:
+
+```
+V_safe_final = {x : ||v_p|| <= 0.15 m/s and |s_dot| <= 0.10 m/s}
+
+V_warn_final =
+    {x : ||v_p|| <= 0.20 m/s and |s_dot| <= 0.15 m/s}
+    \ V_safe_final
+
+V_unsafe_final = {x : ||v_p|| > 0.20 m/s or |s_dot| > 0.15 m/s}.
+```
+
+### 6.4 Closing Geometry Classification
+
+The code implements
+
+```
+G_safe_close =
+    (E_AE \ S_KOS) intersect C_cone intersect {d_P3 <= s <= d_P2}
+
+G_unsafe_close =
+    (S_KOS \ C_cone) union complement(E_AE)
+
+G_warn_close =
+      (E_AE \ (S_KOS union C_cone))
+    union (S_KOS intersect C_cone)
+    union (E_AE intersect C_cone intersect {s < d_P3}).
+```
+
+The combined classifications are
+
+```
+X_safe_close   = G_safe_close intersect V_safe_close
+X_unsafe_close = G_unsafe_close union V_unsafe_close
+X_warn_close   = (G_warn_close union V_warn_close) \ X_unsafe_close.
+```
+
+Implementation limitation: a state in `(E_AE \ S_KOS) intersect C_cone` with `s > d_P2` is neither safe, warning, nor unsafe. It does not terminate the current environment. This unclassified edge should be resolved before the monitor is treated as an exhaustive safety specification.
+
+### 6.5 Final-Approach Classification
+
+```
+G_safe_final   = C_cone intersect C_corr
+G_unsafe_final = complement(C_cone)
+G_warn_final   = C_cone \ C_corr
+
+X_safe_final =
+    G_safe_final intersect V_safe_final intersect A_safe
+
+X_unsafe_final =
+    G_unsafe_final union V_unsafe_final union A_unsafe
+
+X_warn_final =
+    (G_warn_final union V_warn_final union A_warn) \ X_unsafe_final.
+```
+
+Warnings are nonterminal in both phases and receive a reward penalty. Unsafe classifications terminate the episode as failures.
+
+## 7. Terminal and Episode Logic
+
+### 7.1 Numerical Contact Tolerance
+
+`is_in_X_dock` checks
+
+```
+X_contact = {
+    x : ||r_p|| <= 0.10 m,
+        ||v_p|| <= 0.10 m/s,
+        |psi| <= 4 deg,
+        |omega_z| <= 0.20 deg/s
+}.
+```
+
+The safety monitor is evaluated before success. The effective terminal-success set is therefore
+
+```
+X_dock,effective = X_contact intersect complement(X_unsafe_final).
+```
+
+This matters near the cone tip: a state may satisfy the Euclidean `0.10 m` contact tolerance yet be outside the wedge and consequently fail rather than succeed.
+
+No collision response, compliant contact, capture, latching, loads, or rebound is simulated.
+
+### 7.2 Outcome Order
+
+After each propagated step, the core evaluates outcomes in this order:
+
+1. hard safety failure;
+2. phase success;
+3. time limit;
+4. continuation.
+
+Closing success is membership in `X_P3,target`. Final success is membership in the effective docking set above.
+
+A hard failure produces `terminated = true` and `failure = true`. A time limit produces `truncated = true`, applies the timeout penalty, and leaves `failure = false`.
+
+## 8. Reinforcement-Learning Interface
+
+### 8.1 Observations
+
+The final-approach observation contains six port-level values:
+
+```
+[r_p,x, r_p,y, v_p,x, v_p,y, psi_e, omega_z].
+```
+
+The closing observation concatenates that six-element port state with the six-element error relative to the sampled P3 target:
+
+```
+[port_state,
+ rx-rx_target,
+ ry-ry_target,
+ vx-vx_target,
+ vy-vy_target,
+ wrap(psi-psi_target),
+ omega_z-omega_z,target].
+```
+
+The policy therefore observes port quantities used by safety and, during closing, CoM-state error used by the handover objective.
+
+### 8.2 Closing Reward (Current v15)
+
+Let `e = x - x_P3,target`, with its angular component wrapped. Define
+
+```
+d_pos   = ||e_position||
+d_vel   = ||e_velocity||
+e_y     = |e_lateral_position|
+e_vy    = |e_lateral_velocity|
+e_psi   = |e_attitude|
+e_omega = |e_angular_rate|
+
+delta_d     = previous(d_pos) - current(d_pos)
+delta_e_psi = previous(e_psi) - current(e_psi)
+
+D_s = clip((|s_dot| - 0.15) / (0.25 - 0.15), 0, 1)
+D_v = clip((||v_p|| - 0.25) / (0.35 - 0.25), 0, 1)
+
+I_no_progress = 1
+    if d_pos > 50 m and delta_d < 0.01 m,
+    else 0.
+```
+
+With `u_norm` denoting the component-wise normalized physical action,
+
+```
+r_close,base =
+    - 0.002 d_pos
+    - 0.5   d_vel
+    - 0.01  e_y
+    - 5.0   e_vy
+    - 5.0   e_psi
+    + 50.0  delta_e_psi
+    - 0.1   e_omega
+    - 0.01  ||u_norm||
+    + 20.0  delta_d
+    - 20.0  D_s^2
+    - 20.0  D_v^2
+    - 0.05  I_no_progress.
+```
+
+The `20 delta_d` term is symmetric: progress is rewarded and regression is penalized with the same coefficient. Axial overshoot remains a diagnostic but contributes zero reward in v15. There is no runtime reward-version selector; historical experiment names may refer to older rewards.
+
+### 8.3 Final-Approach Reward
+
+Define
+
+```
+rho_ratio   = rho / max(0.1 s, 1e-6)
+psi_ratio   = |psi_e| / 3 deg
+speed_ratio = ||v_p|| / 0.15
+
+center_quality    = exp(-3 rho_ratio^2)
+near_field_weight = exp(-s / 50)
+
+delta_rp  = previous(||r_p||) - current(||r_p||)
+delta_rho = previous(rho) - current(rho).
+```
+
+The base reward is
+
+```
+r_final,base =
+    - 0.03 ||r_p||
+    - 3.0  ||v_p||
+    - 0.5  rho
+    - 5.0  |psi_e|
+    - 1.0  |omega_z|
+    - 0.02 ||u_norm||^2
+    - 2.0  u_norm,alpha^2
+    + 45.0 delta_rp (0.25 + 0.75 center_quality)
+    + 5.0  delta_rho
+    - 10.0 max(0, rho_ratio - 0.4)^2
+    - 25.0 near_field_weight rho_ratio^2
+    - 25.0 max(0, psi_ratio - 0.5)^2
+    - 20.0 max(0, speed_ratio - 0.7)^2.
+```
+
+Angles and angular rates are represented internally in radians and radians per second. Degree values above define thresholds and normalization constants.
+
+### 8.4 Event Terms
+
+After the phase-specific base reward,
+
+```
+r_event =
+    - 10   I_warn
+    - 1000 I_fail
+    + 1000 I_success
+    - 200  I_timeout.
+```
+
+- `I_warn = 1` for each resulting warning state.
+- `I_fail = 1` for a hard safety or numerical failure.
+- `I_success = 1` for reaching the phase terminal condition.
+- `I_timeout = 1` when the horizon is reached without an earlier failure or success.
+
+## 9. Simplification Consequences and Limitations
+
+1. The planar model is useful for developing phase logic, port-offset coupling, safety classification, and RL training workflows at lower computational cost.
+2. Successful planar behavior does not demonstrate robustness to out-of-plane translation, roll/pitch error, full inertia coupling, or 3D approach geometry.
+3. Direct acceleration commands assume an ideal lower-level controller and cannot predict thruster usage, fuel, minimum impulse, or allocation feasibility.
+4. Omitting the IDSS-350T third-axis port offset changes the true 3D contact geometry.
+5. The reduced orbital equations are not a substitute for a validated 6-DoF relative-orbit propagator.
+6. The fixed target assumption excludes target attitude motion and target-port velocity.
+7. The disturbance-free model cannot establish disturbance rejection.
+8. The terminal tolerance is not a physical docking-contact or capture model.
+9. Closing alignment is encouraged but is not a hard safety constraint.
+10. Warning states are allowed and penalized; they are not equivalent to certified-safe nominal operation.
+11. The closing `s > d_P2` classification gap is a known monitor limitation.
+12. Results should be reported as results for the implemented planar environment, followed by validation in the general 6-DoF scenario during the design extension.
+
+## 10. Implementation Authority
+
+This document is intended to remain synchronized with:
+
+- `core.py` for state propagation, geometry, initialization, safety, and termination;
+- `gym_env.py` for observation construction, normalized actions, rewards, and Gymnasium termination/truncation semantics.
+
+If either source file changes, the corresponding numerical or logical section here must be updated. The general scenario should change only when the intended 6-DoF mission specification itself changes.

@@ -6,6 +6,8 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
+LQR_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
 
 def wrap_to_pi(angle):
     return (angle + np.pi) % (2.0 * np.pi) - np.pi
@@ -292,7 +294,7 @@ def main():
     parser.add_argument(
         "--history-dir",
         type=str,
-        default=os.path.join("results", "lqr_closing", "rollout_histories"),
+        default=os.path.join(LQR_ROOT, "results", "lqr_closing", "rollout_histories"),
         help="Directory containing selected rollout .npz files.",
     )
     parser.add_argument(

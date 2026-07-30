@@ -6,6 +6,8 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
+LQR_ROOT = os.path.abspath(os.path.dirname(__file__))
+
 
 def load_history(path):
     data = np.load(path, allow_pickle=False)
@@ -321,7 +323,7 @@ def main():
     parser.add_argument(
         "--history-dir",
         type=str,
-        default=os.path.join("results", "lqr_mission", "mission_histories"),
+        default=os.path.join(LQR_ROOT, "results", "lqr_mission", "mission_histories"),
     )
     parser.add_argument("--files", nargs="*", default=None)
     parser.add_argument("--save-dir", type=str, default=None)

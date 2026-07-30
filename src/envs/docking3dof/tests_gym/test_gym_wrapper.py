@@ -56,7 +56,7 @@ def expected_observation(env):
     )
 
 
-def check_closing_observation_is_augmented():
+def test_closing_observation_is_augmented():
     env = Docking3DoFGymEnv(phase="closing", mode="testing", seed=7)
     obs, info = env.reset(seed=7)
 
@@ -81,7 +81,7 @@ def check_closing_observation_is_augmented():
     env.close()
 
 
-def check_closing_observation_wraps_attitude_error():
+def test_closing_observation_wraps_attitude_error():
     env = Docking3DoFGymEnv(phase="closing", mode="testing", seed=11)
     env.reset(seed=11)
 
@@ -94,7 +94,7 @@ def check_closing_observation_wraps_attitude_error():
     env.close()
 
 
-def check_closing_reward_v15_uses_symmetric_progress():
+def test_closing_reward_v15_uses_symmetric_progress():
     env = Docking3DoFGymEnv(
         phase="closing",
         mode="testing",
@@ -298,7 +298,7 @@ def check_closing_reward_v15_uses_symmetric_progress():
     env.close()
 
 
-def check_closing_reward_v16_normalizes_terminal_errors():
+def test_closing_reward_v16_normalizes_terminal_errors():
     env = Docking3DoFGymEnv(
         phase="closing",
         mode="testing",
@@ -375,7 +375,7 @@ def check_closing_reward_v16_normalizes_terminal_errors():
     env.close()
 
 
-def check_closing_reward_v17_uses_smooth_terminal_progress():
+def test_closing_reward_v17_uses_smooth_terminal_progress():
     env = Docking3DoFGymEnv(
         phase="closing",
         mode="testing",
@@ -452,7 +452,7 @@ def check_closing_reward_v17_uses_smooth_terminal_progress():
     env.close()
 
 
-def check_closing_reward_v18_scales_v17_progress():
+def test_closing_reward_v18_scales_v17_progress():
     env = Docking3DoFGymEnv(
         phase="closing",
         mode="testing",
@@ -498,7 +498,7 @@ def check_closing_reward_v18_scales_v17_progress():
     env.close()
 
 
-def check_closing_reward_v19_uses_persistent_terminal_state_cost():
+def test_closing_reward_v19_uses_persistent_terminal_state_cost():
     env = Docking3DoFGymEnv(
         phase="closing",
         mode="testing",
@@ -553,7 +553,7 @@ def check_closing_reward_v19_uses_persistent_terminal_state_cost():
     env.close()
 
 
-def check_closing_reward_v20_restores_only_velocity_margins():
+def test_closing_reward_v20_restores_only_velocity_margins():
     env = Docking3DoFGymEnv(
         phase="closing",
         mode="testing",
@@ -595,7 +595,7 @@ def check_closing_reward_v20_restores_only_velocity_margins():
     env.close()
 
 
-def test_single_phase(phase):
+def check_single_phase(phase):
     print("=" * 80)
     print(f"Testing Gym wrapper for phase: {phase}")
     print("=" * 80)
@@ -690,17 +690,23 @@ def test_single_phase(phase):
     print(f"\nGym wrapper test passed for phase: {phase}\n")
 
 
+def test_single_phase():
+    """Exercise both supported mission phases under pytest."""
+    check_single_phase("closing")
+    check_single_phase("final")
+
+
 def main():
-    check_closing_observation_is_augmented()
-    check_closing_observation_wraps_attitude_error()
-    check_closing_reward_v15_uses_symmetric_progress()
-    check_closing_reward_v16_normalizes_terminal_errors()
-    check_closing_reward_v17_uses_smooth_terminal_progress()
-    check_closing_reward_v18_scales_v17_progress()
-    check_closing_reward_v19_uses_persistent_terminal_state_cost()
-    check_closing_reward_v20_restores_only_velocity_margins()
-    test_single_phase("closing")
-    test_single_phase("final")
+    test_closing_observation_is_augmented()
+    test_closing_observation_wraps_attitude_error()
+    test_closing_reward_v15_uses_symmetric_progress()
+    test_closing_reward_v16_normalizes_terminal_errors()
+    test_closing_reward_v17_uses_smooth_terminal_progress()
+    test_closing_reward_v18_scales_v17_progress()
+    test_closing_reward_v19_uses_persistent_terminal_state_cost()
+    test_closing_reward_v20_restores_only_velocity_margins()
+    check_single_phase("closing")
+    check_single_phase("final")
 
     print("=" * 80)
     print("All Gym wrapper tests passed.")

@@ -75,6 +75,37 @@ class Docking3DoFGymEnv(gym.Env):
         "p3_omega_error",
     )
     final_observation_labels = ("rpx", "rpy", "vpx", "vpy", "psi_e", "omegaz")
+    closing_reward_versions = ("v15", "v16", "v17", "v18", "v19", "v20")
+
+    # Reward v16 adds bounded P3-terminal error shaping to v15. The
+    # ratios are clipped so the very small velocity/alignment tolerances cannot
+    # dominate learning far outside the terminal region.
+    closing_v16_ratio_clip = 10.0
+    closing_v16_aggregate_weight = 0.05
+    closing_v16_worst_weight = 0.10
+
+    # Reward v17 replaces v16's persistent clipped cost with progress through a
+    # smooth, tolerance-normalized terminal potential. log1p preserves a useful
+    # gradient above ten tolerances without allowing large errors to dominate.
+    closing_v17_smooth_max_beta = 4.0
+    closing_v17_aggregate_weight = 0.5
+    closing_v17_worst_weight = 0.5
+    closing_v17_progress_scale = 20.0
+
+    # Reward v18 is the controlled scale-correction experiment: it keeps the
+    # complete v17 potential unchanged and increases only its progress scale so
+    # terminal-dimensional improvement is material beside distance progress.
+    closing_v18_progress_scale = 500.0
+
+    # Reward v19 is a deliberately simple terminal-state experiment. It uses
+    # the same smooth tolerance-normalized cost as v17, but applies that cost
+    # directly at every step instead of rewarding its undiscounted change.
+    # This aligns the dense reward with the exact six-component P3 success set.
+    closing_v19_state_cost_scale = 10.0
+
+    # Reward v20 keeps v19's terminal-state objective and restores only v15's
+    # two velocity warning-band penalties. They are zero throughout the safe
+    # velocity set and become dense before the hard velocity boundary.
 
     def __init__(
         self,
@@ -85,6 +116,7 @@ class Docking3DoFGymEnv(gym.Env):
         integrator="rk4",
         normalize_action=True,
         seed=None,
+        closing_reward_version="v15",
     ):
         super().__init__()
 
@@ -93,6 +125,12 @@ class Docking3DoFGymEnv(gym.Env):
 
         if mode not in ["nominal", "testing", "training"]:
             raise ValueError("mode must be one of: 'nominal', 'testing', or 'training'.")
+
+        if closing_reward_version not in self.closing_reward_versions:
+            raise ValueError(
+                "closing_reward_version must be one of: "
+                f"{', '.join(self.closing_reward_versions)}."
+            )
 
         if max_time is None:
             if phase == "closing":
@@ -104,6 +142,7 @@ class Docking3DoFGymEnv(gym.Env):
         self.mode = mode
         self.normalize_action = normalize_action
         self.max_time = max_time
+        self.closing_reward_version = closing_reward_version
 
         self.core_env = Docking3DoFEnv(
             dt=dt,
@@ -284,11 +323,43 @@ class Docking3DoFGymEnv(gym.Env):
             self.prev_closing_pos_error = np.linalg.norm(target_error[0:2])
             self.prev_closing_lateral_error = abs(target_error[1])
             self.prev_closing_attitude_error = abs(target_error[4])
+            self.prev_closing_terminal_cost = self._closing_v17_terminal_cost(
+                target_error,
+                self.core_env.p3_target_tolerance,
+            )["cost"]
 
         obs = self._get_obs()
         info = self._get_reset_info()
 
         return obs, info
+
+    def _closing_v17_terminal_cost(self, error, tolerance):
+        """Return the smooth tolerance-normalized P3 terminal potential."""
+        ratios = np.abs(np.asarray(error, dtype=np.float64)) / np.maximum(
+            np.asarray(tolerance, dtype=np.float64),
+            1e-12,
+        )
+        log_components = np.log1p(ratios)
+        aggregate = float(np.mean(log_components))
+
+        beta = self.closing_v17_smooth_max_beta
+        maximum = float(np.max(log_components))
+        smooth_worst = float(
+            maximum
+            + np.log(np.mean(np.exp(beta * (log_components - maximum))))
+            / beta
+        )
+        cost = (
+            self.closing_v17_aggregate_weight * aggregate
+            + self.closing_v17_worst_weight * smooth_worst
+        )
+        return {
+            "ratios": ratios,
+            "log_components": log_components,
+            "aggregate": aggregate,
+            "smooth_worst": smooth_worst,
+            "cost": float(cost),
+        }
 
     def step(self, action):
         """
@@ -361,6 +432,7 @@ class Docking3DoFGymEnv(gym.Env):
 
         reward_components = {
             "phase": self.phase,
+            "closing_reward_version": self.closing_reward_version,
 
             # Raw diagnostic quantities
             "port_distance": float(port_distance),
@@ -412,6 +484,19 @@ class Docking3DoFGymEnv(gym.Env):
             "unsafe_forward_progress": None,
             "no_progress": None,
             "attitude_progress": None,
+            "p3_axial_ratio": None,
+            "p3_vx_ratio": None,
+            "p3_vy_ratio": None,
+            "p3_attitude_ratio": None,
+            "p3_rate_ratio": None,
+            "p3_normalized_error_mean": None,
+            "p3_normalized_error_max": None,
+            "p3_terminal_weight": None,
+            "p3_log_error_mean": None,
+            "p3_log_error_smooth_max": None,
+            "p3_terminal_cost": None,
+            "p3_terminal_cost_progress": None,
+            "p3_terminal_progress_scale": None,
 
             # Reward terms
             "reward_position": 0.0,
@@ -441,6 +526,10 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_omega_margin": 0.0,
             "reward_terminal_corridor": 0.0,
             "reward_terminal_alignment": 0.0,
+            "reward_tolerance_aggregate": 0.0,
+            "reward_tolerance_worst": 0.0,
+            "reward_tolerance_progress": 0.0,
+            "reward_tolerance_state": 0.0,
             "reward_warning": 0.0,
             "reward_failure": 0.0,
             "reward_success": 0.0,
@@ -590,21 +679,132 @@ class Docking3DoFGymEnv(gym.Env):
             # damping objective without prescribing a lateral velocity profile.
             reward_lateral = -0.01 * lateral_error
 
-            reward = (
-                reward_position
-                + reward_velocity
-                + reward_attitude
-                + reward_attitude_progress
-                + reward_rate
-                + reward_action
-                + reward_lateral_speed
-                + reward_s_dot
-                + reward_progress
-                + reward_axial_overshoot
-                + reward_no_progress
-                + reward_lateral
-                + reward_speed_margin
-            )
+            # Reward v16 extends v15 with P3-tolerance-normalized terminal
+            # shaping. Each state component is divided by the exact tolerance
+            # used by the P3 success condition, so all six conditions must
+            # become small together. The mean rewards balanced convergence;
+            # the maximum prevents a single bad component from being hidden by
+            # the other five. Ratio clipping bounds the scale and avoids a
+            # distance gate that the policy could exploit by remaining just
+            # outside the shaped region.
+            p3_error_ratios = np.zeros(6, dtype=np.float64)
+            clipped_p3_error_ratios = np.zeros(6, dtype=np.float64)
+            p3_normalized_error_mean = 0.0
+            p3_normalized_error_max = 0.0
+            p3_terminal_weight = 0.0
+            p3_log_error_mean = 0.0
+            p3_log_error_smooth_max = 0.0
+            p3_terminal_cost = 0.0
+            p3_terminal_cost_progress = 0.0
+            terminal_progress_scale = 0.0
+            reward_tolerance_aggregate = 0.0
+            reward_tolerance_worst = 0.0
+            reward_tolerance_progress = 0.0
+            reward_tolerance_state = 0.0
+            if self.core_env.p3_target is not None:
+                p3_error_ratios = np.abs(error) / np.maximum(p3_tol, 1e-12)
+
+            if (
+                self.closing_reward_version == "v16"
+                and self.core_env.p3_target is not None
+            ):
+                clipped_p3_error_ratios = np.clip(
+                    p3_error_ratios,
+                    0.0,
+                    self.closing_v16_ratio_clip,
+                )
+                p3_normalized_error_mean = float(
+                    np.mean(clipped_p3_error_ratios)
+                )
+                p3_normalized_error_max = float(
+                    np.max(clipped_p3_error_ratios)
+                )
+                p3_terminal_weight = 1.0
+                reward_tolerance_aggregate = (
+                    -self.closing_v16_aggregate_weight
+                    * p3_terminal_weight
+                    * p3_normalized_error_mean
+                )
+                reward_tolerance_worst = (
+                    -self.closing_v16_worst_weight
+                    * p3_terminal_weight
+                    * p3_normalized_error_max
+                )
+            elif (
+                self.closing_reward_version in {"v17", "v18", "v19", "v20"}
+                and self.core_env.p3_target is not None
+            ):
+                terminal = self._closing_v17_terminal_cost(error, p3_tol)
+                p3_log_error_mean = terminal["aggregate"]
+                p3_log_error_smooth_max = terminal["smooth_worst"]
+                p3_terminal_cost = terminal["cost"]
+                previous_terminal_cost = getattr(
+                    self,
+                    "prev_closing_terminal_cost",
+                    p3_terminal_cost,
+                )
+                p3_terminal_cost_progress = (
+                    previous_terminal_cost - p3_terminal_cost
+                )
+                self.prev_closing_terminal_cost = p3_terminal_cost
+                p3_normalized_error_mean = float(np.mean(p3_error_ratios))
+                p3_normalized_error_max = float(np.max(p3_error_ratios))
+                p3_terminal_weight = 1.0
+                if self.closing_reward_version in {"v19", "v20"}:
+                    reward_tolerance_state = (
+                        -self.closing_v19_state_cost_scale * p3_terminal_cost
+                    )
+                else:
+                    terminal_progress_scale = (
+                        self.closing_v18_progress_scale
+                        if self.closing_reward_version == "v18"
+                        else self.closing_v17_progress_scale
+                    )
+                    reward_tolerance_progress = (
+                        terminal_progress_scale * p3_terminal_cost_progress
+                    )
+
+            if self.closing_reward_version in {"v19", "v20"}:
+                # Do not mix tolerance-normalized terminal control with v15's
+                # differently-scaled distance, attitude, and progress terms.
+                reward_position = 0.0
+                reward_velocity = 0.0
+                reward_attitude = 0.0
+                reward_attitude_progress = 0.0
+                reward_rate = 0.0
+                reward_lateral_speed = 0.0
+                reward_progress = 0.0
+                reward_axial_overshoot = 0.0
+                reward_no_progress = 0.0
+                reward_lateral = 0.0
+                if self.closing_reward_version == "v19":
+                    reward_s_dot = 0.0
+                    reward_speed_margin = 0.0
+                reward = (
+                    reward_tolerance_state
+                    + reward_action
+                    + reward_s_dot
+                    + reward_speed_margin
+                )
+            else:
+                reward = (
+                    reward_position
+                    + reward_velocity
+                    + reward_attitude
+                    + reward_attitude_progress
+                    + reward_rate
+                    + reward_action
+                    + reward_lateral_speed
+                    + reward_s_dot
+                    + reward_progress
+                    + reward_axial_overshoot
+                    + reward_no_progress
+                    + reward_lateral
+                    + reward_speed_margin
+                    + reward_tolerance_aggregate
+                    + reward_tolerance_worst
+                    + reward_tolerance_progress
+                )
 
             reward_components.update(
                 {
@@ -637,6 +837,29 @@ class Docking3DoFGymEnv(gym.Env):
                     "alignment_gate": float(alignment_gate),
                     "no_progress": float(no_progress),
                     "attitude_progress": float(attitude_progress),
+                    "p3_axial_ratio": float(p3_error_ratios[0]),
+                    "p3_vx_ratio": float(p3_error_ratios[2]),
+                    "p3_vy_ratio": float(p3_error_ratios[3]),
+                    "p3_attitude_ratio": float(p3_error_ratios[4]),
+                    "p3_rate_ratio": float(p3_error_ratios[5]),
+                    "p3_normalized_error_mean": float(
+                        p3_normalized_error_mean
+                    ),
+                    "p3_normalized_error_max": float(
+                        p3_normalized_error_max
+                    ),
+                    "p3_terminal_weight": float(p3_terminal_weight),
+                    "p3_log_error_mean": float(p3_log_error_mean),
+                    "p3_log_error_smooth_max": float(
+                        p3_log_error_smooth_max
+                    ),
+                    "p3_terminal_cost": float(p3_terminal_cost),
+                    "p3_terminal_cost_progress": float(
+                        p3_terminal_cost_progress
+                    ),
+                    "p3_terminal_progress_scale": float(
+                        terminal_progress_scale
+                    ),
                     "too_fast": float(
                         max(0.0, speed_ratio - 0.75)
                         + max(0.0, sdot_ratio - 0.75)
@@ -656,6 +879,18 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_no_progress": float(reward_no_progress),
                     "reward_lateral": float(reward_lateral),
                     "reward_speed_margin": float(reward_speed_margin),
+                    "reward_tolerance_aggregate": float(
+                        reward_tolerance_aggregate
+                    ),
+                    "reward_tolerance_worst": float(
+                        reward_tolerance_worst
+                    ),
+                    "reward_tolerance_progress": float(
+                        reward_tolerance_progress
+                    ),
+                    "reward_tolerance_state": float(
+                        reward_tolerance_state
+                    ),
                 }
             )
 

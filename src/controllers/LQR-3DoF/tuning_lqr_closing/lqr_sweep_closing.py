@@ -6,7 +6,7 @@ import sys
 import numpy as np
 
 # Allow imports from the repo's src/ directory when running from the project root.
-LQR_ROOT = os.path.dirname(__file__)
+LQR_ROOT = os.path.abspath(os.path.dirname(__file__))
 while not os.path.exists(os.path.join(LQR_ROOT, "lqr_3dof_closing.py")):
     parent_dir = os.path.dirname(LQR_ROOT)
     if parent_dir == LQR_ROOT:
@@ -639,7 +639,7 @@ def main():
     parser.add_argument(
         "--history-dir",
         type=str,
-        default=os.path.join("results", "lqr_closing", "rollout_histories"),
+        default=os.path.join(LQR_ROOT, "results", "lqr_closing", "rollout_histories"),
         help="Directory where selected rollout .npz histories are saved.",
     )
 

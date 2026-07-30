@@ -6,7 +6,7 @@ from collections import Counter
 
 import numpy as np
 
-LQR_ROOT = os.path.dirname(__file__)
+LQR_ROOT = os.path.abspath(os.path.dirname(__file__))
 while not os.path.exists(os.path.join(LQR_ROOT, "lqr_3dof_closing.py")):
     parent_dir = os.path.dirname(LQR_ROOT)
     if parent_dir == LQR_ROOT:
@@ -396,7 +396,7 @@ def run_many_missions(
     closing_max_time=12000.0,
     final_max_time=5000.0,
     save_mission_histories=False,
-    history_dir=os.path.join("results", "lqr_mission", "mission_histories"),
+    history_dir=os.path.join(LQR_ROOT, "results", "lqr_mission", "mission_histories"),
 ):
     mission_results = []
     records = []
@@ -531,7 +531,7 @@ def main():
     parser.add_argument(
         "--history-dir",
         type=str,
-        default=os.path.join("results", "lqr_mission", "mission_histories"),
+        default=os.path.join(LQR_ROOT, "results", "lqr_mission", "mission_histories"),
     )
     args = parser.parse_args()
 

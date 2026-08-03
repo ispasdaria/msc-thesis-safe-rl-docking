@@ -174,26 +174,47 @@ class Docking3DoFGymEnv(gym.Env):
                 dtype=np.float32,
             )
 
-    def _scale_action(self, action):
-        """
-        Converts SAC action to physical body-frame acceleration command.
-        """
+    def get_physical_state(self):
+        """Return an unnormalized copy of ``[rx, ry, vx, vy, psi, omega]``."""
+        if self.core_env.state is None:
+            raise RuntimeError("Environment must be reset before reading its state.")
 
+        return np.asarray(self.core_env.state, dtype=np.float64).copy()
+
+    def get_physical_action_limits(self):
+        """Return positive body-frame limits ``[ax_max, ay_max, alpha_max]``."""
+        return np.asarray(self.core_env.action_high, dtype=np.float64).copy()
+
+    def normalized_action_to_physical(self, action):
+        """Convert an environment action to physical body-frame acceleration."""
         action = np.asarray(action, dtype=np.float64)
+        if action.shape != (3,):
+            raise ValueError(f"Action must have shape (3,), got {action.shape}.")
 
-        if self.normalize_action:
-            physical_action = action * np.array(
-                [
-                    self.core_env.ax_max,
-                    self.core_env.ay_max,
-                    self.core_env.alphaz_max,
-                ],
-                dtype=np.float64,
+        if not self.normalize_action:
+            return action.copy()
+
+        return action * self.get_physical_action_limits()
+
+    def physical_action_to_normalized(self, action):
+        """Convert a physical body-frame command to the environment action space."""
+        action = np.asarray(action, dtype=np.float64)
+        if action.shape != (3,):
+            raise ValueError(f"Action must have shape (3,), got {action.shape}.")
+
+        if not self.normalize_action:
+            return np.clip(
+                action,
+                self.core_env.action_low,
+                self.core_env.action_high,
             )
-        else:
-            physical_action = action
 
-        return physical_action
+        normalized = action / self.get_physical_action_limits()
+        return np.clip(normalized, -1.0, 1.0)
+
+    def _scale_action(self, action):
+        """Backward-compatible private alias for action conversion."""
+        return self.normalized_action_to_physical(action)
 
     def _get_obs(self):
         """

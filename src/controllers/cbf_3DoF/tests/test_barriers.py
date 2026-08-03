@@ -1,0 +1,132 @@
+import numpy as np
+
+from controllers.cbf_3DoF.barriers import (
+    FinalApproachCBFConfig,
+    build_final_approach_constraints,
+    cone_barrier_derivatives,
+    cone_barrier_values,
+    speed_barrier_value,
+)
+from envs.docking3dof.core import Docking3DoFEnv
+
+
+def make_env():
+    return Docking3DoFEnv(phase="final", dt=1.0, integrator="rk4", seed=0)
+
+
+def test_cone_barrier_signs():
+    assert np.allclose(cone_barrier_values(100.0, 5.0, 0.1), [5.0, 15.0])
+    assert np.allclose(cone_barrier_values(100.0, 10.0, 0.1), [0.0, 20.0])
+    assert cone_barrier_values(100.0, 11.0, 0.1)[0] < 0.0
+    assert cone_barrier_values(100.0, -11.0, 0.1)[1] < 0.0
+
+
+def test_cone_barrier_derivative_signs():
+    upper_dot, lower_dot = cone_barrier_derivatives(-0.05, 0.02, 0.1)
+    assert np.isclose(upper_dot, -0.025)
+    assert np.isclose(lower_dot, 0.015)
+
+
+def test_speed_barrier_values():
+    assert speed_barrier_value(np.array([0.10, 0.0]), 0.15) > 0.0
+    assert np.isclose(speed_barrier_value(np.array([0.15, 0.0]), 0.15), 0.0)
+    assert speed_barrier_value(np.array([0.20, 0.0]), 0.15) < 0.0
+
+
+def test_constraint_rows_match_direct_cbf_expressions():
+    env = make_env()
+    state = np.array(
+        [120.0, 4.0, -0.08, 0.03, np.deg2rad(1.0), np.deg2rad(0.04)]
+    )
+    action = np.array([0.003, -0.004, 0.001])
+    config = FinalApproachCBFConfig(cone_k1=0.2, cone_k2=0.3, speed_alpha=0.4)
+    constraints = build_final_approach_constraints(env, state, config)
+    acceleration = (
+        constraints.port_acceleration.drift
+        + constraints.port_acceleration.control_matrix @ action
+    )
+    port = constraints.kinematics
+
+    h_plus = constraints.barrier_values["cone_upper"]
+    h_minus = constraints.barrier_values["cone_lower"]
+    h_plus_dot = constraints.barrier_derivatives["cone_upper"]
+    h_minus_dot = constraints.barrier_derivatives["cone_lower"]
+    gain_sum = config.cone_k1 + config.cone_k2
+    gain_product = config.cone_k1 * config.cone_k2
+
+    direct = {
+        "cone_upper": config.kappa * acceleration[0]
+        - acceleration[1]
+        + gain_sum * h_plus_dot
+        + gain_product * h_plus,
+        "cone_lower": config.kappa * acceleration[0]
+        + acceleration[1]
+        + gain_sum * h_minus_dot
+        + gain_product * h_minus,
+        "port_speed": -2.0 * port.v_p @ acceleration
+        + config.speed_alpha * constraints.barrier_values["port_speed"],
+    }
+
+    for index, name in enumerate(constraints.names):
+        assert np.isclose(constraints.A[index] @ action - constraints.b[index], direct[name])
+
+
+def test_speed_barrier_derivative_matches_finite_difference():
+    env = make_env()
+    state = np.array(
+        [260.0, 1.0, -0.08, 0.04, np.deg2rad(-1.2), np.deg2rad(0.05)]
+    )
+    action = np.array([-0.002, 0.006, -0.001])
+    config = FinalApproachCBFConfig()
+    constraints = build_final_approach_constraints(env, state, config)
+    acceleration = (
+        constraints.port_acceleration.drift
+        + constraints.port_acceleration.control_matrix @ action
+    )
+    analytic = -2.0 * constraints.kinematics.v_p @ acceleration
+
+    dt = 1.0e-5
+    state_next = state + dt * env.dynamics(state, action)
+    h_now = speed_barrier_value(env.get_port_relative_velocity(state), 0.15)
+    h_next = speed_barrier_value(env.get_port_relative_velocity(state_next), 0.15)
+    finite_difference = (h_next - h_now) / dt
+
+    assert np.isclose(analytic, finite_difference, rtol=3.0e-4, atol=2.0e-7)
+
+
+def test_cone_second_derivatives_match_finite_difference():
+    env = make_env()
+    state = np.array(
+        [180.0, 7.0, -0.09, -0.02, np.deg2rad(2.0), np.deg2rad(-0.08)]
+    )
+    action = np.array([0.004, -0.003, 0.0015])
+    config = FinalApproachCBFConfig()
+    constraints = build_final_approach_constraints(env, state, config)
+    acceleration = (
+        constraints.port_acceleration.drift
+        + constraints.port_acceleration.control_matrix @ action
+    )
+    analytic = np.array(
+        [
+            config.kappa * acceleration[0] - acceleration[1],
+            config.kappa * acceleration[0] + acceleration[1],
+        ]
+    )
+
+    dt = 1.0e-5
+    state_next = state + dt * env.dynamics(state, action)
+    next_constraints = build_final_approach_constraints(env, state_next, config)
+    h_dot_now = np.array(
+        [
+            constraints.barrier_derivatives["cone_upper"],
+            constraints.barrier_derivatives["cone_lower"],
+        ]
+    )
+    h_dot_next = np.array(
+        [
+            next_constraints.barrier_derivatives["cone_upper"],
+            next_constraints.barrier_derivatives["cone_lower"],
+        ]
+    )
+
+    assert np.allclose(analytic, (h_dot_next - h_dot_now) / dt, rtol=3e-4, atol=2e-7)

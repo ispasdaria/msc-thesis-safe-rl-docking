@@ -2,6 +2,7 @@ import numpy as np
 
 from controllers.cbf_3DoF.barriers import (
     FinalApproachCBFConfig,
+    alignment_barrier_values,
     build_final_approach_constraints,
     cone_barrier_derivatives,
     cone_barrier_values,
@@ -33,6 +34,28 @@ def test_speed_barrier_values():
     assert speed_barrier_value(np.array([0.20, 0.0]), 0.15) < 0.0
 
 
+def test_alignment_barrier_signs():
+    limits = alignment_barrier_values(
+        np.deg2rad(2.0),
+        np.deg2rad(-0.1),
+        np.deg2rad(3.0),
+        np.deg2rad(0.15),
+    )
+
+    assert limits["attitude_upper"] > 0.0
+    assert limits["attitude_lower"] > 0.0
+    assert limits["angular_rate_upper"] > 0.0
+    assert limits["angular_rate_lower"] > 0.0
+    outside = alignment_barrier_values(
+        np.deg2rad(3.1),
+        np.deg2rad(0.16),
+        np.deg2rad(3.0),
+        np.deg2rad(0.15),
+    )
+    assert outside["attitude_upper"] < 0.0
+    assert outside["angular_rate_upper"] < 0.0
+
+
 def test_constraint_rows_match_direct_cbf_expressions():
     env = make_env()
     state = np.array(
@@ -53,6 +76,8 @@ def test_constraint_rows_match_direct_cbf_expressions():
     h_minus_dot = constraints.barrier_derivatives["cone_lower"]
     gain_sum = config.cone_k1 + config.cone_k2
     gain_product = config.cone_k1 * config.cone_k2
+    attitude_gain_sum = config.attitude_k1 + config.attitude_k2
+    attitude_gain_product = config.attitude_k1 * config.attitude_k2
 
     direct = {
         "cone_upper": config.kappa * acceleration[0]
@@ -65,6 +90,18 @@ def test_constraint_rows_match_direct_cbf_expressions():
         + gain_product * h_minus,
         "port_speed": -2.0 * port.v_p @ acceleration
         + config.speed_alpha * constraints.barrier_values["port_speed"],
+        "attitude_upper": -action[2]
+        - attitude_gain_sum * state[5]
+        + attitude_gain_product * constraints.barrier_values["attitude_upper"],
+        "attitude_lower": action[2]
+        + attitude_gain_sum * state[5]
+        + attitude_gain_product * constraints.barrier_values["attitude_lower"],
+        "angular_rate_upper": -action[2]
+        + config.angular_rate_alpha
+        * constraints.barrier_values["angular_rate_upper"],
+        "angular_rate_lower": action[2]
+        + config.angular_rate_alpha
+        * constraints.barrier_values["angular_rate_lower"],
     }
 
     for index, name in enumerate(constraints.names):
@@ -130,3 +167,34 @@ def test_cone_second_derivatives_match_finite_difference():
     )
 
     assert np.allclose(analytic, (h_dot_next - h_dot_now) / dt, rtol=3e-4, atol=2e-7)
+
+
+def test_alignment_barrier_derivatives_match_finite_difference():
+    env = make_env()
+    state = np.array(
+        [180.0, 0.0, -0.03, 0.0, np.deg2rad(2.0), np.deg2rad(0.08)]
+    )
+    action = np.array([0.0, 0.0, -0.0015])
+    config = FinalApproachCBFConfig()
+    constraints = build_final_approach_constraints(env, state, config)
+
+    dt = 1.0e-6
+    state_next = state + dt * env.dynamics(state, action)
+    next_constraints = build_final_approach_constraints(env, state_next, config)
+
+    for name, expected_derivative in (
+        ("attitude_upper", -state[5]),
+        ("attitude_lower", state[5]),
+        ("angular_rate_upper", -action[2]),
+        ("angular_rate_lower", action[2]),
+    ):
+        finite_difference = (
+            next_constraints.barrier_values[name]
+            - constraints.barrier_values[name]
+        ) / dt
+        assert np.isclose(
+            finite_difference,
+            expected_derivative,
+            rtol=1.0e-6,
+            atol=1.0e-9,
+        )

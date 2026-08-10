@@ -57,7 +57,11 @@ def test_speed_increasing_action_is_filtered_near_speed_boundary():
     nominal = np.array([0.01, 0.0, 0.0])
     cbf = FinalApproachCBFFilter(
         env.core_env,
-        scipy_config(enable_cone=False, enable_speed=True),
+        scipy_config(
+            enable_cone=False,
+            enable_speed=True,
+            enable_alignment=False,
+        ),
     )
 
     result = cbf.filter(state, nominal)
@@ -75,7 +79,11 @@ def test_outward_action_is_filtered_near_upper_cone_boundary():
     nominal = np.array([0.0, -0.01, 0.0])
     cbf = FinalApproachCBFFilter(
         env.core_env,
-        scipy_config(enable_cone=True, enable_speed=False),
+        scipy_config(
+            enable_cone=True,
+            enable_speed=False,
+            enable_alignment=False,
+        ),
     )
 
     result = cbf.filter(state, nominal)
@@ -92,7 +100,12 @@ def test_soft_qp_reports_slack_for_unrecoverable_constraint_state():
     state = np.array([124.1, 30.0, -0.03, 0.2, 0.0, 0.0])
     cbf = FinalApproachCBFFilter(
         env.core_env,
-        scipy_config(enable_cone=True, enable_speed=False, cone_slack_penalty=1.0e6),
+        scipy_config(
+            enable_cone=True,
+            enable_speed=False,
+            enable_alignment=False,
+            cone_slack_penalty=1.0e6,
+        ),
     )
 
     result = cbf.filter(state, np.zeros(3))
@@ -102,7 +115,48 @@ def test_soft_qp_reports_slack_for_unrecoverable_constraint_state():
     assert result.relaxed_cbf_residuals["cone_upper"] >= -1.0e-6
 
 
-def test_osqp_backend_solves_the_three_row_filter():
+def test_outward_attitude_action_is_filtered_near_boundary():
+    env = make_env()
+    state = np.array(
+        [300.0, 0.0, -0.03, 0.0, np.deg2rad(2.9), np.deg2rad(0.1)]
+    )
+    nominal = np.array([0.0, 0.0, env.core_env.alphaz_max])
+    config = scipy_config(
+        enable_cone=False,
+        enable_speed=False,
+        enable_alignment=True,
+        allow_slack=False,
+    )
+    result = FinalApproachCBFFilter(env.core_env, config).filter(state, nominal)
+
+    assert not result.qp_failed
+    assert result.intervened
+    assert result.action_filtered[2] < nominal[2]
+    assert result.cbf_residuals["attitude_upper"] >= -1.0e-7
+
+
+def test_outward_angular_acceleration_is_filtered_at_rate_boundary():
+    env = make_env()
+    state = np.array(
+        [300.0, 0.0, -0.03, 0.0, 0.0, env.core_env.omega_safe]
+    )
+    nominal = np.array([0.0, 0.0, env.core_env.alphaz_max])
+    config = scipy_config(
+        enable_cone=False,
+        enable_speed=False,
+        enable_alignment=True,
+        allow_slack=False,
+    )
+    result = FinalApproachCBFFilter(env.core_env, config).filter(state, nominal)
+    next_state = env.core_env.integrate(state, result.action_filtered)
+
+    assert not result.qp_failed
+    assert result.intervened
+    assert result.action_filtered[2] <= 1.0e-7
+    assert abs(next_state[5]) <= config.angular_rate_max + 1.0e-7
+
+
+def test_osqp_backend_solves_the_seven_row_filter():
     env = make_env()
     state = np.array([180.0, 8.0, -0.145, 0.03, np.deg2rad(1.0), 0.0])
     config = FinalApproachCBFConfig(solver_backend="osqp")

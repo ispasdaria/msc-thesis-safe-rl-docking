@@ -45,13 +45,17 @@ The evidence supports the claim that the exact-cone CBF materially improves
 SAC controllers whose recurrent failure is geometric cone escape. It does not
 support a claim that the two-CBF filter can repair every poor policy or enforce
 the full simulator safety definition. In particular, attitude and angular-rate
-alignment are not constrained by the current QP.
+alignment were not constrained by the historical QP used for this experiment.
 
 The panel was selected to cover known performance regimes rather than sampled
 randomly from all checkpoints. It should therefore be presented as a
 controlled failure-mode experiment. A final report should additionally give
 results over all selected controllers and a larger held-out evaluation-seed
 set after the CBF gains have been frozen.
+
+These results predate the alignment CBF implementation and remain the
+historical cone-plus-speed baseline. See `ALIGNMENT_CBF_RESULTS.md` for the
+initial seven-row filter integration check.
 
 ## Result directories
 

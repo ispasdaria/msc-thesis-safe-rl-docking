@@ -23,12 +23,26 @@ class FinalApproachCBFFilter:
         self.action_limits = np.asarray(core_env.action_high, dtype=np.float64)
         if self.action_limits.shape != (3,) or np.any(self.action_limits <= 0.0):
             raise ValueError("Expected three positive physical action limits.")
+        if self.config.enable_alignment:
+            if self.config.attitude_max > core_env.psi_unsafe:
+                raise ValueError(
+                    "attitude_max cannot exceed the simulator's unsafe limit."
+                )
+            if self.config.angular_rate_max > core_env.omega_unsafe:
+                raise ValueError(
+                    "angular_rate_max cannot exceed the simulator's unsafe limit."
+                )
 
-    def with_enabled_constraints(self, *, cone, speed):
+    def with_enabled_constraints(self, *, cone, speed, alignment):
         """Return a filter sharing the environment with selected CBF families."""
         return FinalApproachCBFFilter(
             self.core_env,
-            replace(self.config, enable_cone=cone, enable_speed=speed),
+            replace(
+                self.config,
+                enable_cone=cone,
+                enable_speed=speed,
+                enable_alignment=alignment,
+            ),
         )
 
     def filter(self, state, action_nominal):
@@ -74,6 +88,10 @@ class FinalApproachCBFFilter:
             barrier_derivatives["port_speed"] = float(
                 -2.0 * constraints.kinematics.v_p @ port_acceleration
             )
+        if "angular_rate_upper" in constraints.barrier_values:
+            angular_acceleration = float(solution[2])
+            barrier_derivatives["angular_rate_upper"] = -angular_acceleration
+            barrier_derivatives["angular_rate_lower"] = angular_acceleration
 
         return FilterResult(
             action_filtered=solution.copy(),
@@ -107,6 +125,8 @@ class FinalApproachCBFFilter:
             [
                 self.config.speed_slack_penalty
                 if name == "port_speed"
+                else self.config.alignment_slack_penalty
+                if name.startswith(("attitude_", "angular_rate_"))
                 else self.config.cone_slack_penalty
                 for name in names
             ],

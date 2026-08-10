@@ -35,6 +35,21 @@ def cone_hocbf_admissibility(constraints, config):
     }
 
 
+def attitude_hocbf_admissibility(constraints, config):
+    """Return ``psi_1 = h_dot + k1*h`` for both attitude limits."""
+    required = ("attitude_upper", "attitude_lower")
+    if any(name not in constraints.barrier_values for name in required):
+        raise ValueError("Alignment constraints must be enabled.")
+
+    return {
+        name: float(
+            constraints.barrier_derivatives[name]
+            + config.attitude_k1 * constraints.barrier_values[name]
+        )
+        for name in required
+    }
+
+
 def hard_cbf_feasibility_margin(constraints, action_limits, tolerance=1.0e-9):
     """Check whether actuator-bounded controls can satisfy ``A u >= b``.
 

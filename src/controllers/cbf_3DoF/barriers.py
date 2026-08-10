@@ -25,8 +25,14 @@ class FinalApproachCBFConfig:
     cone_k1: float = 0.1
     cone_k2: float = 0.1
     speed_alpha: float = 0.5
+    attitude_max: float = np.deg2rad(3.0)
+    angular_rate_max: float = np.deg2rad(0.15)
+    attitude_k1: float = 0.3
+    attitude_k2: float = 0.3
+    angular_rate_alpha: float = 0.5
     cone_slack_penalty: float = 1.0e8
     speed_slack_penalty: float = 1.0e8
+    alignment_slack_penalty: float = 1.0e8
     numerical_eps: float = 1.0e-9
     intervention_eps: float = 1.0e-7
     solver_eps_abs: float = 1.0e-8
@@ -35,6 +41,7 @@ class FinalApproachCBFConfig:
     allow_slack: bool = True
     enable_cone: bool = True
     enable_speed: bool = True
+    enable_alignment: bool = True
     solver_backend: str = "auto"
 
     def __post_init__(self):
@@ -44,8 +51,14 @@ class FinalApproachCBFConfig:
             "cone_k1": self.cone_k1,
             "cone_k2": self.cone_k2,
             "speed_alpha": self.speed_alpha,
+            "attitude_max": self.attitude_max,
+            "angular_rate_max": self.angular_rate_max,
+            "attitude_k1": self.attitude_k1,
+            "attitude_k2": self.attitude_k2,
+            "angular_rate_alpha": self.angular_rate_alpha,
             "cone_slack_penalty": self.cone_slack_penalty,
             "speed_slack_penalty": self.speed_slack_penalty,
+            "alignment_slack_penalty": self.alignment_slack_penalty,
             "solver_eps_abs": self.solver_eps_abs,
             "solver_eps_rel": self.solver_eps_rel,
         }
@@ -56,7 +69,9 @@ class FinalApproachCBFConfig:
             raise ValueError("Numerical tolerances must be nonnegative.")
         if self.solver_max_iter <= 0:
             raise ValueError("solver_max_iter must be positive.")
-        if not self.enable_cone and not self.enable_speed:
+        if self.attitude_max >= np.pi:
+            raise ValueError("attitude_max must be smaller than pi radians.")
+        if not self.enable_cone and not self.enable_speed and not self.enable_alignment:
             raise ValueError("At least one CBF constraint must be enabled.")
         if self.solver_backend not in {"auto", "osqp", "scipy"}:
             raise ValueError("solver_backend must be 'auto', 'osqp', or 'scipy'.")
@@ -76,6 +91,16 @@ def cone_barrier_derivatives(s_dot, y_p_dot, kappa):
 def speed_barrier_value(v_p, v_max):
     v_p = np.asarray(v_p, dtype=np.float64)
     return float(v_max**2 - np.dot(v_p, v_p))
+
+
+def alignment_barrier_values(psi_error, omega, attitude_max, angular_rate_max):
+    """Return upper/lower attitude and angular-rate box barriers."""
+    return {
+        "attitude_upper": float(attitude_max - psi_error),
+        "attitude_lower": float(attitude_max + psi_error),
+        "angular_rate_upper": float(angular_rate_max - omega),
+        "angular_rate_lower": float(angular_rate_max + omega),
+    }
 
 
 def build_final_approach_constraints(core_env, state, config=None):
@@ -146,6 +171,46 @@ def build_final_approach_constraints(core_env, state, config=None):
         barrier_values["port_speed"] = h_speed
         barrier_derivatives["port_speed_drift"] = float(
             -2.0 * kinematics.v_p @ acceleration.drift
+        )
+
+    if config.enable_alignment:
+        psi_error = float(core_env.wrap_to_pi(state[4]))
+        omega = float(state[5])
+        alignment_values = alignment_barrier_values(
+            psi_error,
+            omega,
+            config.attitude_max,
+            config.angular_rate_max,
+        )
+        attitude_gain_sum = config.attitude_k1 + config.attitude_k2
+        attitude_gain_product = config.attitude_k1 * config.attitude_k2
+        angular_column = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+
+        rows.extend((-angular_column, angular_column))
+        bounds.extend(
+            (
+                attitude_gain_sum * omega
+                - attitude_gain_product * alignment_values["attitude_upper"],
+                -attitude_gain_sum * omega
+                - attitude_gain_product * alignment_values["attitude_lower"],
+            )
+        )
+        names.extend(("attitude_upper", "attitude_lower"))
+
+        rows.extend((-angular_column, angular_column))
+        bounds.extend(
+            (
+                -config.angular_rate_alpha
+                * alignment_values["angular_rate_upper"],
+                -config.angular_rate_alpha
+                * alignment_values["angular_rate_lower"],
+            )
+        )
+        names.extend(("angular_rate_upper", "angular_rate_lower"))
+        barrier_values.update(alignment_values)
+        barrier_derivatives.update(
+            attitude_upper=-omega,
+            attitude_lower=omega,
         )
 
     return CBFConstraintSet(

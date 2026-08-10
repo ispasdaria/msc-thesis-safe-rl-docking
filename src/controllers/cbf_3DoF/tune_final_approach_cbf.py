@@ -1,7 +1,8 @@
 """Reproducible Optuna tuning for final-approach CBF response gains.
 
-This script tunes only ``cone_k1``, ``cone_k2``, and ``speed_alpha``.  The
-physical cone slope and speed limit remain fixed safety specifications.
+This script tunes the cone, speed, attitude, and angular-rate response gains.
+The physical cone slope, speed limit, attitude limit, and angular-rate limit
+remain fixed safety specifications.
 Unsafe, inadmissible, discretely violating, or solver-failing configurations
 are pruned rather than traded against docking success.
 """
@@ -35,6 +36,7 @@ from controllers.cbf_3DoF.barriers import (
     build_final_approach_constraints,
 )
 from controllers.cbf_3DoF.diagnostics import (
+    attitude_hocbf_admissibility,
     cone_hocbf_admissibility,
     hard_cbf_feasibility_margin,
 )
@@ -166,18 +168,28 @@ def state_from_port_quantities(env, s, y_p, v_p, psi=0.0, omega=0.0):
     return np.concatenate((position, velocity, [psi, omega]))
 
 
-def create_grid_search_space(cone_k_values, speed_alpha_values, cone_k2_values=None):
+def create_grid_search_space(
+    cone_k_values,
+    speed_alpha_values,
+    cone_k2_values=None,
+    attitude_k_values=(0.3,),
+    angular_rate_alpha_values=(0.5,),
+):
     """Create a tied-gain grid unless independent k2 values are requested."""
     if cone_k2_values is None:
-        return {
+        search_space = {
             "cone_k": list(cone_k_values),
             "speed_alpha": list(speed_alpha_values),
         }
-    return {
-        "cone_k1": list(cone_k_values),
-        "cone_k2": list(cone_k2_values),
-        "speed_alpha": list(speed_alpha_values),
-    }
+    else:
+        search_space = {
+            "cone_k1": list(cone_k_values),
+            "cone_k2": list(cone_k2_values),
+            "speed_alpha": list(speed_alpha_values),
+        }
+    search_space["attitude_k"] = list(attitude_k_values)
+    search_space["angular_rate_alpha"] = list(angular_rate_alpha_values)
+    return search_space
 
 
 def config_from_trial(trial, independent_k2):
@@ -188,10 +200,19 @@ def config_from_trial(trial, independent_k2):
         cone_k1 = trial.suggest_float("cone_k", 1.0e-6, 10.0)
         cone_k2 = cone_k1
     speed_alpha = trial.suggest_float("speed_alpha", 1.0e-6, 10.0)
+    attitude_k = trial.suggest_float("attitude_k", 1.0e-6, 10.0)
+    angular_rate_alpha = trial.suggest_float(
+        "angular_rate_alpha",
+        1.0e-6,
+        10.0,
+    )
     return FinalApproachCBFConfig(
         cone_k1=cone_k1,
         cone_k2=cone_k2,
         speed_alpha=speed_alpha,
+        attitude_k1=attitude_k,
+        attitude_k2=attitude_k,
+        angular_rate_alpha=angular_rate_alpha,
         allow_slack=False,
         solver_backend="osqp",
     )
@@ -236,6 +257,36 @@ def boundary_precheck(config, dt=1.0, tolerance=1.0e-6):
             np.array([env.ax_max, -env.ay_max, -env.alphaz_max]),
         )
     )
+
+    for side in (-1.0, 1.0):
+        cases.append(
+            (
+                f"attitude_side{side:+g}",
+                state_from_port_quantities(
+                    env,
+                    s=100.0,
+                    y_p=0.0,
+                    v_p=np.array([-0.03, 0.0]),
+                    psi=side * config.attitude_max,
+                    omega=0.0,
+                ),
+                np.array([0.0, 0.0, side * env.alphaz_max]),
+            )
+        )
+        cases.append(
+            (
+                f"angular_rate_side{side:+g}",
+                state_from_port_quantities(
+                    env,
+                    s=100.0,
+                    y_p=0.0,
+                    v_p=np.array([-0.03, 0.0]),
+                    psi=0.0,
+                    omega=side * config.angular_rate_max,
+                ),
+                np.array([0.0, 0.0, side * env.alphaz_max]),
+            )
+        )
     cases.append(
         (
             "axial_speed",
@@ -254,6 +305,7 @@ def boundary_precheck(config, dt=1.0, tolerance=1.0e-6):
     for name, state, nominal in cases:
         constraints = build_final_approach_constraints(env, state, config)
         psi_1 = cone_hocbf_admissibility(constraints, config)
+        psi_1.update(attitude_hocbf_admissibility(constraints, config))
         if min(constraints.barrier_values.values()) < -tolerance:
             return False, f"{name}:initial_barrier", minimum_margin, minimum_post_barrier
         if min(psi_1.values()) < -tolerance:
@@ -325,6 +377,9 @@ def evaluate_trial(
                 config,
             )
             psi_1 = cone_hocbf_admissibility(initial_constraints, config)
+            psi_1.update(
+                attitude_hocbf_admissibility(initial_constraints, config)
+            )
             if (
                 min(initial_constraints.barrier_values.values()) < -barrier_tolerance
                 or min(psi_1.values()) < -barrier_tolerance
@@ -492,11 +547,26 @@ def parse_args():
         type=float,
         default=[0.1, 0.2, 0.5, 1.0],
     )
+    parser.add_argument(
+        "--attitude-k-values",
+        nargs="+",
+        type=float,
+        default=[0.3],
+    )
+    parser.add_argument(
+        "--angular-rate-alpha-values",
+        nargs="+",
+        type=float,
+        default=[0.5],
+    )
     parser.add_argument("--barrier-tolerance", type=float, default=1.0e-6)
     parser.add_argument("--skip-boundary-precheck", action="store_true")
     parser.add_argument("--n-trials", type=int, default=None)
     parser.add_argument("--grid-seed", type=int, default=2026)
-    parser.add_argument("--study-name", default="final_approach_cbf_grid")
+    parser.add_argument(
+        "--study-name",
+        default="final_approach_cbf_with_alignment_grid",
+    )
     parser.add_argument("--output-dir", type=Path, default=None)
     return parser.parse_args()
 
@@ -510,6 +580,8 @@ def validate_args(args):
         ("cone-k-values", args.cone_k_values),
         ("independent-cone-k2-values", args.independent_cone_k2_values),
         ("speed-alpha-values", args.speed_alpha_values),
+        ("attitude-k-values", args.attitude_k_values),
+        ("angular-rate-alpha-values", args.angular_rate_alpha_values),
     ):
         if values is not None and any(not np.isfinite(value) or value <= 0.0 for value in values):
             raise ValueError(f"Every --{name} entry must be finite and positive.")
@@ -526,6 +598,8 @@ def main():
         args.cone_k_values,
         args.speed_alpha_values,
         args.independent_cone_k2_values,
+        args.attitude_k_values,
+        args.angular_rate_alpha_values,
     )
     total_grid_size = int(np.prod([len(values) for values in search_space.values()]))
     n_trials = total_grid_size if args.n_trials is None else args.n_trials
@@ -545,7 +619,12 @@ def main():
                 "search_space": search_space,
                 "total_grid_size": total_grid_size,
                 "requested_trials": n_trials,
-                "physical_parameters_not_tuned": {"kappa": 0.1, "port_speed_max": 0.15},
+                "physical_parameters_not_tuned": {
+                    "kappa": 0.1,
+                    "port_speed_max": 0.15,
+                    "attitude_max_deg": 3.0,
+                    "angular_rate_max_deg_s": 0.15,
+                },
             },
             stream,
             indent=2,

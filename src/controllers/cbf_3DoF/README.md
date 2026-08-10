@@ -1,11 +1,13 @@
 # Final-approach CBF-QP safety filter
 
 This package filters the final-approach SAC action before it is passed to the
-3-DoF docking simulator. It implements two safety properties as three affine
+3-DoF docking simulator. It implements three safety properties as seven affine
 QP rows:
 
 1. Exact docking-cone containment (upper and lower HOCBF rows)
 2. Docking-port total-speed envelope (one relative-degree-one CBF row)
+3. Attitude and angular-rate alignment envelopes (two attitude HOCBF rows and
+   two angular-rate CBF rows)
 
 The filter uses the unnormalized simulator state and physical body-frame
 action
@@ -44,6 +46,29 @@ with `port_speed_max = 0.15 m/s`. This is a final-approach speed envelope. It
 does not by itself guarantee the stricter terminal contact-speed condition or
 a distance-dependent braking profile.
 
+The protected alignment box is
+
+```text
+|psi_error| <= 3 deg
+|omega|     <= 0.15 deg/s
+```
+
+Attitude uses the relative-degree-two condition
+
+```text
+h_ddot + (attitude_k1 + attitude_k2)*h_dot
+       + attitude_k1*attitude_k2*h >= 0.
+```
+
+Angular rate uses the relative-degree-one condition
+
+```text
+h_dot + angular_rate_alpha*h >= 0.
+```
+
+These limits match the simulator's conservative safe thresholds and remain
+inside its failure thresholds of 4 deg and 0.2 deg/s.
+
 All port quantities and their affine acceleration model reuse the simulator's
 port offset, target-frame geometry, and dynamics. Rotational acceleration is
 therefore represented in the translational port constraints.
@@ -67,23 +92,25 @@ feasibility-margin calculation for tuning and stress-test scripts.
 ## Paired SAC evaluation
 
 The evaluator defaults to the seed-10 best checkpoint and compares the
-unfiltered controller with both CBF properties:
+unfiltered controller with all three protected safety properties:
 
 ```powershell
 .\.venv\Scripts\python.exe src/controllers/cbf_3DoF/evaluate_final_approach_cbf.py `
-  --variants baseline both `
+  --variants baseline all `
   --num-seeds 10 `
   --solver osqp
 ```
 
-Useful ablations are available through `--variants baseline cone speed both`.
+Useful ablations are available through
+`--variants baseline cone speed alignment both all`. Here, `both` retains its
+historical meaning of cone plus speed, while `all` also enables alignment.
 Every variant receives the same initial-state seeds. The output contains:
 
 - `per_episode_metrics.csv`: one row per variant and evaluation seed
 - `aggregate_metrics_by_filter_variant.csv`: aggregate success, intervention,
   slack, and QP data
-- `step_timeseries_<filter>_eval_seedXXXX.npz`: states, actions, barriers, QP
-  residuals, and slack at every step
+- `step_timeseries_<filter>_eval_seedXXXX.npz`: states, actions, pre/post-step
+  barriers, QP residuals, protected-barrier violations, and slack at every step
 - `run_configuration.json`: the exact checkpoint and frozen filter parameters
 
 Slack is enabled by default to make infeasibility visible during development.
@@ -102,11 +129,12 @@ SAC training seeds and its limitations.
 ## Gain tuning
 
 `tune_final_approach_cbf.py` performs a resumable Optuna grid search over the
-HOCBF gains and speed-CBF response gain. It rejects configurations that fail
-the admissible boundary precheck, hard QP solve, QP residual, or sampled
-post-step barrier check. The physical cone slope and speed limit are never
-tuned. The default study uses validation scenario seeds 100--119 and keeps the
-previous development seeds and future final-test seeds separate.
+cone, speed, attitude, and angular-rate response gains. It rejects
+configurations that fail the admissible boundary precheck, hard QP solve, QP
+residual, or sampled post-step barrier check. The physical cone slope, speed
+limit, attitude limit, and angular-rate limit are never tuned. The default
+study uses validation scenario seeds 100--119 and keeps the previous
+development seeds and future final-test seeds separate.
 
 ```powershell
 .\.venv\Scripts\python.exe src/controllers/cbf_3DoF/tune_final_approach_cbf.py
@@ -121,6 +149,8 @@ For a quick integration check before the full study:
   --max-steps 10 `
   --cone-k-values 0.1 `
   --speed-alpha-values 0.5 `
+  --attitude-k-values 0.3 `
+  --angular-rate-alpha-values 0.5 `
   --n-trials 1
 ```
 

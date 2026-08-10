@@ -6,6 +6,7 @@ from controllers.cbf_3DoF.barriers import (
     build_final_approach_constraints,
 )
 from controllers.cbf_3DoF.diagnostics import (
+    attitude_hocbf_admissibility,
     cone_hocbf_admissibility,
     hard_cbf_feasibility_margin,
 )
@@ -42,6 +43,7 @@ def test_sampled_p3_initial_states_are_strictly_hocbf_admissible(mode):
         state = env.sample_X_P3(mode)
         constraints = build_final_approach_constraints(env, state, config)
         psi_1 = cone_hocbf_admissibility(constraints, config)
+        psi_1.update(attitude_hocbf_admissibility(constraints, config))
 
         assert constraints.barrier_values["cone_upper"] > 0.0
         assert constraints.barrier_values["cone_lower"] > 0.0
@@ -142,6 +144,54 @@ def test_speed_boundary_increasing_action_is_corrected_for_one_rk4_step():
     assert next_constraints.barrier_values["port_speed"] >= -1.0e-6
 
 
+@pytest.mark.parametrize("side", [-1.0, 1.0])
+def test_attitude_boundary_outward_action_is_corrected_for_one_rk4_step(side):
+    env = make_env(dt=1.0)
+    config = hard_config()
+    state = state_from_port_quantities(
+        env,
+        s=100.0,
+        y_p=0.0,
+        v_p=np.array([-0.03, 0.0]),
+        psi=side * config.attitude_max,
+        omega=0.0,
+    )
+    nominal = np.array([0.0, 0.0, side * env.alphaz_max])
+    result = FinalApproachCBFFilter(env, config).filter(state, nominal)
+    next_state = env.integrate(state, result.action_filtered)
+    next_constraints = build_final_approach_constraints(env, next_state, config)
+
+    active = "attitude_upper" if side > 0.0 else "attitude_lower"
+    assert not result.qp_failed
+    assert result.intervened
+    assert result.cbf_residuals[active] >= -1.0e-7
+    assert next_constraints.barrier_values[active] >= -1.0e-6
+
+
+@pytest.mark.parametrize("side", [-1.0, 1.0])
+def test_angular_rate_boundary_outward_action_is_corrected_for_one_rk4_step(side):
+    env = make_env(dt=1.0)
+    config = hard_config()
+    state = state_from_port_quantities(
+        env,
+        s=100.0,
+        y_p=0.0,
+        v_p=np.array([-0.03, 0.0]),
+        psi=0.0,
+        omega=side * config.angular_rate_max,
+    )
+    nominal = np.array([0.0, 0.0, side * env.alphaz_max])
+    result = FinalApproachCBFFilter(env, config).filter(state, nominal)
+    next_state = env.integrate(state, result.action_filtered)
+    next_constraints = build_final_approach_constraints(env, next_state, config)
+
+    active = "angular_rate_upper" if side > 0.0 else "angular_rate_lower"
+    assert not result.qp_failed
+    assert result.intervened
+    assert result.cbf_residuals[active] >= -1.0e-7
+    assert next_constraints.barrier_values[active] >= -1.0e-6
+
+
 def test_fast_near_apex_state_is_outside_hocbf_set_and_infeasible():
     """Document a real limitation, rather than silently weakening the cone."""
     env = make_env()
@@ -210,11 +260,12 @@ def test_randomized_admissible_boundary_states_remain_feasible_for_one_step():
             s=s,
             y_p=y_p,
             v_p=v_p,
-            psi=rng.uniform(-np.deg2rad(4.0), np.deg2rad(4.0)),
-            omega=rng.uniform(-np.deg2rad(0.2), np.deg2rad(0.2)),
+            psi=rng.uniform(-np.deg2rad(2.0), np.deg2rad(2.0)),
+            omega=rng.uniform(-np.deg2rad(0.1), np.deg2rad(0.1)),
         )
         constraints = build_final_approach_constraints(env, state, config)
         psi_1 = cone_hocbf_admissibility(constraints, config)
+        psi_1.update(attitude_hocbf_admissibility(constraints, config))
         feasibility = hard_cbf_feasibility_margin(constraints, env.action_high)
         nominal = rng.uniform(-env.action_high, env.action_high)
         result = FinalApproachCBFFilter(env, config).filter(state, nominal)

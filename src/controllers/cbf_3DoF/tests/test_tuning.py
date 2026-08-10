@@ -19,6 +19,8 @@ def valid_args(**changes):
         "cone_k_values": [0.03, 0.1],
         "independent_cone_k2_values": None,
         "speed_alpha_values": [0.1, 0.5],
+        "attitude_k_values": [0.3],
+        "angular_rate_alpha_values": [0.5],
     }
     values.update(changes)
     return SimpleNamespace(**values)
@@ -27,14 +29,25 @@ def valid_args(**changes):
 def test_tied_gain_grid_has_expected_size():
     search = create_grid_search_space([0.03, 0.1], [0.1, 0.5])
 
-    assert set(search) == {"cone_k", "speed_alpha"}
+    assert set(search) == {
+        "cone_k",
+        "speed_alpha",
+        "attitude_k",
+        "angular_rate_alpha",
+    }
     assert len(search["cone_k"]) * len(search["speed_alpha"]) == 4
 
 
 def test_independent_gain_grid_has_expected_size():
     search = create_grid_search_space([0.05, 0.1], [0.5], [0.1, 0.2, 0.3])
 
-    assert set(search) == {"cone_k1", "cone_k2", "speed_alpha"}
+    assert set(search) == {
+        "cone_k1",
+        "cone_k2",
+        "speed_alpha",
+        "attitude_k",
+        "angular_rate_alpha",
+    }
     assert len(search["cone_k1"]) * len(search["cone_k2"]) == 6
 
 

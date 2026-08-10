@@ -47,21 +47,26 @@ DEFAULT_VECNORM_PATH = DEFAULT_MODEL_DIR / f"{DEFAULT_MODEL_STEM}_vecnormalize.p
 DEFAULT_RESULTS_DIR = Path(__file__).resolve().parent / "results" / "final_approach"
 
 VARIANT_FLAGS = {
-    "baseline": (False, False),
-    "cone": (True, False),
-    "speed": (False, True),
-    "both": (True, True),
+    "baseline": (False, False, False),
+    "cone": (True, False, False),
+    "speed": (False, True, False),
+    "alignment": (False, False, True),
+    "both": (True, True, False),
+    "all": (True, True, True),
 }
 
 STEP_LOG_LABELS = {
     "baseline": "unfiltered",
     "cone": "cone_cbf",
     "speed": "speed_cbf",
+    "alignment": "alignment_cbf",
     "both": "combined_cbf",
+    "all": "all_cbf",
 }
 RUN_CONFIG_FILENAME = "run_configuration.json"
 EPISODE_METRICS_FILENAME = "per_episode_metrics.csv"
 VARIANT_SUMMARY_FILENAME = "aggregate_metrics_by_filter_variant.csv"
+PROTECTED_BARRIER_TOLERANCE = 1.0e-6
 
 
 def make_env(seed: int, mode: str) -> Docking3DoFGymEnv:
@@ -140,13 +145,14 @@ def run_rollout(
     observation, info = env.reset(seed=eval_seed)
     total_reward = 0.0
     records: list[dict[str, object]] = []
-    cone_enabled, speed_enabled = VARIANT_FLAGS[variant]
+    cone_enabled, speed_enabled, alignment_enabled = VARIANT_FLAGS[variant]
 
     # Baseline constraints are evaluated in shadow mode for diagnostics only.
     config = replace(
         base_config,
         enable_cone=True if variant == "baseline" else cone_enabled,
         enable_speed=True if variant == "baseline" else speed_enabled,
+        enable_alignment=True if variant == "baseline" else alignment_enabled,
     )
     cbf_filter = (
         None if variant == "baseline" else FinalApproachCBFFilter(env.core_env, config)
@@ -192,6 +198,18 @@ def run_rollout(
         )
         total_reward += reward
 
+        post_constraints = build_final_approach_constraints(
+            env.core_env,
+            env.get_physical_state(),
+            config,
+        )
+        post_values = post_constraints.barrier_values
+        post_violations = tuple(
+            name
+            for name, value in post_values.items()
+            if value < -PROTECTED_BARRIER_TOLERANCE
+        )
+
         values = diagnostics["values"]
         residuals = diagnostics["residuals"]
         slacks = diagnostics["slacks"]
@@ -213,15 +231,72 @@ def run_rollout(
                 "s_dot": float(kinematics.s_dot),
                 "y_p_dot": float(kinematics.y_p_dot),
                 "port_speed": float(np.linalg.norm(kinematics.v_p)),
+                "psi_error": float(env.core_env.wrap_to_pi(state[4])),
+                "angular_rate": float(state[5]),
                 "h_cone_upper": float(values.get("cone_upper", np.nan)),
                 "h_cone_lower": float(values.get("cone_lower", np.nan)),
                 "h_port_speed": float(values.get("port_speed", np.nan)),
+                "h_attitude_upper": float(values.get("attitude_upper", np.nan)),
+                "h_attitude_lower": float(values.get("attitude_lower", np.nan)),
+                "h_angular_rate_upper": float(
+                    values.get("angular_rate_upper", np.nan)
+                ),
+                "h_angular_rate_lower": float(
+                    values.get("angular_rate_lower", np.nan)
+                ),
+                "post_h_cone_upper": float(
+                    post_values.get("cone_upper", np.nan)
+                ),
+                "post_h_cone_lower": float(
+                    post_values.get("cone_lower", np.nan)
+                ),
+                "post_h_port_speed": float(
+                    post_values.get("port_speed", np.nan)
+                ),
+                "post_h_attitude_upper": float(
+                    post_values.get("attitude_upper", np.nan)
+                ),
+                "post_h_attitude_lower": float(
+                    post_values.get("attitude_lower", np.nan)
+                ),
+                "post_h_angular_rate_upper": float(
+                    post_values.get("angular_rate_upper", np.nan)
+                ),
+                "post_h_angular_rate_lower": float(
+                    post_values.get("angular_rate_lower", np.nan)
+                ),
+                "protected_barrier_violation": bool(post_violations),
+                "protected_barriers_violated": ",".join(post_violations),
                 "residual_cone_upper": float(residuals.get("cone_upper", np.nan)),
                 "residual_cone_lower": float(residuals.get("cone_lower", np.nan)),
                 "residual_port_speed": float(residuals.get("port_speed", np.nan)),
+                "residual_attitude_upper": float(
+                    residuals.get("attitude_upper", np.nan)
+                ),
+                "residual_attitude_lower": float(
+                    residuals.get("attitude_lower", np.nan)
+                ),
+                "residual_angular_rate_upper": float(
+                    residuals.get("angular_rate_upper", np.nan)
+                ),
+                "residual_angular_rate_lower": float(
+                    residuals.get("angular_rate_lower", np.nan)
+                ),
                 "slack_cone_upper": float(slacks.get("cone_upper", np.nan)),
                 "slack_cone_lower": float(slacks.get("cone_lower", np.nan)),
                 "slack_port_speed": float(slacks.get("port_speed", np.nan)),
+                "slack_attitude_upper": float(
+                    slacks.get("attitude_upper", np.nan)
+                ),
+                "slack_attitude_lower": float(
+                    slacks.get("attitude_lower", np.nan)
+                ),
+                "slack_angular_rate_upper": float(
+                    slacks.get("angular_rate_upper", np.nan)
+                ),
+                "slack_angular_rate_lower": float(
+                    slacks.get("angular_rate_lower", np.nan)
+                ),
                 "reward": float(reward),
                 "terminated": bool(terminated),
                 "truncated": bool(truncated),
@@ -251,6 +326,10 @@ def run_rollout(
             values("slack_cone_upper"),
             values("slack_cone_lower"),
             values("slack_port_speed"),
+            values("slack_attitude_upper"),
+            values("slack_attitude_lower"),
+            values("slack_angular_rate_upper"),
+            values("slack_angular_rate_lower"),
         ]
     )
     finite_slacks = slacks[np.isfinite(slacks)]
@@ -274,10 +353,38 @@ def run_rollout(
         "mean_intervention_scaled_norm": float(np.mean(intervention)),
         "max_intervention_scaled_norm": float(np.max(intervention)),
         "qp_failure_count": int(sum(record["qp_failed"] for record in records)),
+        "protected_barrier_violation_count": int(
+            sum(record["protected_barrier_violation"] for record in records)
+        ),
+        "protected_barriers_violated": ",".join(
+            sorted(
+                {
+                    name
+                    for record in records
+                    for name in str(record["protected_barriers_violated"]).split(",")
+                    if name
+                }
+            )
+        ),
         "max_slack": float(np.max(finite_slacks)) if finite_slacks.size else 0.0,
         "min_h_cone_upper": finite_min("h_cone_upper"),
         "min_h_cone_lower": finite_min("h_cone_lower"),
         "min_h_port_speed": finite_min("h_port_speed"),
+        "min_h_attitude_upper": finite_min("h_attitude_upper"),
+        "min_h_attitude_lower": finite_min("h_attitude_lower"),
+        "min_h_angular_rate_upper": finite_min("h_angular_rate_upper"),
+        "min_h_angular_rate_lower": finite_min("h_angular_rate_lower"),
+        "min_post_h_cone_upper": finite_min("post_h_cone_upper"),
+        "min_post_h_cone_lower": finite_min("post_h_cone_lower"),
+        "min_post_h_port_speed": finite_min("post_h_port_speed"),
+        "min_post_h_attitude_upper": finite_min("post_h_attitude_upper"),
+        "min_post_h_attitude_lower": finite_min("post_h_attitude_lower"),
+        "min_post_h_angular_rate_upper": finite_min(
+            "post_h_angular_rate_upper"
+        ),
+        "min_post_h_angular_rate_lower": finite_min(
+            "post_h_angular_rate_lower"
+        ),
         "step_log": rollout_path.name,
     }
 
@@ -285,8 +392,14 @@ def run_rollout(
 def summarize_variant(variant: str, rows: list[dict[str, object]]):
     reasons = Counter(row["termination_reason"] for row in rows)
     violations = Counter()
+    protected_violations = Counter()
     for row in rows:
         violations.update(item for item in str(row["violated_constraints"]).split(",") if item)
+        protected_violations.update(
+            item
+            for item in str(row["protected_barriers_violated"]).split(",")
+            if item
+        )
     return {
         "variant": variant,
         "episodes": len(rows),
@@ -297,9 +410,15 @@ def summarize_variant(variant: str, rows: list[dict[str, object]]):
             np.mean([row["intervention_fraction"] for row in rows])
         ),
         "qp_failure_count": int(sum(row["qp_failure_count"] for row in rows)),
+        "protected_barrier_violation_count": int(
+            sum(row["protected_barrier_violation_count"] for row in rows)
+        ),
         "maximum_slack": float(max(row["max_slack"] for row in rows)),
         "termination_reasons": ";".join(f"{key}:{value}" for key, value in reasons.items()),
         "violated_constraints": ";".join(f"{key}:{value}" for key, value in violations.items()),
+        "protected_barriers_violated": ";".join(
+            f"{key}:{value}" for key, value in protected_violations.items()
+        ),
     }
 
 
@@ -322,7 +441,7 @@ def parse_args():
         "--variants",
         nargs="+",
         choices=tuple(VARIANT_FLAGS),
-        default=["baseline", "both"],
+        default=["baseline", "all"],
     )
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--num-seeds", type=int, default=10)
@@ -335,8 +454,14 @@ def parse_args():
     parser.add_argument("--cone-k1", type=float, default=0.1)
     parser.add_argument("--cone-k2", type=float, default=0.1)
     parser.add_argument("--speed-alpha", type=float, default=0.5)
+    parser.add_argument("--attitude-max-deg", type=float, default=3.0)
+    parser.add_argument("--angular-rate-max-deg-s", type=float, default=0.15)
+    parser.add_argument("--attitude-k1", type=float, default=0.3)
+    parser.add_argument("--attitude-k2", type=float, default=0.3)
+    parser.add_argument("--angular-rate-alpha", type=float, default=0.5)
     parser.add_argument("--cone-slack-penalty", type=float, default=1.0e8)
     parser.add_argument("--speed-slack-penalty", type=float, default=1.0e8)
+    parser.add_argument("--alignment-slack-penalty", type=float, default=1.0e8)
     parser.add_argument("--output-dir", type=Path, default=None)
     return parser.parse_args()
 
@@ -360,8 +485,14 @@ def main() -> None:
         cone_k1=args.cone_k1,
         cone_k2=args.cone_k2,
         speed_alpha=args.speed_alpha,
+        attitude_max=np.deg2rad(args.attitude_max_deg),
+        angular_rate_max=np.deg2rad(args.angular_rate_max_deg_s),
+        attitude_k1=args.attitude_k1,
+        attitude_k2=args.attitude_k2,
+        angular_rate_alpha=args.angular_rate_alpha,
         cone_slack_penalty=args.cone_slack_penalty,
         speed_slack_penalty=args.speed_slack_penalty,
+        alignment_slack_penalty=args.alignment_slack_penalty,
         allow_slack=not args.hard_constraints,
         solver_backend=args.solver,
     )
@@ -419,7 +550,9 @@ def main() -> None:
             f"{summary['variant']:8s}: success={summary['success_rate']:.3f}, "
             f"failure={summary['failure_rate']:.3f}, "
             f"intervention={summary['mean_intervention_fraction']:.3f}, "
-            f"QP failures={summary['qp_failure_count']}"
+            f"QP failures={summary['qp_failure_count']}, "
+            "protected post-step violations="
+            f"{summary['protected_barrier_violation_count']}"
         )
 
 

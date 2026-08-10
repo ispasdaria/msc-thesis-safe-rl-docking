@@ -79,11 +79,12 @@ unfiltered controller with both CBF properties:
 Useful ablations are available through `--variants baseline cone speed both`.
 Every variant receives the same initial-state seeds. The output contains:
 
-- `rollout_metrics.csv`: one row per variant and evaluation seed
-- `variant_summary.csv`: aggregate success, intervention, slack, and QP data
-- `steps_<variant>_seedXXXX.npz`: states, actions, barriers, QP residuals, and
-  slack at every step
-- `experiment_config.json`: the exact checkpoint and frozen filter parameters
+- `per_episode_metrics.csv`: one row per variant and evaluation seed
+- `aggregate_metrics_by_filter_variant.csv`: aggregate success, intervention,
+  slack, and QP data
+- `step_timeseries_<filter>_eval_seedXXXX.npz`: states, actions, barriers, QP
+  residuals, and slack at every step
+- `run_configuration.json`: the exact checkpoint and frozen filter parameters
 
 Slack is enabled by default to make infeasibility visible during development.
 Every slack value is logged. Use `--hard-constraints` only after feasibility
@@ -123,6 +124,6 @@ For a quick integration check before the full study:
   --n-trials 1
 ```
 
-The output directory contains a resumable `study.db`, the complete
-`tuning_trials.csv`, `tuning_plan.json`, and—if at least one safe trial
-completes—`recommended_config.json`.
+The output directory contains a resumable `optuna_gain_search.sqlite3`, the
+complete `gain_search_trial_results.csv`, `gain_search_plan.json`, and—if at
+least one safe trial completes—`selected_cbf_gain_configuration.json`.

@@ -53,6 +53,16 @@ VARIANT_FLAGS = {
     "both": (True, True),
 }
 
+STEP_LOG_LABELS = {
+    "baseline": "unfiltered",
+    "cone": "cone_cbf",
+    "speed": "speed_cbf",
+    "both": "combined_cbf",
+}
+RUN_CONFIG_FILENAME = "run_configuration.json"
+EPISODE_METRICS_FILENAME = "per_episode_metrics.csv"
+VARIANT_SUMMARY_FILENAME = "aggregate_metrics_by_filter_variant.csv"
+
 
 def make_env(seed: int, mode: str) -> Docking3DoFGymEnv:
     return Docking3DoFGymEnv(
@@ -222,7 +232,9 @@ def run_rollout(
 
     env.close()
     steps = len(records)
-    rollout_path = output_dir / f"steps_{variant}_seed{eval_seed:04d}.npz"
+    rollout_path = output_dir / (
+        f"step_timeseries_{STEP_LOG_LABELS[variant]}_eval_seed{eval_seed:04d}.npz"
+    )
     _serialize_step_records(records, rollout_path)
 
     def values(key):
@@ -383,9 +395,9 @@ def main() -> None:
         summarize_variant(variant, [row for row in rows if row["variant"] == variant])
         for variant in args.variants
     ]
-    write_csv(output_dir / "rollout_metrics.csv", rows)
-    write_csv(output_dir / "variant_summary.csv", summaries)
-    with (output_dir / "experiment_config.json").open("w", encoding="utf-8") as stream:
+    write_csv(output_dir / EPISODE_METRICS_FILENAME, rows)
+    write_csv(output_dir / VARIANT_SUMMARY_FILENAME, summaries)
+    with (output_dir / RUN_CONFIG_FILENAME).open("w", encoding="utf-8") as stream:
         json.dump(
             {
                 "model": str(args.model.resolve()),

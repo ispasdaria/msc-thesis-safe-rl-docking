@@ -59,10 +59,10 @@ Per-step actions, barrier values, residuals, and per-rollout metrics are stored
 locally under:
 
 ```text
-src/controllers/cbf_3DoF/results/final_approach/multicontroller_seed0_hard
-src/controllers/cbf_3DoF/results/final_approach/multicontroller_seed1_hard
-src/controllers/cbf_3DoF/results/final_approach/multicontroller_seed10_hard
-src/controllers/cbf_3DoF/results/final_approach/multicontroller_seed14_hard
-src/controllers/cbf_3DoF/results/final_approach/multicontroller_seed15_hard
-src/controllers/cbf_3DoF/results/final_approach/multicontroller_seed16_hard
+src/controllers/cbf_3DoF/results/final_approach/sac_seed00_untuned_hard_combined_cbf_eval_seeds0000_0009
+src/controllers/cbf_3DoF/results/final_approach/sac_seed01_untuned_hard_combined_cbf_eval_seeds0000_0009
+src/controllers/cbf_3DoF/results/final_approach/sac_seed10_untuned_hard_combined_cbf_eval_seeds0000_0009
+src/controllers/cbf_3DoF/results/final_approach/sac_seed14_untuned_hard_combined_cbf_eval_seeds0000_0009
+src/controllers/cbf_3DoF/results/final_approach/sac_seed15_untuned_hard_combined_cbf_eval_seeds0000_0009
+src/controllers/cbf_3DoF/results/final_approach/sac_seed16_untuned_hard_combined_cbf_eval_seeds0000_0009
 ```

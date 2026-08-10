@@ -57,6 +57,10 @@ MODEL_TEMPLATE = (
     "seed{seed}_optuna12_buffer600k_best"
 )
 J = np.array([[0.0, -1.0], [1.0, 0.0]], dtype=np.float64)
+GAIN_SEARCH_PLAN_FILENAME = "gain_search_plan.json"
+OPTUNA_STUDY_FILENAME = "optuna_gain_search.sqlite3"
+GAIN_SEARCH_TRIALS_FILENAME = "gain_search_trial_results.csv"
+SELECTED_CONFIG_FILENAME = "selected_cbf_gain_configuration.json"
 
 
 @dataclass
@@ -528,7 +532,7 @@ def main():
     if n_trials <= 0:
         raise ValueError("--n-trials must be positive.")
 
-    with (output_dir / "tuning_plan.json").open("w", encoding="utf-8") as stream:
+    with (output_dir / GAIN_SEARCH_PLAN_FILENAME).open("w", encoding="utf-8") as stream:
         json.dump(
             {
                 "controller_seeds": args.controller_seeds,
@@ -551,7 +555,7 @@ def main():
     bundles = [load_controller(seed, args.mode, args.dt) for seed in args.controller_seeds]
     eval_seeds = range(args.eval_seed_start, args.eval_seed_start + args.num_eval_seeds)
     sampler = optuna.samplers.GridSampler(search_space, seed=args.grid_seed)
-    storage = f"sqlite:///{(output_dir / 'study.db').resolve().as_posix()}"
+    storage = f"sqlite:///{(output_dir / OPTUNA_STUDY_FILENAME).resolve().as_posix()}"
     study = optuna.create_study(
         study_name=args.study_name,
         directions=("maximize", "minimize"),
@@ -587,7 +591,7 @@ def main():
     dataframe = study.trials_dataframe(
         attrs=("number", "state", "values", "params", "user_attrs")
     )
-    dataframe.to_csv(output_dir / "tuning_trials.csv", index=False)
+    dataframe.to_csv(output_dir / GAIN_SEARCH_TRIALS_FILENAME, index=False)
     recommended = select_recommended_trial(study)
     if recommended is None:
         print("No safe completed configuration was found.")
@@ -601,15 +605,15 @@ def main():
             },
             "metrics": recommended.user_attrs,
         }
-        with (output_dir / "recommended_config.json").open(
+        with (output_dir / SELECTED_CONFIG_FILENAME).open(
             "w", encoding="utf-8"
         ) as stream:
             json.dump(recommendation, stream, indent=2)
         print("Recommended safe configuration:")
         print(json.dumps(recommendation, indent=2))
 
-    print(f"Study database: {(output_dir / 'study.db').resolve()}")
-    print(f"Trial table:    {(output_dir / 'tuning_trials.csv').resolve()}")
+    print(f"Study database: {(output_dir / OPTUNA_STUDY_FILENAME).resolve()}")
+    print(f"Trial table:    {(output_dir / GAIN_SEARCH_TRIALS_FILENAME).resolve()}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,114 @@
+{
+  "trial_number": 9,
+  "parameters": {
+    "cone_k": 0.3,
+    "speed_alpha": 0.5
+  },
+  "objectives": {
+    "success_rate": 0.75,
+    "intervention_fraction": 0.003992222406089691
+  },
+  "metrics": {
+    "actuator_saturation_fraction": 0.0,
+    "alignment_failures": 20,
+    "boundary_min_feasibility_margin": 0.0029275714133393006,
+    "boundary_min_post_barrier": -5.588824958380201e-10,
+    "cbf_config": {
+      "kappa": 0.1,
+      "port_speed_max": 0.15,
+      "cone_k1": 0.3,
+      "cone_k2": 0.3,
+      "speed_alpha": 0.5,
+      "cone_slack_penalty": 100000000.0,
+      "speed_slack_penalty": 100000000.0,
+      "numerical_eps": 1e-09,
+      "intervention_eps": 1e-07,
+      "solver_eps_abs": 1e-08,
+      "solver_eps_rel": 1e-08,
+      "solver_max_iter": 20000,
+      "allow_slack": false,
+      "enable_cone": true,
+      "enable_speed": true,
+      "solver_backend": "osqp"
+    },
+    "controller_summaries": {
+      "0": {
+        "episodes": 20,
+        "success_rate": 0.0,
+        "failure_rate": 1.0,
+        "timeout_rate": 0.0,
+        "mean_steps": 190.55,
+        "intervention_fraction": 0.016268695880346365,
+        "mean_intervention_scaled_norm": 0.008687835028294,
+        "max_intervention_scaled_norm": 1.1039324836829583,
+        "actuator_saturation_fraction": 0.0,
+        "qp_failures": 0,
+        "protected_violations": 0,
+        "alignment_failures": 20,
+        "min_post_barrier": 0.0002496115283240029
+      },
+      "1": {
+        "episodes": 20,
+        "success_rate": 1.0,
+        "failure_rate": 0.0,
+        "timeout_rate": 0.0,
+        "mean_steps": 3268.2,
+        "intervention_fraction": 0.0037023437978091914,
+        "mean_intervention_scaled_norm": 0.003977351502031324,
+        "max_intervention_scaled_norm": 2.023488091956291,
+        "actuator_saturation_fraction": 0.0,
+        "qp_failures": 0,
+        "protected_violations": 0,
+        "alignment_failures": 0,
+        "min_post_barrier": 0.005641547382798267
+      },
+      "10": {
+        "episodes": 20,
+        "success_rate": 1.0,
+        "failure_rate": 0.0,
+        "timeout_rate": 0.0,
+        "mean_steps": 3055.4,
+        "intervention_fraction": 0.0031256136676048965,
+        "mean_intervention_scaled_norm": 0.003177211979338574,
+        "max_intervention_scaled_norm": 1.7945289850925228,
+        "actuator_saturation_fraction": 0.0,
+        "qp_failures": 0,
+        "protected_violations": 0,
+        "alignment_failures": 0,
+        "min_post_barrier": 0.006272921690803294
+      },
+      "16": {
+        "episodes": 20,
+        "success_rate": 1.0,
+        "failure_rate": 0.0,
+        "timeout_rate": 0.0,
+        "mean_steps": 3154.65,
+        "intervention_fraction": 0.0043903444122168865,
+        "mean_intervention_scaled_norm": 0.002684088985680127,
+        "max_intervention_scaled_norm": 1.4051313975457354,
+        "actuator_saturation_fraction": 0.0,
+        "qp_failures": 0,
+        "protected_violations": 0,
+        "alignment_failures": 0,
+        "min_post_barrier": 0.002605481286160116
+      }
+    },
+    "episodes": 80,
+    "failure_rate": 0.25,
+    "intervention_fraction": 0.003992222406089691,
+    "max_intervention_scaled_norm": 2.023488091956291,
+    "mean_intervention_scaled_norm": 0.0033953812204125557,
+    "mean_steps": 2417.2,
+    "min_post_barrier": 0.0002496115283240029,
+    "protected_violations": 0,
+    "qp_failures": 0,
+    "rejection_reason": "",
+    "success_rate": 0.75,
+    "termination_reasons": {
+      "safety_violation": 20,
+      "success_docking": 60
+    },
+    "timeout_rate": 0.0,
+    "worst_controller_success_rate": 0.0
+  }
+}

@@ -1,2 +1,2 @@
-*
-!.gitignore
+# CBF tuning and evaluation outputs are thesis artifacts and are intentionally
+# versioned for reproducibility.

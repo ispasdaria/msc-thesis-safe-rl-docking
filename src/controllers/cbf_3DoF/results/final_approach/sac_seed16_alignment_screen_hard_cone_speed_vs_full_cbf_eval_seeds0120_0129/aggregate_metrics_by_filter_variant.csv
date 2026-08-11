@@ -1,0 +1,3 @@
+variant,episodes,success_rate,failure_rate,mean_steps,mean_intervention_fraction,qp_failure_count,protected_barrier_violation_count,maximum_slack,termination_reasons,violated_constraints,protected_barriers_violated
+both,10,1.0,0.0,3136.7,0.004338000396272416,0,0,0.0,success_docking:10,,
+all,10,1.0,0.0,3136.6,0.004338133390407374,0,0,0.0,success_docking:10,,

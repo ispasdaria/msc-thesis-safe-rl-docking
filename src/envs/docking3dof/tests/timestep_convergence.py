@@ -12,7 +12,7 @@ if SRC_PATH not in sys.path:
 
 from envs.docking3dof.core import Docking3DoFEnv
 
-def run_zero_input_rollout(
+def run_constant_input_rollout(
     dt,
     integrator,
     initial_state,
@@ -20,7 +20,7 @@ def run_zero_input_rollout(
     max_time=1000.0,
 ):
     """
-    Runs one zero-input simulation for a fixed timestep and integrator.
+    Runs one constant-input simulation for a fixed timestep and integrator.
 
     The same initial condition is used for all simulations so that only
     the timestep/integrator changes.
@@ -262,7 +262,7 @@ def main():
     results = {}
 
     for dt in dts:
-        result = run_zero_input_rollout(
+        result = run_constant_input_rollout(
             dt=dt,
             integrator=integrator,
             initial_state=initial_state,
@@ -291,12 +291,12 @@ def main():
 
     plot_position_trajectories(
         results=results,
-        title=f"Zero-input trajectory convergence using {integrator.upper()}",
+        title=f"Constant-input trajectory convergence using {integrator.upper()}",
     )
 
     plot_state_histories(
         results=results,
-        title_prefix=f"Zero-input timestep convergence using {integrator.upper()}",
+        title_prefix=f"Constant-input timestep convergence using {integrator.upper()}",
     )
 
     print(

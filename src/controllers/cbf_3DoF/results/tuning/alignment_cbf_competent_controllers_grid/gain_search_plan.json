@@ -1,0 +1,43 @@
+{
+  "controller_seeds": [
+    1,
+    10,
+    14,
+    15,
+    16
+  ],
+  "eval_seed_start": 100,
+  "num_eval_seeds": 20,
+  "mode": "testing",
+  "dt": 1.0,
+  "max_steps": 5000,
+  "barrier_tolerance": 1e-06,
+  "search_space": {
+    "cone_k": [
+      0.3
+    ],
+    "speed_alpha": [
+      0.5
+    ],
+    "attitude_k": [
+      0.1,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "angular_rate_alpha": [
+      0.1,
+      0.2,
+      0.5,
+      1.0
+    ]
+  },
+  "total_grid_size": 16,
+  "requested_trials": 16,
+  "physical_parameters_not_tuned": {
+    "kappa": 0.1,
+    "port_speed_max": 0.15,
+    "attitude_max_deg": 3.0,
+    "angular_rate_max_deg_s": 0.15
+  }
+}

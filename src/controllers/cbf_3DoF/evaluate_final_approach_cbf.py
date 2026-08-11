@@ -12,6 +12,7 @@ import csv
 from collections import Counter
 from dataclasses import asdict, replace
 from datetime import datetime
+from itertools import combinations
 import json
 from pathlib import Path
 import sys
@@ -32,6 +33,7 @@ from controllers.cbf_3DoF.barriers import (
     FinalApproachCBFConfig,
     build_final_approach_constraints,
 )
+from controllers.cbf_3DoF.diagnostics import hard_cbf_feasibility_margin
 from controllers.cbf_3DoF.qp_filter import FinalApproachCBFFilter
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
@@ -67,6 +69,13 @@ RUN_CONFIG_FILENAME = "run_configuration.json"
 EPISODE_METRICS_FILENAME = "per_episode_metrics.csv"
 VARIANT_SUMMARY_FILENAME = "aggregate_metrics_by_filter_variant.csv"
 PROTECTED_BARRIER_TOLERANCE = 1.0e-6
+RESULT_SCHEMA_VERSION = 2
+
+CONSTRAINT_FAMILY_FIELDS = {
+    "cone": "enable_cone",
+    "speed": "enable_speed",
+    "alignment": "enable_alignment",
+}
 
 
 def make_env(seed: int, mode: str) -> Docking3DoFGymEnv:
@@ -93,6 +102,102 @@ def normalize_observation(vecnormalize: VecNormalize, observation: np.ndarray):
     return vecnormalize.normalize_obs(observation.reshape(1, -1))
 
 
+def classify_protected_barrier_violations(post_values):
+    """Return strict and tolerance-aware post-step CBF violations.
+
+    The strict set matches the mathematical barrier condition ``h >= 0``.
+    The tolerance-aware set separately identifies crossings larger than the
+    evaluator's numerical reporting tolerance.  Neither set changes simulator
+    termination or the action applied to the environment.
+    """
+    strict = tuple(name for name, value in post_values.items() if value < 0.0)
+    beyond_tolerance = tuple(
+        name
+        for name, value in post_values.items()
+        if value < -PROTECTED_BARRIER_TOLERANCE
+    )
+    return strict, beyond_tolerance
+
+
+def diagnose_qp_failure(core_env, state, config, solver_status):
+    """Explain a failed QP without changing its existing fallback behavior.
+
+    An independent LP checks the raw hard CBF rows for the complete enabled
+    constraint set and for all enabled family subsets.  Reporting only minimal
+    infeasible subsets distinguishes a single-family limitation (for example,
+    ``cone``) from a conflict that appears only when families are combined.
+    """
+    empty = {
+        "reason": "",
+        "hard_feasibility_margin": np.nan,
+        "hard_feasibility_solver_status": "not_checked",
+        "minimal_infeasible_constraint_groups": "",
+    }
+    try:
+        enabled_families = tuple(
+            family
+            for family, field in CONSTRAINT_FAMILY_FIELDS.items()
+            if getattr(config, field)
+        )
+        full_constraints = build_final_approach_constraints(core_env, state, config)
+        full_feasibility = hard_cbf_feasibility_margin(
+            full_constraints,
+            core_env.action_high,
+        )
+
+        minimal_infeasible = []
+        for size in range(1, len(enabled_families) + 1):
+            for subset in combinations(enabled_families, size):
+                subset_set = set(subset)
+                if any(set(previous).issubset(subset_set) for previous in minimal_infeasible):
+                    continue
+                subset_config = replace(
+                    config,
+                    **{
+                        field: family in subset_set
+                        for family, field in CONSTRAINT_FAMILY_FIELDS.items()
+                    },
+                )
+                subset_constraints = build_final_approach_constraints(
+                    core_env,
+                    state,
+                    subset_config,
+                )
+                subset_feasibility = hard_cbf_feasibility_margin(
+                    subset_constraints,
+                    core_env.action_high,
+                )
+                if not subset_feasibility.feasible:
+                    minimal_infeasible.append(subset)
+
+        group_labels = tuple("+".join(group) for group in minimal_infeasible)
+        groups = ",".join(group_labels)
+        status = str(solver_status).replace("[", "(").replace("]", ")")
+        if config.allow_slack:
+            reason = f"soft_qp_solver_failure[{status}]"
+            if groups:
+                reason += f"|hard_rows_infeasible[{groups}]"
+        elif not full_feasibility.feasible:
+            detail = groups or "unclassified"
+            reason = f"hard_constraints_infeasible[{detail}]"
+        else:
+            reason = f"solver_failed_despite_hard_feasibility[{status}]"
+
+        return {
+            "reason": reason,
+            "hard_feasibility_margin": float(full_feasibility.margin),
+            "hard_feasibility_solver_status": full_feasibility.solver_status,
+            "minimal_infeasible_constraint_groups": groups,
+        }
+    except Exception as exc:  # diagnostics must not hide the original QP failure
+        diagnosis = dict(empty)
+        diagnosis["reason"] = (
+            f"feasibility_diagnostic_error[{type(exc).__name__}:{exc}]"
+        )
+        diagnosis["hard_feasibility_solver_status"] = "diagnostic_error"
+        return diagnosis
+
+
 def _serialize_step_records(records: list[dict[str, object]], path: Path) -> None:
     """Store fixed-schema scalar/vector step records in a compact NPZ file."""
     if not records:
@@ -113,6 +218,18 @@ def _serialize_step_records(records: list[dict[str, object]], path: Path) -> Non
     np.savez_compressed(path, **arrays)
 
 
+def _format_counter(counter: Counter) -> str:
+    return ";".join(f"{key}:{value}" for key, value in sorted(counter.items()))
+
+
+def _update_counter_from_summary(counter: Counter, summary: object) -> None:
+    for item in str(summary).split(";"):
+        if not item:
+            continue
+        key, count = item.rsplit(":", 1)
+        counter[key] += int(count)
+
+
 def _baseline_diagnostics(core_env, state, nominal, config):
     constraints = build_final_approach_constraints(core_env, state, config)
     residual = constraints.A @ nominal - constraints.b
@@ -126,6 +243,10 @@ def _baseline_diagnostics(core_env, state, nominal, config):
         "residuals": dict(zip(constraints.names, residual)),
         "slacks": {name: 0.0 for name in constraints.names},
         "failed": False,
+        "failure_reason": "",
+        "hard_feasibility_margin": np.nan,
+        "hard_feasibility_solver_status": "not_checked",
+        "minimal_infeasible_constraint_groups": "",
         "kinematics": constraints.kinematics,
     }
 
@@ -178,6 +299,21 @@ def run_rollout(
         else:
             result = cbf_filter.filter(state, nominal_physical)
             constraints = build_final_approach_constraints(env.core_env, state, config)
+            failure_diagnosis = (
+                diagnose_qp_failure(
+                    env.core_env,
+                    state,
+                    config,
+                    result.solver_status,
+                )
+                if result.qp_failed
+                else {
+                    "reason": "",
+                    "hard_feasibility_margin": np.nan,
+                    "hard_feasibility_solver_status": "not_checked",
+                    "minimal_infeasible_constraint_groups": "",
+                }
+            )
             diagnostics = {
                 "action": result.action_filtered,
                 "status": result.solver_status,
@@ -188,6 +324,16 @@ def run_rollout(
                 "residuals": result.cbf_residuals,
                 "slacks": result.slack_values,
                 "failed": result.qp_failed,
+                "failure_reason": failure_diagnosis["reason"],
+                "hard_feasibility_margin": failure_diagnosis[
+                    "hard_feasibility_margin"
+                ],
+                "hard_feasibility_solver_status": failure_diagnosis[
+                    "hard_feasibility_solver_status"
+                ],
+                "minimal_infeasible_constraint_groups": failure_diagnosis[
+                    "minimal_infeasible_constraint_groups"
+                ],
                 "kinematics": constraints.kinematics,
             }
 
@@ -204,10 +350,8 @@ def run_rollout(
             config,
         )
         post_values = post_constraints.barrier_values
-        post_violations = tuple(
-            name
-            for name, value in post_values.items()
-            if value < -PROTECTED_BARRIER_TOLERANCE
+        strict_post_violations, tolerance_post_violations = (
+            classify_protected_barrier_violations(post_values)
         )
 
         values = diagnostics["values"]
@@ -226,6 +370,16 @@ def run_rollout(
                 "solver_status": str(diagnostics["status"]),
                 "solver_backend": str(diagnostics["backend"]),
                 "qp_failed": diagnostics["failed"],
+                "qp_failure_reason": str(diagnostics["failure_reason"]),
+                "qp_failure_hard_feasibility_margin": float(
+                    diagnostics["hard_feasibility_margin"]
+                ),
+                "qp_failure_hard_feasibility_solver_status": str(
+                    diagnostics["hard_feasibility_solver_status"]
+                ),
+                "qp_failure_minimal_infeasible_constraint_groups": str(
+                    diagnostics["minimal_infeasible_constraint_groups"]
+                ),
                 "s": float(kinematics.s),
                 "y_p": float(kinematics.y_p),
                 "s_dot": float(kinematics.s_dot),
@@ -265,8 +419,18 @@ def run_rollout(
                 "post_h_angular_rate_lower": float(
                     post_values.get("angular_rate_lower", np.nan)
                 ),
-                "protected_barrier_violation": bool(post_violations),
-                "protected_barriers_violated": ",".join(post_violations),
+                "strict_protected_barrier_violation": bool(
+                    strict_post_violations
+                ),
+                "strict_protected_barriers_violated": ",".join(
+                    strict_post_violations
+                ),
+                "protected_barrier_violation_beyond_tolerance": bool(
+                    tolerance_post_violations
+                ),
+                "protected_barriers_violated_beyond_tolerance": ",".join(
+                    tolerance_post_violations
+                ),
                 "residual_cone_upper": float(residuals.get("cone_upper", np.nan)),
                 "residual_cone_lower": float(residuals.get("cone_lower", np.nan)),
                 "residual_port_speed": float(residuals.get("port_speed", np.nan)),
@@ -335,6 +499,29 @@ def run_rollout(
     finite_slacks = slacks[np.isfinite(slacks)]
     ended = bool(final_info.get("success") or final_info.get("failure") or final_info.get("time_limit"))
     reason = final_info.get("termination_reason") if ended else "evaluation_step_limit"
+    qp_failure_reasons = Counter(
+        str(record["qp_failure_reason"])
+        for record in records
+        if record["qp_failed"] and record["qp_failure_reason"]
+    )
+    qp_failure_groups = Counter(
+        str(record["qp_failure_minimal_infeasible_constraint_groups"])
+        for record in records
+        if record["qp_failed"]
+        and record["qp_failure_minimal_infeasible_constraint_groups"]
+    )
+
+    def barrier_names(key):
+        return ",".join(
+            sorted(
+                {
+                    name
+                    for record in records
+                    for name in str(record[key]).split(",")
+                    if name
+                }
+            )
+        )
 
     return {
         "variant": variant,
@@ -353,18 +540,27 @@ def run_rollout(
         "mean_intervention_scaled_norm": float(np.mean(intervention)),
         "max_intervention_scaled_norm": float(np.max(intervention)),
         "qp_failure_count": int(sum(record["qp_failed"] for record in records)),
-        "protected_barrier_violation_count": int(
-            sum(record["protected_barrier_violation"] for record in records)
+        "qp_failure_reasons": _format_counter(qp_failure_reasons),
+        "qp_failure_minimal_infeasible_constraint_groups": _format_counter(
+            qp_failure_groups
         ),
-        "protected_barriers_violated": ",".join(
-            sorted(
-                {
-                    name
-                    for record in records
-                    for name in str(record["protected_barriers_violated"]).split(",")
-                    if name
-                }
+        "minimum_qp_failure_hard_feasibility_margin": finite_min(
+            "qp_failure_hard_feasibility_margin"
+        ),
+        "strict_protected_barrier_violation_count": int(
+            sum(record["strict_protected_barrier_violation"] for record in records)
+        ),
+        "strict_protected_barriers_violated": barrier_names(
+            "strict_protected_barriers_violated"
+        ),
+        "protected_barrier_violation_beyond_tolerance_count": int(
+            sum(
+                record["protected_barrier_violation_beyond_tolerance"]
+                for record in records
             )
+        ),
+        "protected_barriers_violated_beyond_tolerance": barrier_names(
+            "protected_barriers_violated_beyond_tolerance"
         ),
         "max_slack": float(np.max(finite_slacks)) if finite_slacks.size else 0.0,
         "min_h_cone_upper": finite_min("h_cone_upper"),
@@ -392,12 +588,27 @@ def run_rollout(
 def summarize_variant(variant: str, rows: list[dict[str, object]]):
     reasons = Counter(row["termination_reason"] for row in rows)
     violations = Counter()
-    protected_violations = Counter()
+    qp_failure_reasons = Counter()
+    qp_failure_groups = Counter()
+    strict_protected_violations = Counter()
+    tolerance_protected_violations = Counter()
     for row in rows:
         violations.update(item for item in str(row["violated_constraints"]).split(",") if item)
-        protected_violations.update(
+        _update_counter_from_summary(qp_failure_reasons, row["qp_failure_reasons"])
+        _update_counter_from_summary(
+            qp_failure_groups,
+            row["qp_failure_minimal_infeasible_constraint_groups"],
+        )
+        strict_protected_violations.update(
             item
-            for item in str(row["protected_barriers_violated"]).split(",")
+            for item in str(row["strict_protected_barriers_violated"]).split(",")
+            if item
+        )
+        tolerance_protected_violations.update(
+            item
+            for item in str(
+                row["protected_barriers_violated_beyond_tolerance"]
+            ).split(",")
             if item
         )
     return {
@@ -410,14 +621,40 @@ def summarize_variant(variant: str, rows: list[dict[str, object]]):
             np.mean([row["intervention_fraction"] for row in rows])
         ),
         "qp_failure_count": int(sum(row["qp_failure_count"] for row in rows)),
-        "protected_barrier_violation_count": int(
-            sum(row["protected_barrier_violation_count"] for row in rows)
+        "qp_failure_reasons": _format_counter(qp_failure_reasons),
+        "qp_failure_minimal_infeasible_constraint_groups": _format_counter(
+            qp_failure_groups
+        ),
+        "minimum_qp_failure_hard_feasibility_margin": float(
+            np.nanmin(
+                [
+                    row["minimum_qp_failure_hard_feasibility_margin"]
+                    for row in rows
+                ]
+            )
+        )
+        if any(
+            np.isfinite(row["minimum_qp_failure_hard_feasibility_margin"])
+            for row in rows
+        )
+        else np.nan,
+        "strict_protected_barrier_violation_count": int(
+            sum(row["strict_protected_barrier_violation_count"] for row in rows)
+        ),
+        "protected_barrier_violation_beyond_tolerance_count": int(
+            sum(
+                row["protected_barrier_violation_beyond_tolerance_count"]
+                for row in rows
+            )
         ),
         "maximum_slack": float(max(row["max_slack"] for row in rows)),
         "termination_reasons": ";".join(f"{key}:{value}" for key, value in reasons.items()),
         "violated_constraints": ";".join(f"{key}:{value}" for key, value in violations.items()),
-        "protected_barriers_violated": ";".join(
-            f"{key}:{value}" for key, value in protected_violations.items()
+        "strict_protected_barriers_violated": ";".join(
+            f"{key}:{value}" for key, value in strict_protected_violations.items()
+        ),
+        "protected_barriers_violated_beyond_tolerance": ";".join(
+            f"{key}:{value}" for key, value in tolerance_protected_violations.items()
         ),
     }
 
@@ -531,6 +768,7 @@ def main() -> None:
     with (output_dir / RUN_CONFIG_FILENAME).open("w", encoding="utf-8") as stream:
         json.dump(
             {
+                "result_schema_version": RESULT_SCHEMA_VERSION,
                 "model": str(args.model.resolve()),
                 "vecnormalize": str(args.vecnormalize.resolve()),
                 "variants": args.variants,
@@ -538,6 +776,10 @@ def main() -> None:
                 "num_seeds": args.num_seeds,
                 "mode": args.mode,
                 "max_steps": args.max_steps,
+                "protected_barrier_tolerance": PROTECTED_BARRIER_TOLERANCE,
+                "qp_failure_behavior": (
+                    "record_diagnosis_and_retain_nominal_action_fallback"
+                ),
                 "cbf": asdict(config),
             },
             stream,
@@ -551,8 +793,10 @@ def main() -> None:
             f"failure={summary['failure_rate']:.3f}, "
             f"intervention={summary['mean_intervention_fraction']:.3f}, "
             f"QP failures={summary['qp_failure_count']}, "
-            "protected post-step violations="
-            f"{summary['protected_barrier_violation_count']}"
+            "strict protected post-step violations="
+            f"{summary['strict_protected_barrier_violation_count']}, "
+            f"beyond {PROTECTED_BARRIER_TOLERANCE:.0e}="
+            f"{summary['protected_barrier_violation_beyond_tolerance_count']}"
         )
 
 

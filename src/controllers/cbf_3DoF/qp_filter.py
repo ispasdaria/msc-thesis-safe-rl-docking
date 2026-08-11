@@ -71,6 +71,10 @@ class FinalApproachCBFFilter:
         )
 
         if failed:
+            # Deliberate evaluation behavior: preserve the nominal SAC fallback
+            # while marking the result as failed.  The paired evaluator records
+            # an independent hard-feasibility diagnosis for every such step;
+            # callers must not interpret this fallback as CBF-certified safety.
             solution = nominal.copy()
             slack = np.zeros(len(constraints.names), dtype=np.float64)
 

@@ -1,0 +1,37 @@
+{
+  "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed15_optuna12_buffer600k_best.zip",
+  "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed15_optuna12_buffer600k_best_vecnormalize.pkl",
+  "variants": [
+    "both",
+    "all"
+  ],
+  "seed_start": 120,
+  "num_seeds": 10,
+  "mode": "testing",
+  "max_steps": 5000,
+  "cbf": {
+    "kappa": 0.1,
+    "port_speed_max": 0.15,
+    "cone_k1": 0.3,
+    "cone_k2": 0.3,
+    "speed_alpha": 0.5,
+    "attitude_max": 0.05235987755982989,
+    "angular_rate_max": 0.002617993877991494,
+    "attitude_k1": 0.3,
+    "attitude_k2": 0.3,
+    "angular_rate_alpha": 0.5,
+    "cone_slack_penalty": 100000000.0,
+    "speed_slack_penalty": 100000000.0,
+    "alignment_slack_penalty": 100000000.0,
+    "numerical_eps": 1e-09,
+    "intervention_eps": 1e-07,
+    "solver_eps_abs": 1e-08,
+    "solver_eps_rel": 1e-08,
+    "solver_max_iter": 20000,
+    "allow_slack": false,
+    "enable_cone": true,
+    "enable_speed": true,
+    "enable_alignment": true,
+    "solver_backend": "osqp"
+  }
+}

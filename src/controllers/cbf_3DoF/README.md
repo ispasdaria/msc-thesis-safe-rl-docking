@@ -110,13 +110,38 @@ Every variant receives the same initial-state seeds. The output contains:
 - `aggregate_metrics_by_filter_variant.csv`: aggregate success, intervention,
   slack, and QP data
 - `step_timeseries_<filter>_eval_seedXXXX.npz`: states, actions, pre/post-step
-  barriers, QP residuals, protected-barrier violations, and slack at every step
-- `run_configuration.json`: the exact checkpoint and frozen filter parameters
+  barriers, QP residuals, strict and tolerance-aware protected-barrier
+  violations, QP failure diagnoses, and slack at every step
+- `run_configuration.json`: the result-schema version, exact checkpoint, frozen
+  filter parameters, protected-barrier reporting tolerance, and QP fallback
+  behavior
+
+Result schema version 2 reports post-step barrier crossings in two separate
+fields. `strict_protected_barrier_violation*` uses the mathematical condition
+`h < 0`. `protected_barrier_violation_beyond_tolerance*` uses
+`h < -1e-6` to distinguish crossings larger than numerical reporting noise.
+The tolerance affects diagnostics only; simulator termination and success
+remain strict.
+
+Every failed QP step records the original solver status, an independently
+computed actuator-bounded hard-feasibility margin, and the minimal infeasible
+constraint family or family combination. For example,
+`hard_constraints_infeasible[cone]` means that the cone rows are infeasible
+even without speed or alignment constraints. A feasible independent LP paired
+with a failed QP is instead reported as
+`solver_failed_despite_hard_feasibility[...]`. Episode and variant CSVs contain
+counts of these reasons as well as the per-step NPZ records.
 
 Slack is enabled by default to make infeasibility visible during development.
 Every slack value is logged. Use `--hard-constraints` only after feasibility
 has been checked under the actuator limits; if slack is retained, the filter
 must be reported as a soft safety filter rather than hard enforcement.
+
+The existing failed-QP behavior is intentionally unchanged: the filter returns
+the clipped nominal SAC action and sets `qp_failed=True`. This action is not
+CBF-certified. The evaluator documents why the failure occurred on every such
+step so that nominal-fallback outcomes cannot be interpreted as uninterrupted
+hard-CBF enforcement.
 
 These are continuous-time CBF conditions applied to a sampled controller with
 a finite integration step. The analytic CBF construction plus sampled rollout

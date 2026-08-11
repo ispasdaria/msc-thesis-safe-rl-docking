@@ -39,7 +39,7 @@ does not provide a useful docking command under the added constraint.
 The complete artifacts are in:
 
 ```text
-results/final_approach/sac_seed00_cone_tuned_alignment_initial_hard_translational_vs_all_cbf_eval_seeds0000_0009
+results/final_approach/evaluations/sac_seed00_cone_tuned_alignment_initial_hard_translational_vs_all_cbf_eval_seeds0000_0009
 ```
 
 ## Non-degradation controller
@@ -52,7 +52,7 @@ intervention frequency was approximately 0.288%.
 The complete artifacts are in:
 
 ```text
-results/final_approach/sac_seed10_cone_tuned_alignment_initial_hard_all_cbf_eval_seeds0000_0009
+results/final_approach/evaluations/sac_seed10_cone_tuned_alignment_initial_hard_all_cbf_eval_seeds0000_0009
 ```
 
 ## Sampled-data caveat and next step
@@ -67,7 +67,7 @@ Trying `speed_alpha = 0.2` on the worst observed scenario did not eliminate
 the small crossing. The complete probe is retained under:
 
 ```text
-results/final_approach/sac_seed00_cone_tuned_alignment_initial_hard_all_cbf_probe_eval_seed0008_speed_alpha0p2
+results/final_approach/evaluations/sac_seed00_cone_tuned_alignment_initial_hard_all_cbf_probe_eval_seed0008_speed_alpha0p2
 ```
 
 Before freezing the seven-row filter, its response gains should be tuned

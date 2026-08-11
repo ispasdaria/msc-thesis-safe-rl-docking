@@ -53,7 +53,9 @@ MODEL_DIR = (
     / "models"
     / "optuna12_600ksteps_buffer600k"
 )
-RESULTS_DIR = Path(__file__).resolve().parent / "results" / "tuning"
+RESULTS_DIR = (
+    Path(__file__).resolve().parent / "results" / "final_approach" / "tuning"
+)
 MODEL_TEMPLATE = (
     "sac_final_approach_portobs_rewardv9_600ksteps_"
     "seed{seed}_optuna12_buffer600k_best"

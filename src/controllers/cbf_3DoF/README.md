@@ -148,6 +148,30 @@ a finite integration step. The analytic CBF construction plus sampled rollout
 tests support the implementation, but should not be presented as a formal
 discrete-time safety proof.
 
+## Trajectory plots
+
+`plot_final_approach_cbf_trajectories.py` creates figures directly from a
+completed evaluator result folder; it does not rerun SAC or the simulator. A
+single command produces spatial geometry, all protected-state envelopes,
+filter action corrections, QP-failure diagnostics, and a symmetric-log zoom
+of the sampled cone boundary. PNG and vector PDF are written by default under
+the central
+`results/final_approach/plots/<result-folder>/eval_seedXXXX/` directory.
+
+```powershell
+.\.venv\Scripts\python.exe src/controllers/cbf_3DoF/plot_final_approach_cbf_trajectories.py `
+  --result-dir "src/controllers/cbf_3DoF/results/final_approach/evaluations/RESULT_FOLDER" `
+  --eval-seeds 120 `
+  --variants baseline both all `
+  --output-dir "src/controllers/cbf_3DoF/results/final_approach/plots/REPRESENTATIVE_CASE_NAME"
+```
+
+Use `--formats png` for faster inspection or keep the default PNG and PDF for
+thesis use. Multiple trajectories from the same result folder can be rendered
+in one call, for example `--eval-seeds 120 127`. The outcome shown in each
+legend is read from `per_episode_metrics.csv`, and all plotted samples are read
+from the exact NPZ file named by that row.
+
 See `MULTICONTROLLER_RESULTS.md` for the initial hard-CBF comparison across six
 SAC training seeds and its limitations.
 
@@ -178,6 +202,9 @@ For a quick integration check before the full study:
   --angular-rate-alpha-values 0.5 `
   --n-trials 1
 ```
+
+By default, studies are stored under `results/final_approach/tuning/`, beside
+the `evaluations/` and `plots/` collections.
 
 The output directory contains a resumable `optuna_gain_search.sqlite3`, the
 complete `gain_search_trial_results.csv`, `gain_search_plan.json`, and—if at

@@ -46,7 +46,9 @@ DEFAULT_MODEL_STEM = (
 DEFAULT_MODEL_DIR = SAC_FINAL_DIR / "models" / "optuna12_600ksteps_buffer600k"
 DEFAULT_MODEL_PATH = DEFAULT_MODEL_DIR / f"{DEFAULT_MODEL_STEM}.zip"
 DEFAULT_VECNORM_PATH = DEFAULT_MODEL_DIR / f"{DEFAULT_MODEL_STEM}_vecnormalize.pkl"
-DEFAULT_RESULTS_DIR = Path(__file__).resolve().parent / "results" / "final_approach"
+DEFAULT_RESULTS_DIR = (
+    Path(__file__).resolve().parent / "results" / "final_approach" / "evaluations"
+)
 
 VARIANT_FLAGS = {
     "baseline": (False, False, False),

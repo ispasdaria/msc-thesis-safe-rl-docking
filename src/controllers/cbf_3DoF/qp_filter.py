@@ -8,6 +8,7 @@ from scipy import sparse
 from scipy.optimize import LinearConstraint, minimize
 
 from .barriers import FinalApproachCBFConfig, build_final_approach_constraints
+from .closing_barriers import ClosingCBFConfig, build_closing_constraints
 from .port_dynamics import evaluate_port_acceleration
 from .cbf_types import FilterResult
 
@@ -16,14 +17,17 @@ class FinalApproachCBFFilter:
     """Filter a nominal physical action through final-approach CBF rows."""
 
     def __init__(self, core_env, config=None):
-        if core_env.phase != "final":
-            raise ValueError("FinalApproachCBFFilter requires a final-phase environment.")
+        if core_env.phase != self.required_phase:
+            raise ValueError(
+                f"{type(self).__name__} requires a {self.required_phase}-phase "
+                "environment."
+            )
         self.core_env = core_env
-        self.config = config or FinalApproachCBFConfig()
+        self.config = config or self.default_config()
         self.action_limits = np.asarray(core_env.action_high, dtype=np.float64)
         if self.action_limits.shape != (3,) or np.any(self.action_limits <= 0.0):
             raise ValueError("Expected three positive physical action limits.")
-        if self.config.enable_alignment:
+        if getattr(self.config, "enable_alignment", False):
             if self.config.attitude_max > core_env.psi_unsafe:
                 raise ValueError(
                     "attitude_max cannot exceed the simulator's unsafe limit."
@@ -32,6 +36,15 @@ class FinalApproachCBFFilter:
                 raise ValueError(
                     "angular_rate_max cannot exceed the simulator's unsafe limit."
                 )
+
+    required_phase = "final"
+
+    @staticmethod
+    def default_config():
+        return FinalApproachCBFConfig()
+
+    def _build_constraints(self, state):
+        return build_final_approach_constraints(self.core_env, state, self.config)
 
     def with_enabled_constraints(self, *, cone, speed, alignment):
         """Return a filter sharing the environment with selected CBF families."""
@@ -58,11 +71,7 @@ class FinalApproachCBFFilter:
             raise ValueError("Nominal physical action must contain finite values.")
 
         nominal = np.clip(action_nominal, -self.action_limits, self.action_limits)
-        constraints = build_final_approach_constraints(
-            self.core_env,
-            state,
-            self.config,
-        )
+        constraints = self._build_constraints(state)
         solution, slack, status, backend, failed = self._solve_qp(
             nominal,
             constraints.A,
@@ -84,6 +93,7 @@ class FinalApproachCBFFilter:
         scaled_difference = difference / self.action_limits
 
         barrier_derivatives = dict(constraints.barrier_derivatives)
+        port_acceleration = None
         if "port_speed" in constraints.barrier_values:
             port_acceleration = evaluate_port_acceleration(
                 constraints.port_acceleration,
@@ -91,6 +101,15 @@ class FinalApproachCBFFilter:
             )
             barrier_derivatives["port_speed"] = float(
                 -2.0 * constraints.kinematics.v_p @ port_acceleration
+            )
+        if "axial_port_speed" in constraints.barrier_values:
+            if port_acceleration is None:
+                port_acceleration = evaluate_port_acceleration(
+                    constraints.port_acceleration,
+                    solution,
+                )
+            barrier_derivatives["axial_port_speed"] = float(
+                -2.0 * constraints.kinematics.s_dot * port_acceleration[0]
             )
         if "angular_rate_upper" in constraints.barrier_values:
             angular_acceleration = float(solution[2])
@@ -331,3 +350,50 @@ class FinalApproachCBFFilter:
         )
         status = f"scipy:{result.status}:{result.message}"
         return scaling * result.x, status, bool(result.success)
+
+
+class ClosingCBFFilter(FinalApproachCBFFilter):
+    """Filter a nominal physical action through the two closing speed CBFs."""
+
+    required_phase = "closing"
+
+    @staticmethod
+    def default_config():
+        return ClosingCBFConfig()
+
+    def __init__(self, core_env, config=None):
+        super().__init__(core_env, config)
+        if self.config.port_speed_max > core_env.vp_unsafe_close:
+            raise ValueError(
+                "port_speed_max cannot exceed the simulator's closing unsafe limit."
+            )
+        if self.config.axial_port_speed_max > core_env.sdot_unsafe_close:
+            raise ValueError(
+                "axial_port_speed_max cannot exceed the simulator's closing "
+                "unsafe limit."
+            )
+
+    def with_enabled_constraints(self, *, port_speed, axial_port_speed):
+        """Return a closing filter with selected speed CBF families."""
+        return ClosingCBFFilter(
+            self.core_env,
+            replace(
+                self.config,
+                enable_port_speed=port_speed,
+                enable_axial_port_speed=axial_port_speed,
+            ),
+        )
+
+    def _build_constraints(self, state):
+        return build_closing_constraints(self.core_env, state, self.config)
+
+    def _slack_penalties(self, names):
+        return np.asarray(
+            [
+                self.config.axial_port_speed_slack_penalty
+                if name == "axial_port_speed"
+                else self.config.port_speed_slack_penalty
+                for name in names
+            ],
+            dtype=np.float64,
+        )

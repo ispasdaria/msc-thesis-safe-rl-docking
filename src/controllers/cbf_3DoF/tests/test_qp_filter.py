@@ -3,7 +3,8 @@ from dataclasses import replace
 import numpy as np
 
 from controllers.cbf_3DoF.barriers import FinalApproachCBFConfig
-from controllers.cbf_3DoF.qp_filter import FinalApproachCBFFilter
+from controllers.cbf_3DoF.closing_barriers import ClosingCBFConfig
+from controllers.cbf_3DoF.qp_filter import ClosingCBFFilter, FinalApproachCBFFilter
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 
@@ -22,6 +23,24 @@ def make_env():
 
 def scipy_config(**changes):
     base = FinalApproachCBFConfig(solver_backend="scipy")
+    return replace(base, **changes)
+
+
+def make_closing_env():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        dt=1.0,
+        integrator="rk4",
+        normalize_action=True,
+        seed=0,
+    )
+    env.reset(seed=0)
+    return env
+
+
+def closing_scipy_config(**changes):
+    base = ClosingCBFConfig(solver_backend="scipy")
     return replace(base, **changes)
 
 
@@ -168,3 +187,58 @@ def test_osqp_backend_solves_the_seven_row_filter():
     assert result.solver_backend == "osqp"
     assert result.solver_status.lower() in {"solved", "solved inaccurate"}
     assert min(result.relaxed_cbf_residuals.values()) >= -1.0e-6
+
+
+def test_closing_filter_builds_only_the_two_requested_speed_constraints():
+    env = make_closing_env()
+    cbf = ClosingCBFFilter(env.core_env, closing_scipy_config())
+    state = np.array([1700.0, 0.0, -0.10, 0.02, 0.0, 0.0])
+
+    result = cbf.filter(state, np.zeros(3))
+
+    assert not result.qp_failed
+    assert set(result.barrier_values) == {"port_speed", "axial_port_speed"}
+    assert set(result.cbf_residuals) == {"port_speed", "axial_port_speed"}
+
+
+def test_closing_total_port_speed_cbf_filters_lateral_acceleration():
+    env = make_closing_env()
+    state = np.array([1700.0, 0.0, -0.05, 0.244, 0.0, 0.0])
+    nominal = np.array([0.0, -0.01, 0.0])
+    config = closing_scipy_config(
+        enable_port_speed=True,
+        enable_axial_port_speed=False,
+        allow_slack=False,
+    )
+
+    result = ClosingCBFFilter(env.core_env, config).filter(state, nominal)
+
+    assert not result.qp_failed
+    assert result.intervened
+    assert result.action_filtered[1] > nominal[1]
+    assert result.cbf_residuals["port_speed"] >= -1.0e-7
+
+
+def test_closing_axial_port_speed_cbf_filters_excessive_closing_acceleration():
+    env = make_closing_env()
+    state = np.array([1700.0, 0.0, -0.149, 0.0, 0.0, 0.0])
+    nominal = np.array([0.01, 0.0, 0.0])
+    config = closing_scipy_config(
+        enable_port_speed=False,
+        enable_axial_port_speed=True,
+        allow_slack=False,
+    )
+
+    result = ClosingCBFFilter(env.core_env, config).filter(state, nominal)
+
+    assert not result.qp_failed
+    assert result.intervened
+    assert result.action_filtered[0] < nominal[0]
+    assert result.cbf_residuals["axial_port_speed"] >= -1.0e-7
+
+
+def test_closing_filter_rejects_non_closing_environment():
+    env = make_env()
+
+    with np.testing.assert_raises_regex(ValueError, "closing-phase"):
+        ClosingCBFFilter(env.core_env)

@@ -8,11 +8,20 @@ from controllers.cbf_3DoF.barriers import (
     cone_barrier_values,
     speed_barrier_value,
 )
+from controllers.cbf_3DoF.closing_barriers import (
+    ClosingCBFConfig,
+    axial_speed_barrier_value,
+    build_closing_constraints,
+)
 from envs.docking3dof.core import Docking3DoFEnv
 
 
 def make_env():
     return Docking3DoFEnv(phase="final", dt=1.0, integrator="rk4", seed=0)
+
+
+def make_closing_env():
+    return Docking3DoFEnv(phase="closing", dt=1.0, integrator="rk4", seed=0)
 
 
 def test_cone_barrier_signs():
@@ -32,6 +41,75 @@ def test_speed_barrier_values():
     assert speed_barrier_value(np.array([0.10, 0.0]), 0.15) > 0.0
     assert np.isclose(speed_barrier_value(np.array([0.15, 0.0]), 0.15), 0.0)
     assert speed_barrier_value(np.array([0.20, 0.0]), 0.15) < 0.0
+
+
+def test_axial_speed_barrier_is_symmetric_and_has_expected_sign():
+    assert axial_speed_barrier_value(0.10, 0.15) > 0.0
+    assert np.isclose(axial_speed_barrier_value(-0.15, 0.15), 0.0)
+    assert axial_speed_barrier_value(0.20, 0.15) < 0.0
+    assert np.isclose(
+        axial_speed_barrier_value(-0.10, 0.15),
+        axial_speed_barrier_value(0.10, 0.15),
+    )
+
+
+def test_closing_constraints_match_direct_cbf_expressions():
+    env = make_closing_env()
+    state = np.array(
+        [1700.0, 8.0, -0.14, 0.08, np.deg2rad(2.0), np.deg2rad(0.05)]
+    )
+    action = np.array([0.003, -0.004, 0.001])
+    config = ClosingCBFConfig(
+        port_speed_alpha=0.4,
+        axial_port_speed_alpha=0.6,
+    )
+    constraints = build_closing_constraints(env, state, config)
+    acceleration = (
+        constraints.port_acceleration.drift
+        + constraints.port_acceleration.control_matrix @ action
+    )
+    port = constraints.kinematics
+
+    direct = {
+        "port_speed": -2.0 * port.v_p @ acceleration
+        + config.port_speed_alpha * constraints.barrier_values["port_speed"],
+        "axial_port_speed": -2.0 * port.s_dot * acceleration[0]
+        + config.axial_port_speed_alpha
+        * constraints.barrier_values["axial_port_speed"],
+    }
+
+    assert constraints.names == ("port_speed", "axial_port_speed")
+    for index, name in enumerate(constraints.names):
+        assert np.isclose(
+            constraints.A[index] @ action - constraints.b[index],
+            direct[name],
+        )
+
+
+def test_closing_axial_barrier_derivative_matches_finite_difference():
+    env = make_closing_env()
+    state = np.array(
+        [1700.0, -4.0, -0.13, 0.03, np.deg2rad(-1.0), np.deg2rad(0.04)]
+    )
+    action = np.array([-0.002, 0.006, -0.001])
+    config = ClosingCBFConfig()
+    constraints = build_closing_constraints(env, state, config)
+    acceleration = (
+        constraints.port_acceleration.drift
+        + constraints.port_acceleration.control_matrix @ action
+    )
+    analytic = -2.0 * constraints.kinematics.s_dot * acceleration[0]
+
+    dt = 1.0e-5
+    state_next = state + dt * env.dynamics(state, action)
+    s_dot_now = env.get_port_relative_velocity(state)[0]
+    s_dot_next = env.get_port_relative_velocity(state_next)[0]
+    finite_difference = (
+        axial_speed_barrier_value(s_dot_next, config.axial_port_speed_max)
+        - axial_speed_barrier_value(s_dot_now, config.axial_port_speed_max)
+    ) / dt
+
+    assert np.isclose(analytic, finite_difference, rtol=3.0e-4, atol=2.0e-7)
 
 
 def test_alignment_barrier_signs():

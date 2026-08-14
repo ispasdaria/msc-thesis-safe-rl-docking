@@ -1,0 +1,132 @@
+{
+  "checkpoint_selection": "success, target ratio, position error, unsafe fraction, return",
+  "checkpoint_steps": [
+    100000,
+    200000,
+    300000,
+    400000,
+    500000,
+    600000
+  ],
+  "device": "auto",
+  "distance_dependent_reward_gate": false,
+  "experiment_name": "sac_closing_p3reachv4_from_scratch_no_safety_termination_600k_seed0_20260814_164002",
+  "experiment_reward_scheme": "p3_reach_v4",
+  "experiment_reward_weights": {
+    "action": 0.01,
+    "attitude_progress": 5000.0,
+    "attitude_state": 0.75,
+    "axial_progress": 5000.0,
+    "axial_speed_warning": 20.0,
+    "axial_state": 0.25,
+    "geometry_warning": 1.0,
+    "lateral_progress": 7500.0,
+    "lateral_state": 1.0,
+    "rate_progress": 2000.0,
+    "rate_state": 2.0,
+    "success": 5000.0,
+    "time": 0.01,
+    "timeout": 200.0,
+    "total_speed_warning": 20.0,
+    "unsafe": 1000.0,
+    "vx_progress": 5000.0,
+    "vx_state": 0.75,
+    "vy_progress": 5000.0,
+    "vy_state": 1.0
+  },
+  "geometry_warning_shaping": {
+    "flat_warning_penalty": false,
+    "quadratic_in_clipped_cone_excess": true,
+    "zero_inside_docking_cone": true
+  },
+  "goal_characteristic_scales": {
+    "attitude": 0.17453292519943295,
+    "axial": 100.0,
+    "lateral": 20.0,
+    "rate": 0.0017453292519943296,
+    "vx": 0.05,
+    "vy": 0.02
+  },
+  "goal_potential": "log1p(abs(component_error) / characteristic_scale)",
+  "goal_scales_are_cbf_constraints": false,
+  "goal_scales_are_p3_tolerances": false,
+  "initial_distribution": "normal P2 training distribution",
+  "initialization": {
+    "actor": "new random initialization",
+    "critics": "new random initialization",
+    "pretrained_model_loaded": false,
+    "pretrained_vecnormalize_loaded": false,
+    "replay_buffer": "new empty buffer",
+    "vecnormalize": "new statistics"
+  },
+  "max_time": 12000.0,
+  "phase": "closing",
+  "prescribed_velocity_profile": false,
+  "progress_terms_active_throughout_closing": [
+    "axial position",
+    "lateral position",
+    "axial velocity",
+    "lateral velocity",
+    "attitude",
+    "angular_rate"
+  ],
+  "purpose": "closing SAC P3-reaching training from scratch",
+  "sac_parameters": {
+    "batch_size": 512,
+    "buffer_size": 300000,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.99,
+    "gradient_steps": 8,
+    "learning_rate": 0.00026276728418436003,
+    "learning_starts": 10000,
+    "target_update_interval": 1,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "safety_classification_enabled": true,
+  "safety_penalties_enabled": true,
+  "safety_violation_termination_enabled": false,
+  "shared_gym_reward_version_used_for_experiment": false,
+  "shared_reward_files_modified": false,
+  "speed_warning_shaping": {
+    "axial_speed_safe_mps": 0.15,
+    "axial_speed_unsafe_mps": 0.25,
+    "quadratic_through_warning_band": true,
+    "total_speed_safe_mps": 0.25,
+    "total_speed_unsafe_mps": 0.35,
+    "zero_inside_safe_set": true
+  },
+  "terminal_conditions": [
+    "P3 success",
+    "time limit",
+    "non-finite state"
+  ],
+  "total_timesteps": 600000,
+  "training_learning_curve": {
+    "evaluation_checkpoints_marked": true,
+    "file": "episode_return_learning_curve.png",
+    "moving_average_window_episodes": 10,
+    "raw_episode_return": true,
+    "refresh_interval_episodes": 5
+  },
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "vecnormalize": {
+    "clip_obs": 10.0,
+    "clip_reward": 10.0,
+    "gamma": 0.99,
+    "norm_obs": true,
+    "norm_reward": true
+  }
+}

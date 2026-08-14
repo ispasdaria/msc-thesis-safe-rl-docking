@@ -28,7 +28,7 @@ if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 
 from envs.docking3dof.closing_safety_exploration_env import (
-    ClosingSafetyExplorationV2GymEnv,
+    ClosingSafetyExplorationV5GymEnv,
 )
 from train_sac_closing_no_safety_termination import (
     ExperimentCheckpointCallback,
@@ -40,7 +40,7 @@ from train_sac_closing_no_safety_termination import (
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 EXPERIMENT_FAMILY = "p3reach_from_scratch"
-EXPERIMENT_ENV_CLASS = ClosingSafetyExplorationV2GymEnv
+EXPERIMENT_ENV_CLASS = ClosingSafetyExplorationV5GymEnv
 EXPERIMENT_REWARD_SCHEME = EXPERIMENT_ENV_CLASS.reward_scheme
 MODEL_ROOT = os.path.join(SCRIPT_DIR, "models", EXPERIMENT_FAMILY)
 LOG_ROOT = os.path.join(SCRIPT_DIR, "logs", EXPERIMENT_FAMILY)
@@ -65,7 +65,7 @@ SAC_PARAMETERS = {
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Train a new closing SAC from scratch with p3_reach_v2 and "
+            "Train a new closing SAC from scratch with p3_reach_v5 and "
             "non-terminal safety exploration."
         )
     )
@@ -137,24 +137,44 @@ def build_config(args, checkpoints, experiment_name):
         "shared_gym_reward_version_used_for_experiment": False,
         "shared_reward_files_modified": False,
         "experiment_reward_weights": EXPERIMENT_ENV_CLASS.reward_weights,
-        "capture_scales": {
-            "axial_position_m": float(EXPERIMENT_ENV_CLASS.capture_scales[0]),
-            "lateral_position_m": float(EXPERIMENT_ENV_CLASS.capture_scales[1]),
-            "axial_velocity_mps": float(EXPERIMENT_ENV_CLASS.capture_scales[2]),
-            "lateral_velocity_mps": float(EXPERIMENT_ENV_CLASS.capture_scales[3]),
-            "attitude_deg": float(
-                EXPERIMENT_ENV_CLASS.capture_scales[4] * 180.0 / 3.141592653589793
-            ),
-            "rate_degs": float(
-                EXPERIMENT_ENV_CLASS.capture_scales[5] * 180.0 / 3.141592653589793
-            ),
+        "progress_terms_active_throughout_closing": [
+            "axial position",
+            "lateral position",
+            "attitude",
+            "angular_rate",
+        ],
+        "position_error_shaping": {
+            "axial": "raw absolute P3 error and progress",
+            "lateral": "raw absolute P3 error and progress",
+            "logarithmic_compression": False,
         },
-        "precision_gate_distance_m": (
-            EXPERIMENT_ENV_CLASS.precision_gate_distance_m
-        ),
-        "precision_gate_width_m": (
-            EXPERIMENT_ENV_CLASS.precision_gate_width_m
-        ),
+        "terminal_velocity_shaping": {
+            "target": "sampled P3 velocity",
+            "gate": "sigmoid in Euclidean P3 position error",
+            "gate_midpoint_m": (
+                EXPERIMENT_ENV_CLASS.terminal_velocity_gate_distance_m
+            ),
+            "gate_width_m": (
+                EXPERIMENT_ENV_CLASS.terminal_velocity_gate_width_m
+            ),
+            "active_from_p2": False,
+        },
+        "whole_goal_objective_distance_gate": False,
+        "distance_gate_applies_only_to_terminal_velocity_terms": True,
+        "prescribed_velocity_profile": False,
+        "geometry_warning_shaping": {
+            "zero_inside_docking_cone": True,
+            "quadratic_in_clipped_cone_excess": True,
+            "flat_warning_penalty": False,
+        },
+        "speed_warning_shaping": {
+            "zero_inside_safe_set": True,
+            "quadratic_through_warning_band": True,
+            "total_speed_safe_mps": 0.25,
+            "total_speed_unsafe_mps": 0.35,
+            "axial_speed_safe_mps": 0.15,
+            "axial_speed_unsafe_mps": 0.25,
+        },
         "safety_classification_enabled": True,
         "safety_penalties_enabled": True,
         "safety_violation_termination_enabled": False,
@@ -192,7 +212,7 @@ def main():
     checkpoints = resolve_checkpoint_steps(args)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     experiment_name = args.experiment_name or (
-        "sac_closing_p3reachv2_from_scratch_"
+        "sac_closing_p3reachv5_from_scratch_"
         "no_safety_termination_"
         f"{args.total_timesteps // 1000}k_seed{args.training_seed}_{timestamp}"
     )

@@ -318,17 +318,28 @@ def save_full_mission_history(runner, result, record, label, output_dir, mode, c
     c = runner.closing_env.get_history_arrays()
     f = runner.final_env.get_history_arrays() if result["final_result"] is not None else None
 
-    closing_times, closing_states, closing_body_raw, closing_body_clipped, closing_orb_raw, closing_orb_clipped = c
+    (
+        closing_times,
+        closing_states,
+        closing_body_raw,
+        closing_body_clipped,
+        closing_orbital,
+    ) = c
 
     if f is None:
         final_times = np.asarray([], dtype=float)
         final_states = np.empty((0, 6), dtype=float)
         final_body_raw = np.empty((0, 3), dtype=float)
         final_body_clipped = np.empty((0, 3), dtype=float)
-        final_orb_raw = np.empty((0, 3), dtype=float)
-        final_orb_clipped = np.empty((0, 3), dtype=float)
+        final_orbital = np.empty((0, 3), dtype=float)
     else:
-        final_times, final_states, final_body_raw, final_body_clipped, final_orb_raw, final_orb_clipped = f
+        (
+            final_times,
+            final_states,
+            final_body_raw,
+            final_body_clipped,
+            final_orbital,
+        ) = f
 
     metadata = {
         "label": label,
@@ -362,8 +373,7 @@ def save_full_mission_history(runner, result, record, label, output_dir, mode, c
         closing_states=closing_states,
         closing_actions_body_raw=closing_body_raw,
         closing_actions_body_clipped=closing_body_clipped,
-        closing_actions_orbital_raw=closing_orb_raw,
-        closing_actions_orbital_clipped=closing_orb_clipped,
+        closing_actions_orbital=closing_orbital,
         closing_p3_target=(
             np.asarray(runner.closing_env.p3_target, dtype=float)
             if getattr(runner.closing_env, "p3_target", None) is not None
@@ -378,8 +388,7 @@ def save_full_mission_history(runner, result, record, label, output_dir, mode, c
         final_states=final_states,
         final_actions_body_raw=final_body_raw,
         final_actions_body_clipped=final_body_clipped,
-        final_actions_orbital_raw=final_orb_raw,
-        final_actions_orbital_clipped=final_orb_clipped,
+        final_actions_orbital=final_orbital,
         transition_state=(
             np.asarray(result.get("transition_state"), dtype=float)
             if result.get("transition_state") is not None

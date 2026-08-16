@@ -13,7 +13,7 @@ from envs.docking3dof.core import Docking3DoFEnv
 
 
 def plot_rollout(env, title_prefix):
-    times, states, actions_raw, actions_clipped, actions_orbital, rewards = (
+    times, states, actions_raw, actions_clipped, actions_orbital = (
         env.get_history_arrays()
     )
 
@@ -107,9 +107,9 @@ def run_accelerate_toward_docking_point():
         else:
             action = np.zeros(3)
 
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
-    times, states, actions_raw, actions_clipped, actions_orbital, rewards = (
+    times, states, actions_raw, actions_clipped, actions_orbital = (
         env.get_history_arrays()
     )
 
@@ -175,9 +175,9 @@ def run_test_2_lateral_correction():
         else:
             action = np.zeros(3)
 
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
-    times, states, actions_raw, actions_clipped, actions_orbital, rewards = (
+    times, states, actions_raw, actions_clipped, actions_orbital = (
         env.get_history_arrays()
     )
 
@@ -240,9 +240,9 @@ def run_test_3_attitude_correction():
         else:
             action = np.zeros(3)
 
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
-    times, states, actions_raw, actions_clipped, actions_orbital, rewards = (
+    times, states, actions_raw, actions_clipped, actions_orbital = (
         env.get_history_arrays()
     )
 
@@ -316,7 +316,7 @@ def run_test_4_axial_braking():
         else:
             action = np.zeros(3)
 
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
     times, states, *_ = env.get_history_arrays()
 
@@ -380,7 +380,7 @@ def run_test_5_negative_ry_lateral_correction():
         else:
             action = np.zeros(3)
 
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
     times, states, *_ = env.get_history_arrays()
 
@@ -452,7 +452,7 @@ def run_test_6_negative_psi_attitude_correction():
         else:
             action = np.zeros(3)
 
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
     times, states, *_ = env.get_history_arrays()
 
@@ -521,7 +521,7 @@ def run_test_7_angular_rate_damping():
         else:
             action = np.zeros(3)
 
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
     times, states, *_ = env.get_history_arrays()
 
@@ -592,7 +592,7 @@ def run_test_8_wrong_direction_lateral():
         else:
             action = np.zeros(3)
 
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
     times, states, *_ = env.get_history_arrays()
 
@@ -657,7 +657,7 @@ def run_test_9_wrong_direction_attitude():
         else:
             action = np.zeros(3)
 
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
     times, states, *_ = env.get_history_arrays()
 
@@ -690,4 +690,3 @@ if __name__ == "__main__":
     # run_test_7_angular_rate_damping()
     # run_test_8_wrong_direction_lateral()
     run_test_9_wrong_direction_attitude()
-    

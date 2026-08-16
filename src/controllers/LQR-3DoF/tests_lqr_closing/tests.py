@@ -303,7 +303,7 @@ def test_saturation_analysis_returns_finite_values_after_rollout(capsys):
 
     for _ in range(10):
         action = controller.compute_action(env, state)
-        state, _, done, _ = env.step(action)
+        state, done, _ = env.step(action)
         if done:
             break
 
@@ -340,7 +340,7 @@ def test_monte_carlo_rollouts_terminate():
 
         while not done and steps < max_steps:
             action = controller.compute_action(env, state)
-            state, _, done, info = env.step(action)
+            state, done, info = env.step(action)
             steps += 1
 
         assert done

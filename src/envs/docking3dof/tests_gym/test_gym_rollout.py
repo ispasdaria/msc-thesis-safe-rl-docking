@@ -126,7 +126,7 @@ def run_random_rollout(
     print("  time_limit:", last_info.get("time_limit"))
     print("  violated_constraints:", last_info.get("violated_constraints"))
 
-    times, states, actions_raw, actions_clipped, actions_orbital, rewards = (
+    times, states, actions_raw, actions_clipped, actions_orbital = (
         env.get_history_arrays()
     )
 
@@ -136,7 +136,6 @@ def run_random_rollout(
     print("  actions_raw shape:", actions_raw.shape)
     print("  actions_clipped shape:", actions_clipped.shape)
     print("  actions_orbital shape:", actions_orbital.shape)
-    print("  rewards shape:", rewards.shape)
 
     assert times.ndim == 1, "times should be a 1D array."
     assert states.ndim == 2 and states.shape[1] == 6, (

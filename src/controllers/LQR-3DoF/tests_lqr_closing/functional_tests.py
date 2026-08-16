@@ -61,7 +61,7 @@ def test_success_rate_threshold():
 
         while not done and steps < max_steps:
             action = controller.compute_action(env, state)
-            state, _, done, info = env.step(action)
+            state, done, info = env.step(action)
             steps += 1
 
         if info.get("success"):
@@ -94,7 +94,7 @@ def test_nominal_closing_rollout_succeeds():
 
     while not done and steps < max_steps:
         action = controller.compute_action(env, state)
-        state, _, done, info = env.step(action)
+        state, done, info = env.step(action)
         steps += 1
 
     assert done
@@ -132,7 +132,7 @@ def test_step_robust_under_clipping():
     env.reset(mode="testing")
 
     action = np.array([10.0, -10.0, 10.0])
-    state, _, _, info = env.step(action)
+    state, _, info = env.step(action)
 
     assert np.all(np.isfinite(state))
     assert np.all(info["action_body_clipped"] <= env.action_high + 1e-12)
@@ -162,15 +162,15 @@ def test_deterministic_rollout_with_fixed_seed():
         action_a = controller_a.compute_action(env_a, state_a)
         action_b = controller_b.compute_action(env_b, state_b)
 
-        state_a, _, done_a, _ = env_a.step(action_a)
-        state_b, _, done_b, _ = env_b.step(action_b)
+        state_a, done_a, _ = env_a.step(action_a)
+        state_b, done_b, _ = env_b.step(action_b)
 
         steps += 1
 
-    times_a, states_a, actions_raw_a, actions_clipped_a, actions_orb_a, _ = (
+    times_a, states_a, actions_raw_a, actions_clipped_a, actions_orb_a = (
         env_a.get_history_arrays()
     )
-    times_b, states_b, actions_raw_b, actions_clipped_b, actions_orb_b, _ = (
+    times_b, states_b, actions_raw_b, actions_clipped_b, actions_orb_b = (
         env_b.get_history_arrays()
     )
 

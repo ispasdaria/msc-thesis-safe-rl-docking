@@ -92,7 +92,7 @@ def saturation_fraction(env, atol=1e-12):
         sat_ay    : fraction of timesteps where ay_Bc saturated
         sat_alpha : fraction of timesteps where alphaz_Bc saturated
     """
-    _, _, actions_body_raw, actions_body_clipped, _, _ = env.get_history_arrays()
+    _, _, actions_body_raw, actions_body_clipped, _ = env.get_history_arrays()
 
     if actions_body_raw.size == 0 or actions_body_clipped.size == 0:
         return {
@@ -122,7 +122,7 @@ def trajectory_mean_vx(env):
     This is different from the final vx. It is useful as a diagnostic only,
     not as a success criterion.
     """
-    _, states, _, _, _, _ = env.get_history_arrays()
+    _, states, _, _, _ = env.get_history_arrays()
 
     if states.size == 0:
         return float("nan")
@@ -235,7 +235,7 @@ def run_rollouts(
 
         while not done and steps < max_steps:
             action = controller.compute_action(env, state)
-            state, _, done, info = env.step(action)
+            state, done, info = env.step(action)
             steps += 1
 
         if info.get("success"):

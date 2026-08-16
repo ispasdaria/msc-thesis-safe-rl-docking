@@ -392,7 +392,7 @@ class Docking3DoFGymEnv(gym.Env):
 
         physical_action = self._scale_action(action)
 
-        _, _, done, info = self.core_env.step(physical_action)
+        _, done, info = self.core_env.step(physical_action)
         obs = self._get_obs()
 
         terminated = bool(

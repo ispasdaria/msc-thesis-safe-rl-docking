@@ -494,7 +494,7 @@ def analyze_saturation(env, atol=1e-12):
         action_body_clipped
     """
 
-    _, _, actions_body_raw, actions_body_clipped, _, _ = env.get_history_arrays()
+    _, _, actions_body_raw, actions_body_clipped, _ = env.get_history_arrays()
 
     if actions_body_raw.size == 0 or actions_body_clipped.size == 0:
         print("\nActuator saturation analysis")
@@ -579,7 +579,7 @@ def main():
 
     while not done:
         action = controller.compute_action(env, state)
-        state, reward, done, info = env.step(action)
+        state, done, info = env.step(action)
 
     print("Termination reason:", info["termination_reason"])
     print("Success:", info["success"])

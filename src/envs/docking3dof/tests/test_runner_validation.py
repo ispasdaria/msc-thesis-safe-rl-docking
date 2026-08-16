@@ -84,7 +84,7 @@ def test_nominal_mission_histories_are_complete_and_finite(nominal_mission):
         (runner.closing_env, result["closing_result"]),
         (runner.final_env, result["final_result"]),
     ):
-        times, states, actions_raw, actions_clipped, actions_orbital, rewards = (
+        times, states, actions_raw, actions_clipped, actions_orbital = (
             env.get_history_arrays()
         )
 
@@ -95,6 +95,5 @@ def test_nominal_mission_histories_are_complete_and_finite(nominal_mission):
         assert np.all(np.isfinite(actions_raw))
         assert np.all(np.isfinite(actions_clipped))
         assert np.all(np.isfinite(actions_orbital))
-        assert np.all(np.isfinite(rewards))
         assert np.all(actions_clipped <= env.action_high + 1e-12)
         assert np.all(actions_clipped >= env.action_low - 1e-12)

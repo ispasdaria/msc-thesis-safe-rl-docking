@@ -48,9 +48,9 @@ def run_constant_input_rollout(
     done = False
 
     while not done:
-        state, reward, done, info = env.step(action_body)
+        state, done, info = env.step(action_body)
 
-    times, states, actions_body_raw, actions_body_clipped, actions_orbital, rewards = (
+    times, states, actions_body_raw, actions_body_clipped, actions_orbital = (
         env.get_history_arrays()
     )
 

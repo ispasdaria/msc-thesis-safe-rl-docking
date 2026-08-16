@@ -52,7 +52,7 @@ class Docking3DoFEnv:
 
     Key methods:
         reset(): initialize the episode state for the selected phase
-        step(): propagate the dynamics and return (state, reward, done, info)
+        step(): propagate the dynamics and return (state, done, info)
         monitor_safety(): classify the state into safe/warn/unsafe sets
         get_history_arrays(): export logged trajectories for analysis/plotting
     """
@@ -1082,7 +1082,6 @@ class Docking3DoFEnv:
                     action_body_raw=zero_action_body_raw,
                     action_body_clipped=zero_action_body_clipped,
                     action_orbital=zero_action_orbital,
-                    reward=0.0,
                     done=False,
                     info=initial_info,
                 )
@@ -1120,8 +1119,6 @@ class Docking3DoFEnv:
             psi=self.state[4],
         )
 
-        initial_reward = self.compute_reward(self.state, zero_action_body_clipped)
-
         initial_info = {
             "phase": self.phase,
             "initial_set": (
@@ -1139,7 +1136,6 @@ class Docking3DoFEnv:
             action_body_raw=zero_action_body_raw,
             action_body_clipped=zero_action_body_clipped,
             action_orbital=zero_action_orbital,
-            reward=initial_reward,
             done=False,
             info=initial_info,
         )
@@ -1171,7 +1167,6 @@ class Docking3DoFEnv:
             )
 
         if not np.all(np.isfinite(self.state)):
-            reward = 0.0
             done = True
 
             action_body_clipped = self.clip_action(action)
@@ -1192,14 +1187,13 @@ class Docking3DoFEnv:
                 action_body_raw=action,
                 action_body_clipped=action_body_clipped,
                 action_orbital=action_orbital_before_step,
-                reward=reward,
                 done=done,
                 info=info,
             )
 
-            return self.state.copy(), reward, done, info
+            return self.state.copy(), done, info
 
-        # For logging and reward calculation at the start of the step
+        # Compute start-of-step action representations for logging.
         psi_before = self.state[4]
 
         action_body_clipped = self.clip_action(action)
@@ -1221,8 +1215,6 @@ class Docking3DoFEnv:
 
         # Numerical validity check
         if not np.all(np.isfinite(self.state)):
-            reward = 0.0
-
             done = True
             info = {
                 "success": False,
@@ -1240,14 +1232,11 @@ class Docking3DoFEnv:
                 action_body_raw=action,
                 action_body_clipped=action_body_clipped,
                 action_orbital=action_orbital_before_step,
-                reward=reward,
                 done=done,
                 info=info,
             )
 
-            return self.state.copy(), reward, done, info
-
-        reward = self.compute_reward(self.state, action_body_clipped)
+            return self.state.copy(), done, info
 
         done, info = self.check_done(self.state)
 
@@ -1259,22 +1248,11 @@ class Docking3DoFEnv:
             action_body_raw=action,
             action_body_clipped=action_body_clipped,
             action_orbital=action_orbital_before_step,
-            reward=reward,
             done=done,
             info=info,
         )
 
-        return self.state.copy(), reward, done, info
-
-
-    def compute_reward(self, state, action):
-        """
-        Placeholder reward function.
-
-        The actual task-specific reward will be designed later when implementing
-        the controllers. For now, this keeps the environment API complete.
-        """
-        return 0.0
+        return self.state.copy(), done, info
 
 
     def check_done(self, state):
@@ -1362,7 +1340,6 @@ class Docking3DoFEnv:
         action_body_raw,
         action_body_clipped,
         action_orbital,
-        reward,
         done,
         info,
     ):
@@ -1392,7 +1369,6 @@ class Docking3DoFEnv:
                 "action_body_raw": np.asarray(action_body_raw, dtype=float).copy(),
                 "action_body_clipped": np.asarray(action_body_clipped, dtype=float).copy(),
                 "action_orbital": np.asarray(action_orbital, dtype=float).copy(),
-                "reward": reward,
                 "done": done,
                 "info": info.copy(),
             }
@@ -1419,13 +1395,10 @@ class Docking3DoFEnv:
             [entry["action_orbital"] for entry in self.history]
         )
 
-        rewards = np.array([entry["reward"] for entry in self.history])
-
         return (
             times,
             states,
             actions_body_raw,
             actions_body_clipped,
             actions_orbital,
-            rewards,
         )

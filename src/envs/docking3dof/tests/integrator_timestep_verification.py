@@ -336,7 +336,7 @@ def run_terminal_event_resolution_test(
             info: dict[str, Any] = {}
             max_steps = int(np.ceil(event_horizon / dt)) + 1
             while not done and step_count < max_steps:
-                _, _, done, info = env.step(zero_action)
+                _, done, info = env.step(zero_action)
                 step_count += 1
 
             rows.append(

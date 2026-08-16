@@ -62,7 +62,7 @@ def saturation_fraction(env, atol=1e-12):
     Fraction of logged timesteps where at least one body-frame action channel
     was clipped by the environment.
     """
-    _, _, actions_body_raw, actions_body_clipped, _, _ = env.get_history_arrays()
+    _, _, actions_body_raw, actions_body_clipped, _ = env.get_history_arrays()
 
     if actions_body_raw.size == 0 or actions_body_clipped.size == 0:
         return 0.0
@@ -81,7 +81,7 @@ def trajectory_mean_vx(env):
     This is different from the final vx. It is useful as a diagnostic only,
     not as a success criterion.
     """
-    times, states, _, _, _, _ = env.get_history_arrays()
+    times, states, _, _, _ = env.get_history_arrays()
 
     if states.size == 0:
         return float("nan")
@@ -143,7 +143,7 @@ def run_single_rollout(controller, max_time, seed, mode="testing"):
 
     while not done and steps < max_steps:
         action = controller.compute_action(env, state)
-        state, _, done, info = env.step(action)
+        state, done, info = env.step(action)
         steps += 1
 
     return env, state, info, steps
@@ -266,7 +266,7 @@ def save_rollout_history(
         mode=args.mode,
     )
 
-    times, states, actions_body_raw, actions_body_clipped, actions_orbital_raw, actions_orbital_clipped = (
+    times, states, actions_body_raw, actions_body_clipped, actions_orbital = (
         env.get_history_arrays()
     )
 
@@ -310,8 +310,7 @@ def save_rollout_history(
         states=states,
         actions_body_raw=actions_body_raw,
         actions_body_clipped=actions_body_clipped,
-        actions_orbital_raw=actions_orbital_raw,
-        actions_orbital_clipped=actions_orbital_clipped,
+        actions_orbital=actions_orbital,
         p3_target=np.asarray(env.p3_target, dtype=float)
         if env.p3_target is not None
         else np.full(6, np.nan),
@@ -400,7 +399,7 @@ def run_rollouts(
 
         while not done and steps < max_steps:
             action = controller.compute_action(env, state)
-            state, _, done, info = env.step(action)
+            state, done, info = env.step(action)
             steps += 1
 
         if info.get("success"):

@@ -119,15 +119,13 @@ class DockingMissionRunner:
 
         done = False
         step_count = 0
-        total_reward = 0.0
         final_info = None
 
         while not done:
             action = controller(state)
 
-            state, reward, done, info = env.step(action)
+            state, done, info = env.step(action)
 
-            total_reward += reward
             step_count += 1
             final_info = info
 
@@ -146,7 +144,6 @@ class DockingMissionRunner:
             "time_limit": final_info.get("time_limit", False),
             "termination_reason": final_info.get("termination_reason", None),
             "terminal_state": state.copy(),
-            "total_reward": total_reward,
             "num_steps": step_count,
             "final_info": final_info,
             "history": env.history.copy(),
@@ -228,7 +225,7 @@ class DockingMissionRunner:
             closing: sampled P2 -> sampled P3 target
             final: actual terminal state from closing -> docking
 
-        The two histories and rewards remain separate.
+        The two phase histories remain separate.
         """
 
         closing_result = self.run_phase(
@@ -334,7 +331,6 @@ class DockingMissionRunner:
                 "success_rate": 0.0,
                 "failure_rate": 0.0,
                 "timeout_rate": 0.0,
-                "mean_total_reward": 0.0,
                 "mean_num_steps": 0.0,
             }
 
@@ -342,7 +338,6 @@ class DockingMissionRunner:
         failures = [r["failure"] for r in results]
         timeouts = [r["time_limit"] for r in results]
 
-        total_rewards = [r["total_reward"] for r in results]
         num_steps = [r["num_steps"] for r in results]
 
         summary = {
@@ -350,7 +345,6 @@ class DockingMissionRunner:
             "success_rate": sum(successes) / num_episodes,
             "failure_rate": sum(failures) / num_episodes,
             "timeout_rate": sum(timeouts) / num_episodes,
-            "mean_total_reward": sum(total_rewards) / num_episodes,
             "mean_num_steps": sum(num_steps) / num_episodes,
         }
 

@@ -46,7 +46,7 @@ class ScriptedEnv:
             raise AssertionError("Runner requested more scripted transitions than expected.")
 
         self.actions.append(np.asarray(action, dtype=float).copy())
-        next_state, reward, done, info = self.transitions.pop(0)
+        next_state, done, info = self.transitions.pop(0)
         self.state = np.asarray(next_state, dtype=float).copy()
         self.history.append(
             {
@@ -54,7 +54,7 @@ class ScriptedEnv:
                 "action": self.actions[-1].copy(),
             }
         )
-        return self.state.copy(), float(reward), bool(done), dict(info)
+        return self.state.copy(), bool(done), dict(info)
 
 
 class ObjectController:
@@ -152,14 +152,13 @@ def test_registered_controller_errors_are_reported():
         runner._policy_for_phase("closing")
 
 
-def test_run_phase_accumulates_reward_steps_and_history():
+def test_run_phase_accumulates_steps_and_history():
     terminal_state = np.arange(6, dtype=float)
     env = ScriptedEnv(
         [
-            (np.ones(6), 1.25, False, terminal_info()),
+            (np.ones(6), False, terminal_info()),
             (
                 terminal_state,
-                -0.25,
                 True,
                 terminal_info(success=True, reason="success_P3_target"),
             ),
@@ -187,7 +186,6 @@ def test_run_phase_accumulates_reward_steps_and_history():
     assert result["time_limit"] is False
     assert result["termination_reason"] == "success_P3_target"
     assert np.allclose(result["terminal_state"], terminal_state)
-    assert result["total_reward"] == pytest.approx(1.0)
     assert result["num_steps"] == 2
     assert len(result["history"]) == 3
 
@@ -198,7 +196,6 @@ def test_run_phase_forwards_an_explicit_initial_state():
         [
             (
                 initial_state + 1.0,
-                0.0,
                 True,
                 terminal_info(success=True, reason="success_docking"),
             )
@@ -219,7 +216,7 @@ def test_run_phase_forwards_an_explicit_initial_state():
 
 def test_run_phase_max_steps_sets_runner_timeout_without_mutating_env_info():
     original_info = terminal_info()
-    env = ScriptedEnv([(np.ones(6), 2.0, False, original_info)])
+    env = ScriptedEnv([(np.ones(6), False, original_info)])
     runner = make_runner(closing_env=env)
 
     result = runner.run_phase(
@@ -242,7 +239,6 @@ def test_run_phase_with_registered_uses_the_selected_controller():
         [
             (
                 np.ones(6),
-                0.5,
                 True,
                 terminal_info(success=True, reason="success_P3_target"),
             )
@@ -266,14 +262,12 @@ def test_run_many_phase_episodes_indexes_results_and_computes_summary(monkeypatc
             "success": True,
             "failure": False,
             "time_limit": False,
-            "total_reward": 4.0,
             "num_steps": 2,
         },
         {
             "success": False,
             "failure": True,
             "time_limit": False,
-            "total_reward": -2.0,
             "num_steps": 4,
         },
     ]
@@ -302,7 +296,6 @@ def test_run_many_phase_episodes_indexes_results_and_computes_summary(monkeypatc
         "success_rate": 0.5,
         "failure_rate": 0.5,
         "timeout_rate": 0.0,
-        "mean_total_reward": 1.0,
         "mean_num_steps": 3.0,
     }
 
@@ -315,7 +308,6 @@ def test_summarize_results_handles_empty_input():
         "success_rate": 0.0,
         "failure_rate": 0.0,
         "timeout_rate": 0.0,
-        "mean_total_reward": 0.0,
         "mean_num_steps": 0.0,
     }
 

@@ -25,9 +25,9 @@ def run_zero_action_rollout():
     done = False
 
     while not done:
-        state, reward, done, info = env.step(np.zeros(3))
+        state, done, info = env.step(np.zeros(3))
 
-    times, states, actions_raw, actions_clipped, actions_orbital, rewards = (
+    times, states, actions_raw, actions_clipped, actions_orbital = (
         env.get_history_arrays()
     )
 

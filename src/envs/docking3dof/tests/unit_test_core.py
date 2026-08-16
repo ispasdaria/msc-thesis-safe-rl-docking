@@ -911,14 +911,15 @@ def test_history_arrays_after_reset():
     env = Docking3DoFEnv()
     env.reset(mode="nominal")
 
-    times, states, actions_body_raw, actions_body_clipped, actions_orbital, rewards = env.get_history_arrays()
+    times, states, actions_body_raw, actions_body_clipped, actions_orbital = (
+        env.get_history_arrays()
+    )
 
     assert times.shape == (1,)
     assert states.shape == (1, 6)
     assert actions_body_raw.shape == (1, 3)
     assert actions_body_clipped.shape == (1, 3)
     assert actions_orbital.shape == (1, 3)
-    assert rewards.shape == (1,)
 
 
 def test_step_output_format():
@@ -927,10 +928,9 @@ def test_step_output_format():
 
     action_body = np.zeros(3)
 
-    state, reward, done, info = env.step(action_body)
+    state, done, info = env.step(action_body)
 
     assert state.shape == (6,)
-    assert isinstance(reward, float)
     assert isinstance(done, bool)
     assert isinstance(info, dict)
     assert np.all(np.isfinite(state))
@@ -957,13 +957,13 @@ def test_step_time_limit_only_triggers_after_max_time():
 
     action_body = np.zeros(3)
 
-    state, reward, done, info = env.step(action_body)
+    state, done, info = env.step(action_body)
 
     assert env.time == 0.5
     assert done is False
     assert info["time_limit"] is False
 
-    state, reward, done, info = env.step(action_body)
+    state, done, info = env.step(action_body)
 
     assert env.time == 1.0
     assert done is True
@@ -972,7 +972,6 @@ def test_step_time_limit_only_triggers_after_max_time():
     assert info["failure"] is False
 
     assert state.shape == (6,)
-    assert isinstance(reward, float)
     assert np.all(np.isfinite(state))
 
 
@@ -1020,7 +1019,7 @@ def test_step_non_finite_state_returns_failure():
     env.reset(initial_state=initial_state)
 
     action = np.zeros(3)
-    state, reward, done, info = env.step(action)
+    state, done, info = env.step(action)
 
     assert done is True
     assert info["failure"] is True
@@ -1034,11 +1033,12 @@ def test_history_arrays_after_multiple_steps():
     for _ in range(3):
         env.step(np.zeros(3))
 
-    times, states, actions_body_raw, actions_body_clipped, actions_orbital, rewards = env.get_history_arrays()
+    times, states, actions_body_raw, actions_body_clipped, actions_orbital = (
+        env.get_history_arrays()
+    )
 
     assert times.shape == (4,)
     assert states.shape == (4, 6)
     assert actions_body_raw.shape == (4, 3)
     assert actions_body_clipped.shape == (4, 3)
     assert actions_orbital.shape == (4, 3)
-    assert rewards.shape == (4,)

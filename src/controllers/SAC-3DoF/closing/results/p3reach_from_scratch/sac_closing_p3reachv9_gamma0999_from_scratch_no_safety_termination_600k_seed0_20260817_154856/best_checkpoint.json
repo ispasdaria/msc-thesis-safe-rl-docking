@@ -1,0 +1,32 @@
+{
+  "additional_timestep": 450000,
+  "selection_order": [
+    "highest success rate",
+    "lowest mean final max target ratio",
+    "lowest mean final position error",
+    "lowest mean unsafe fraction",
+    "highest mean return"
+  ],
+  "summary": {
+    "mean_alignment_unsafe_steps": 68.8,
+    "mean_final_attitude_error_deg": 1.219292643752425,
+    "mean_final_lateral_error_m": 32.459493343844784,
+    "mean_final_max_target_ratio": 18.737242841737334,
+    "mean_final_position_error_m": 259.8502002001366,
+    "mean_final_rate_error_degs": 0.02312598336203368,
+    "mean_final_velocity_error_mps": 0.08553324528771149,
+    "mean_geometry_unsafe_steps": 198.4,
+    "mean_minimum_position_error_m": 211.39935529893782,
+    "mean_return": -1306.3591779512062,
+    "mean_steps": 12000.0,
+    "mean_unsafe_fraction": 0.10302499999999999,
+    "mean_velocity_unsafe_steps": 1037.9,
+    "mean_warning_fraction": 0.12713333333333335,
+    "numerical_failure_rate": 0.0,
+    "rollouts": 10,
+    "success_after_violation_rate": 0.0,
+    "success_rate": 0.0,
+    "timeout_rate": 1.0,
+    "unsafe_episode_rate": 1.0
+  }
+}

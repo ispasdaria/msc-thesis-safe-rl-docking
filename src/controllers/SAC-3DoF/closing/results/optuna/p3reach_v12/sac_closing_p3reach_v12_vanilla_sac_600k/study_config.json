@@ -1,0 +1,95 @@
+{
+  "arguments": {
+    "buffer_size": 1000000,
+    "device": "auto",
+    "eval_interval": 200000,
+    "fresh": true,
+    "max_time": 12000.0,
+    "n_trials": 16,
+    "progress_bar": true,
+    "save_models": true,
+    "storage": null,
+    "study_name": "sac_closing_p3reach_v12_vanilla_sac_600k",
+    "train_steps": 600000,
+    "training_seed": 0,
+    "validation_seeds": [
+      100,
+      101,
+      102,
+      103,
+      104
+    ]
+  },
+  "evaluation_steps": [
+    200000,
+    400000,
+    600000
+  ],
+  "excluded_methods": [
+    "curriculum",
+    "demonstrations",
+    "behavior cloning",
+    "pretrained weights",
+    "replay prefill"
+  ],
+  "log_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\logs\\optuna\\p3reach_v12",
+  "objective_priority": [
+    "success rate",
+    "fraction reaching simultaneous 3x/5x/10x P3 tolerances",
+    "approach progress",
+    "minimum and final maximum P3 target ratio",
+    "terminal velocity and alignment ratios",
+    "failed approaches and safety diagnostics"
+  ],
+  "results_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\optuna\\p3reach_v12\\sac_closing_p3reach_v12_vanilla_sac_600k",
+  "reward_scheme": "p3_reach_v12",
+  "search_space": {
+    "batch_size": [
+      256,
+      512,
+      1024
+    ],
+    "ent_coef": [
+      "auto_0.01",
+      "auto_0.03",
+      "auto_0.05",
+      "auto_0.1"
+    ],
+    "gamma": [
+      0.995,
+      0.997,
+      0.999,
+      0.9995
+    ],
+    "learning_rate": {
+      "high": 0.0003,
+      "log": true,
+      "low": 3e-05
+    },
+    "learning_starts": [
+      5000,
+      10000,
+      25000
+    ],
+    "tau": [
+      0.002,
+      0.005,
+      0.01
+    ],
+    "train_update": [
+      "8_8",
+      "16_8",
+      "16_16",
+      "32_16"
+    ]
+  },
+  "storage": "sqlite:///D:/Daria Master Thesis/msc-thesis-safe-rl-docking/src/controllers/SAC-3DoF/closing/results/optuna/p3reach_v12/sac_closing_p3reach_v12_vanilla_sac_600k/study.db",
+  "study_name": "sac_closing_p3reach_v12_vanilla_sac_600k",
+  "study_version": "p3reach_v12",
+  "vanilla_sac_from_scratch": true,
+  "vecnormalize": {
+    "clip_obs": 10.0,
+    "norm_obs": true,
+    "norm_reward": false
+  }
+}

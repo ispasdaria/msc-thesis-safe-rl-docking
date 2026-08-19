@@ -1,0 +1,131 @@
+{
+  "checkpoint_selection": "success, target ratio, position error, unsafe fraction, return",
+  "checkpoint_steps": [
+    50000,
+    100000,
+    150000,
+    200000,
+    250000,
+    300000,
+    350000,
+    400000,
+    450000,
+    500000,
+    550000,
+    600000
+  ],
+  "device": "auto",
+  "experiment_name": "sac_closing_p3reachv9_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260817_154856",
+  "experiment_reward_scheme": "p3_reach_v9",
+  "experiment_reward_weights": {
+    "action": 0.001,
+    "goal_progress": 10.0,
+    "goal_state": 0.05,
+    "success": 100.0,
+    "time": 0.001,
+    "timeout": 0.0,
+    "unsafe_step": 0.1
+  },
+  "gamma": 0.999,
+  "goal_metric": {
+    "active_from_p2": true,
+    "aggregate_mean_weight": 0.5,
+    "aggregate_smooth_worst_weight": 0.5,
+    "aggregation": "grouped equal blends of component mean and smooth worst",
+    "components": [
+      "axial",
+      "lateral",
+      "vx",
+      "vy",
+      "attitude",
+      "rate"
+    ],
+    "distance_gate": false,
+    "error_transform": "log1p of each tolerance ratio",
+    "group_weights": {
+      "attitude_rate": 0.25,
+      "position": 0.5,
+      "terminal_velocity": 0.25
+    },
+    "logarithmic_error_compression": true,
+    "normalization": "absolute P3 error divided by P3 tolerance",
+    "smooth_max_beta": 2.0
+  },
+  "initial_distribution": "normal P2 training distribution",
+  "initialization": {
+    "actor": "new random initialization",
+    "critics": "new random initialization",
+    "pretrained_model_loaded": false,
+    "pretrained_vecnormalize_loaded": false,
+    "replay_buffer": "new empty buffer",
+    "vecnormalize": "new statistics"
+  },
+  "max_time": 12000.0,
+  "phase": "closing",
+  "prescribed_velocity_profile": false,
+  "purpose": "closing SAC P3-reaching training from scratch",
+  "reward_shaping": {
+    "action_cost": "squared normalized action norm",
+    "progress_clip": null,
+    "state_cost_clip": null,
+    "unsafe_penalty": "per hard-unsafe state; non-terminal"
+  },
+  "sac_parameters": {
+    "batch_size": 512,
+    "buffer_size": 300000,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.999,
+    "gradient_steps": 8,
+    "learning_rate": 0.00026276728418436003,
+    "learning_starts": 10000,
+    "target_update_interval": 1,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "safety_classification_enabled": true,
+  "safety_penalties_enabled": true,
+  "safety_violation_termination_enabled": false,
+  "shared_gym_reward_version_used_for_experiment": false,
+  "shared_reward_files_modified": false,
+  "terminal_conditions": [
+    "P3 success",
+    "time limit",
+    "non-finite state"
+  ],
+  "terminal_velocity_shaping": {
+    "active_from_p2": false,
+    "gate": "sigmoid in Euclidean P3 position error",
+    "gate_applied_after_velocity_progress_difference": true,
+    "gate_midpoint_m": 400.0,
+    "gate_width_m": 100.0,
+    "target": "sampled exact P3 velocity"
+  },
+  "total_timesteps": 600000,
+  "training_learning_curve": {
+    "evaluation_checkpoints_marked": true,
+    "file": "episode_return_learning_curve.png",
+    "moving_average_window_episodes": 10,
+    "raw_episode_return": true,
+    "refresh_interval_episodes": 5
+  },
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "vecnormalize": {
+    "clip_obs": 10.0,
+    "clip_reward": 10.0,
+    "gamma": 0.999,
+    "norm_obs": true,
+    "norm_reward": false
+  }
+}

@@ -1145,3 +1145,1492 @@ class ClosingSafetyExplorationV5GymEnv(ClosingSafetyExplorationGymEnv):
             "reward_total": reward,
         }
         return reward, components
+
+
+class ClosingSafetyExplorationV6GymEnv(ClosingSafetyExplorationGymEnv):
+    """Tolerance-normalized smooth worst-component P3 reward.
+
+    Every P3 state error is divided by its corresponding terminal tolerance.
+    A numerically stable log-mean-exp then provides a smooth approximation of
+    the largest normalized error.  Unlike the earlier experiment rewards,
+    this objective has no distance gate, reference trajectory, or separately
+    hand-tuned weights for quantities expressed in different physical units.
+
+    Safety violations keep the experiment's non-terminal semantics.  Their
+    penalty is therefore applied on every step whose resulting state is
+    classified unsafe; it is not a terminal penalty.
+    """
+
+    reward_scheme = "p3_reach_v6"
+    smooth_max_beta = 5.0
+    progress_clip = 1.0
+    state_cost_clip = 10.0
+    goal_component_names = (
+        "axial",
+        "lateral",
+        "vx",
+        "vy",
+        "attitude",
+        "rate",
+    )
+    reward_weights = {
+        "smoothmax_progress": 10.0,
+        "smoothmax_state": 0.01,
+        "action": 0.001,
+        "time": 0.001,
+        "unsafe": 100.0,
+        "success": 100.0,
+        "timeout": 0.0,
+    }
+
+    def reset(self, seed=None, options=None):
+        # Call the shared wrapper directly so v1's reward-state reset is not
+        # mixed into this isolated reward implementation.
+        observation, info = Docking3DoFGymEnv.reset(
+            self,
+            seed=seed,
+            options=options,
+        )
+        goal = self._v6_goal_state(self.core_env.state)
+        self._previous_smooth_max_cost = goal["smooth_max_cost"]
+        info["reward_scheme"] = self.reward_scheme
+        return observation, info
+
+    def _v6_goal_state(self, state):
+        if self.core_env.p3_target is None:
+            raise RuntimeError("The closing P3 target is not initialized.")
+
+        error = np.asarray(state - self.core_env.p3_target, dtype=np.float64)
+        error[4] = self.core_env.wrap_to_pi(error[4])
+        tolerance = np.maximum(
+            np.asarray(self.core_env.p3_target_tolerance, dtype=np.float64),
+            1e-12,
+        )
+        ratios = np.abs(error) / tolerance
+
+        # Subtracting the maximum prevents overflow. Using the mean rather
+        # than the sum makes the metric exactly zero at the P3 target and
+        # equal to c when all six normalized errors equal c.
+        maximum = float(np.max(ratios))
+        smooth_max_cost = float(
+            maximum
+            + np.log(
+                np.mean(
+                    np.exp(self.smooth_max_beta * (ratios - maximum))
+                )
+            )
+            / self.smooth_max_beta
+        )
+        return {
+            "error": error,
+            "ratios": ratios,
+            "max_ratio": maximum,
+            "smooth_max_cost": smooth_max_cost,
+        }
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        del physical_action, terminated
+        goal = self._v6_goal_state(state)
+        raw_progress = (
+            self._previous_smooth_max_cost - goal["smooth_max_cost"]
+        )
+        clipped_progress = float(
+            np.clip(raw_progress, -self.progress_clip, self.progress_clip)
+        )
+        self._previous_smooth_max_cost = goal["smooth_max_cost"]
+
+        normalized_action = np.asarray(normalized_action, dtype=np.float64)
+        action_norm_squared = float(np.sum(np.square(normalized_action)))
+        clipped_state_cost = float(
+            min(goal["smooth_max_cost"], self.state_cost_clip)
+        )
+
+        weights = self.reward_weights
+        terms = {
+            "reward_smoothmax_progress": (
+                weights["smoothmax_progress"] * clipped_progress
+            ),
+            "reward_smoothmax_state": (
+                -weights["smoothmax_state"] * clipped_state_cost
+            ),
+            "reward_action": -weights["action"] * action_norm_squared,
+            "reward_time": -weights["time"],
+            "reward_failure": (
+                -weights["unsafe"]
+                if info.get("safety_violation_observed", False)
+                else 0.0
+            ),
+            "reward_success": (
+                weights["success"] if info.get("success", False) else 0.0
+            ),
+            "reward_timeout": -weights["timeout"] if truncated else 0.0,
+        }
+        reward = float(sum(terms.values()))
+        ratios = goal["ratios"]
+        components = {
+            "phase": self.phase,
+            "reward_scheme": self.reward_scheme,
+            "shared_gym_reward_version_used": False,
+            "safety_termination_disabled": True,
+            "safety_violation_observed": bool(
+                info.get("safety_violation_observed", False)
+            ),
+            "safety_penalty_preserved": bool(terms["reward_failure"] != 0.0),
+            "smooth_max_beta": float(self.smooth_max_beta),
+            "smooth_max_cost": goal["smooth_max_cost"],
+            "smooth_max_progress_raw": float(raw_progress),
+            "smooth_max_progress_clipped": clipped_progress,
+            "smooth_max_state_cost_clipped": clipped_state_cost,
+            "p3_max_target_ratio": goal["max_ratio"],
+            "action_norm_squared": action_norm_squared,
+            **{
+                f"p3_{name}_ratio": float(value)
+                for name, value in zip(self.goal_component_names, ratios)
+            },
+            **{key: float(value) for key, value in terms.items()},
+            "reward_total": reward,
+        }
+        return reward, components
+
+
+class ClosingSafetyExplorationV7GymEnv(ClosingSafetyExplorationGymEnv):
+    """Globally active, balanced P3 capture reward.
+
+    Exact P3-tolerance ratios are compressed with ``log1p`` before combining
+    their mean and a smooth worst-component value.  The mean keeps gradients
+    active for every P3 requirement, while the smooth maximum still emphasizes
+    the current bottleneck.  Safety remains non-terminal and is penalized only
+    when the trajectory enters the hard-unsafe set.
+    """
+
+    reward_scheme = "p3_reach_v7"
+    smooth_max_beta = 2.0
+    aggregate_mean_weight = 0.5
+    aggregate_smooth_worst_weight = 0.5
+    progress_clip = 0.2
+    goal_component_names = (
+        "axial",
+        "lateral",
+        "vx",
+        "vy",
+        "attitude",
+        "rate",
+    )
+    reward_weights = {
+        "goal_progress": 10.0,
+        "goal_state": 0.05,
+        "action": 0.001,
+        "time": 0.001,
+        "unsafe_entry": 25.0,
+        "success": 100.0,
+        "timeout": 0.0,
+    }
+
+    def reset(self, seed=None, options=None):
+        observation, info = Docking3DoFGymEnv.reset(
+            self,
+            seed=seed,
+            options=options,
+        )
+        goal = self._v7_goal_state(self.core_env.state)
+        self._previous_goal_cost = goal["goal_cost"]
+        initial_monitor = self.core_env.monitor_safety(self.core_env.state)
+        self._was_safety_unsafe = bool(initial_monitor["unsafe"])
+        info["reward_scheme"] = self.reward_scheme
+        return observation, info
+
+    def _v7_goal_state(self, state):
+        if self.core_env.p3_target is None:
+            raise RuntimeError("The closing P3 target is not initialized.")
+
+        error = np.asarray(state - self.core_env.p3_target, dtype=np.float64)
+        error[4] = self.core_env.wrap_to_pi(error[4])
+        tolerance = np.maximum(
+            np.asarray(self.core_env.p3_target_tolerance, dtype=np.float64),
+            1e-12,
+        )
+        ratios = np.abs(error) / tolerance
+        log_components = np.log1p(ratios)
+
+        maximum = float(np.max(log_components))
+        smooth_worst = float(
+            maximum
+            + np.log(
+                np.mean(
+                    np.exp(
+                        self.smooth_max_beta * (log_components - maximum)
+                    )
+                )
+            )
+            / self.smooth_max_beta
+        )
+        component_mean = float(np.mean(log_components))
+        goal_cost = float(
+            self.aggregate_mean_weight * component_mean
+            + self.aggregate_smooth_worst_weight * smooth_worst
+        )
+        return {
+            "error": error,
+            "ratios": ratios,
+            "log_components": log_components,
+            "max_ratio": float(np.max(ratios)),
+            "component_mean": component_mean,
+            "smooth_worst": smooth_worst,
+            "goal_cost": goal_cost,
+        }
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        del physical_action, terminated
+        goal = self._v7_goal_state(state)
+        raw_progress = self._previous_goal_cost - goal["goal_cost"]
+        clipped_progress = float(
+            np.clip(raw_progress, -self.progress_clip, self.progress_clip)
+        )
+        self._previous_goal_cost = goal["goal_cost"]
+
+        unsafe_now = bool(info.get("safety_violation_observed", False))
+        unsafe_entry = bool(unsafe_now and not self._was_safety_unsafe)
+        self._was_safety_unsafe = unsafe_now
+
+        normalized_action = np.asarray(normalized_action, dtype=np.float64)
+        action_norm_squared = float(np.sum(np.square(normalized_action)))
+
+        weights = self.reward_weights
+        terms = {
+            "reward_goal_progress": weights["goal_progress"] * clipped_progress,
+            "reward_goal_state": -weights["goal_state"] * goal["goal_cost"],
+            "reward_action": -weights["action"] * action_norm_squared,
+            "reward_time": -weights["time"],
+            "reward_failure": (
+                -weights["unsafe_entry"] if unsafe_entry else 0.0
+            ),
+            "reward_success": (
+                weights["success"] if info.get("success", False) else 0.0
+            ),
+            "reward_timeout": -weights["timeout"] if truncated else 0.0,
+        }
+        reward = float(sum(terms.values()))
+        ratios = goal["ratios"]
+        log_components = goal["log_components"]
+        components = {
+            "phase": self.phase,
+            "reward_scheme": self.reward_scheme,
+            "shared_gym_reward_version_used": False,
+            "safety_termination_disabled": True,
+            "safety_violation_observed": unsafe_now,
+            "safety_unsafe_entry": unsafe_entry,
+            "safety_penalty_preserved": bool(terms["reward_failure"] != 0.0),
+            "smooth_max_beta": float(self.smooth_max_beta),
+            "goal_component_mean": goal["component_mean"],
+            "goal_smooth_worst": goal["smooth_worst"],
+            "goal_cost": goal["goal_cost"],
+            "goal_progress_raw": float(raw_progress),
+            "goal_progress_clipped": clipped_progress,
+            "p3_max_target_ratio": goal["max_ratio"],
+            "action_norm_squared": action_norm_squared,
+            **{
+                f"p3_{name}_ratio": float(value)
+                for name, value in zip(self.goal_component_names, ratios)
+            },
+            **{
+                f"p3_{name}_log_component": float(value)
+                for name, value in zip(
+                    self.goal_component_names,
+                    log_components,
+                )
+            },
+            **{key: float(value) for key, value in terms.items()},
+            "reward_total": reward,
+        }
+        return reward, components
+
+
+class ClosingSafetyExplorationV8GymEnv(ClosingSafetyExplorationV7GymEnv):
+    """V7 goal metric with symmetric progress and unsafe occupancy cost.
+
+    Progress uses the complete change in the log-compressed goal cost, so a
+    large departure is penalized by the same rule that rewards an approach.
+    Every hard-unsafe resulting state receives a small bounded penalty while
+    safety violations retain their non-terminal experiment semantics.
+    """
+
+    reward_scheme = "p3_reach_v8"
+    progress_clip = None
+    reward_weights = {
+        "goal_progress": 10.0,
+        "goal_state": 0.05,
+        "action": 0.001,
+        "time": 0.001,
+        "unsafe_step": 0.1,
+        "success": 100.0,
+        "timeout": 0.0,
+    }
+
+    def reset(self, seed=None, options=None):
+        observation, info = Docking3DoFGymEnv.reset(
+            self,
+            seed=seed,
+            options=options,
+        )
+        goal = self._v8_goal_state(self.core_env.state)
+        self._previous_goal_cost = goal["goal_cost"]
+        info["reward_scheme"] = self.reward_scheme
+        return observation, info
+
+    def _v8_goal_state(self, state):
+        return self._v7_goal_state(state)
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        del physical_action, terminated
+        goal = self._v8_goal_state(state)
+        goal_progress = self._previous_goal_cost - goal["goal_cost"]
+        self._previous_goal_cost = goal["goal_cost"]
+
+        unsafe_now = bool(info.get("safety_violation_observed", False))
+        normalized_action = np.asarray(normalized_action, dtype=np.float64)
+        action_norm_squared = float(np.sum(np.square(normalized_action)))
+
+        weights = self.reward_weights
+        terms = {
+            "reward_goal_progress": weights["goal_progress"] * goal_progress,
+            "reward_goal_state": -weights["goal_state"] * goal["goal_cost"],
+            "reward_action": -weights["action"] * action_norm_squared,
+            "reward_time": -weights["time"],
+            "reward_failure": -weights["unsafe_step"] if unsafe_now else 0.0,
+            "reward_success": (
+                weights["success"] if info.get("success", False) else 0.0
+            ),
+            "reward_timeout": -weights["timeout"] if truncated else 0.0,
+        }
+        reward = float(sum(terms.values()))
+        ratios = goal["ratios"]
+        log_components = goal["log_components"]
+        components = {
+            "phase": self.phase,
+            "reward_scheme": self.reward_scheme,
+            "shared_gym_reward_version_used": False,
+            "safety_termination_disabled": True,
+            "safety_violation_observed": unsafe_now,
+            "unsafe_occupancy_penalty_active": unsafe_now,
+            "safety_penalty_preserved": bool(terms["reward_failure"] != 0.0),
+            "smooth_max_beta": float(self.smooth_max_beta),
+            "goal_component_mean": goal["component_mean"],
+            "goal_smooth_worst": goal["smooth_worst"],
+            "goal_cost": goal["goal_cost"],
+            "goal_progress": float(goal_progress),
+            "p3_max_target_ratio": goal["max_ratio"],
+            "action_norm_squared": action_norm_squared,
+            **{
+                f"p3_{name}_ratio": float(value)
+                for name, value in zip(self.goal_component_names, ratios)
+            },
+            **{
+                f"p3_{name}_log_component": float(value)
+                for name, value in zip(
+                    self.goal_component_names,
+                    log_components,
+                )
+            },
+            **{key: float(value) for key, value in terms.items()},
+            "reward_total": reward,
+        }
+        return reward, components
+
+
+class ClosingSafetyExplorationV9GymEnv(ClosingSafetyExplorationV8GymEnv):
+    """Global guidance with distance-gated terminal-velocity capture.
+
+    Position and attitude/rate objectives remain active throughout closing.
+    Exact P3 velocity matching is activated smoothly near P3, preventing the
+    far-field policy from being rewarded for adopting terminal velocity while
+    it is still more than a kilometre away.  The gate multiplies the already
+    computed velocity progress instead of being included inside its temporal
+    difference.
+    """
+
+    reward_scheme = "p3_reach_v9"
+    terminal_velocity_gate_distance_m = 400.0
+    terminal_velocity_gate_width_m = 100.0
+    position_group_weight = 0.5
+    attitude_group_weight = 0.25
+    velocity_group_weight = 0.25
+
+    def reset(self, seed=None, options=None):
+        observation, info = Docking3DoFGymEnv.reset(
+            self,
+            seed=seed,
+            options=options,
+        )
+        goal = self._v9_goal_state(self.core_env.state)
+        self._previous_position_cost = goal["position_cost"]
+        self._previous_attitude_cost = goal["attitude_cost"]
+        self._previous_velocity_cost = goal["velocity_cost"]
+        info["reward_scheme"] = self.reward_scheme
+        return observation, info
+
+    def _v9_group_cost(self, log_components):
+        log_components = np.asarray(log_components, dtype=np.float64)
+        maximum = float(np.max(log_components))
+        smooth_worst = float(
+            maximum
+            + np.log(
+                np.mean(
+                    np.exp(
+                        self.smooth_max_beta * (log_components - maximum)
+                    )
+                )
+            )
+            / self.smooth_max_beta
+        )
+        component_mean = float(np.mean(log_components))
+        return float(
+            self.aggregate_mean_weight * component_mean
+            + self.aggregate_smooth_worst_weight * smooth_worst
+        )
+
+    def _v9_goal_state(self, state):
+        goal = self._v7_goal_state(state)
+        error = goal["error"]
+        position_error = float(np.linalg.norm(error[:2]))
+        gate_argument = np.clip(
+            (position_error - self.terminal_velocity_gate_distance_m)
+            / self.terminal_velocity_gate_width_m,
+            -60.0,
+            60.0,
+        )
+        log_components = goal["log_components"]
+        goal.update(
+            {
+                "position_error": position_error,
+                "terminal_velocity_gate": float(
+                    1.0 / (1.0 + np.exp(gate_argument))
+                ),
+                "position_cost": self._v9_group_cost(log_components[:2]),
+                "velocity_cost": self._v9_group_cost(log_components[2:4]),
+                "attitude_cost": self._v9_group_cost(log_components[4:6]),
+            }
+        )
+        return goal
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        del physical_action, terminated
+        goal = self._v9_goal_state(state)
+        position_progress = (
+            self._previous_position_cost - goal["position_cost"]
+        )
+        attitude_progress = (
+            self._previous_attitude_cost - goal["attitude_cost"]
+        )
+        velocity_progress = (
+            self._previous_velocity_cost - goal["velocity_cost"]
+        )
+        self._previous_position_cost = goal["position_cost"]
+        self._previous_attitude_cost = goal["attitude_cost"]
+        self._previous_velocity_cost = goal["velocity_cost"]
+
+        velocity_gate = goal["terminal_velocity_gate"]
+        unsafe_now = bool(info.get("safety_violation_observed", False))
+        normalized_action = np.asarray(normalized_action, dtype=np.float64)
+        action_norm_squared = float(np.sum(np.square(normalized_action)))
+
+        weights = self.reward_weights
+        terms = {
+            "reward_position_progress": (
+                weights["goal_progress"]
+                * self.position_group_weight
+                * position_progress
+            ),
+            "reward_attitude_progress": (
+                weights["goal_progress"]
+                * self.attitude_group_weight
+                * attitude_progress
+            ),
+            "reward_terminal_velocity_progress": (
+                weights["goal_progress"]
+                * self.velocity_group_weight
+                * velocity_gate
+                * velocity_progress
+            ),
+            "reward_position_state": (
+                -weights["goal_state"]
+                * self.position_group_weight
+                * goal["position_cost"]
+            ),
+            "reward_attitude_state": (
+                -weights["goal_state"]
+                * self.attitude_group_weight
+                * goal["attitude_cost"]
+            ),
+            "reward_terminal_velocity_state": (
+                -weights["goal_state"]
+                * self.velocity_group_weight
+                * velocity_gate
+                * goal["velocity_cost"]
+            ),
+            "reward_action": -weights["action"] * action_norm_squared,
+            "reward_time": -weights["time"],
+            "reward_failure": -weights["unsafe_step"] if unsafe_now else 0.0,
+            "reward_success": (
+                weights["success"] if info.get("success", False) else 0.0
+            ),
+            "reward_timeout": -weights["timeout"] if truncated else 0.0,
+        }
+        reward = float(sum(terms.values()))
+        ratios = goal["ratios"]
+        log_components = goal["log_components"]
+        weighted_goal_cost = float(
+            self.position_group_weight * goal["position_cost"]
+            + self.attitude_group_weight * goal["attitude_cost"]
+            + self.velocity_group_weight
+            * velocity_gate
+            * goal["velocity_cost"]
+        )
+        components = {
+            "phase": self.phase,
+            "reward_scheme": self.reward_scheme,
+            "shared_gym_reward_version_used": False,
+            "safety_termination_disabled": True,
+            "safety_violation_observed": unsafe_now,
+            "unsafe_occupancy_penalty_active": unsafe_now,
+            "safety_penalty_preserved": bool(terms["reward_failure"] != 0.0),
+            "smooth_max_beta": float(self.smooth_max_beta),
+            "position_error": goal["position_error"],
+            "position_cost": goal["position_cost"],
+            "velocity_cost": goal["velocity_cost"],
+            "attitude_cost": goal["attitude_cost"],
+            "weighted_goal_cost": weighted_goal_cost,
+            "position_progress": float(position_progress),
+            "velocity_progress": float(velocity_progress),
+            "attitude_progress": float(attitude_progress),
+            "terminal_velocity_gate": velocity_gate,
+            "p3_max_target_ratio": goal["max_ratio"],
+            "action_norm_squared": action_norm_squared,
+            **{
+                f"p3_{name}_ratio": float(value)
+                for name, value in zip(self.goal_component_names, ratios)
+            },
+            **{
+                f"p3_{name}_log_component": float(value)
+                for name, value in zip(
+                    self.goal_component_names,
+                    log_components,
+                )
+            },
+            **{key: float(value) for key, value in terms.items()},
+            "reward_total": reward,
+        }
+        return reward, components
+
+
+class ClosingSafetyExplorationV10GymEnv(ClosingSafetyExplorationV9GymEnv):
+    """V9 guidance with dense terminal capture and departure deterrence.
+
+    V9 can approach P3 without ever observing its sparse success bonus.  V10
+    therefore adds a smooth near-target cost based on the worst of all six P3
+    tolerance ratios.  The cost is zero only at the complete P3 target, so it
+    also trains velocity and alignment before the exact terminal set is hit.
+
+    Two state-based costs discourage the failure modes seen in V9 rollouts:
+    crossing beyond the axial P3 tolerance and moving radially away from P3.
+    The fly-away term uses only the current P3-relative position and velocity,
+    rather than a hidden best-distance history, keeping the reward Markov.
+    """
+
+    reward_scheme = "p3_reach_v10"
+    near_target_gate_distance_m = 400.0
+    near_target_gate_width_m = 100.0
+    flyaway_speed_scale_mps = 0.01
+    reward_weights = {
+        **ClosingSafetyExplorationV9GymEnv.reward_weights,
+        "near_target_capture": 0.25,
+        "axial_overshoot": 1.0,
+        "flyaway": 1.0,
+    }
+
+    def _v10_goal_state(self, state):
+        goal = self._v9_goal_state(state)
+        error = goal["error"]
+        tolerance = np.maximum(
+            np.asarray(self.core_env.p3_target_tolerance, dtype=np.float64),
+            1e-12,
+        )
+
+        gate_argument = np.clip(
+            (goal["position_error"] - self.near_target_gate_distance_m)
+            / self.near_target_gate_width_m,
+            -60.0,
+            60.0,
+        )
+        near_target_gate = float(1.0 / (1.0 + np.exp(gate_argument)))
+
+        axial_overshoot_m = float(max(0.0, -error[0] - tolerance[0]))
+        axial_overshoot_ratio = axial_overshoot_m / tolerance[0]
+        axial_overshoot_cost = float(np.log1p(axial_overshoot_ratio))
+
+        if goal["position_error"] > 1e-12:
+            radial_velocity_mps = float(
+                np.dot(error[:2], error[2:4]) / goal["position_error"]
+            )
+        else:
+            radial_velocity_mps = 0.0
+        flyaway_speed_mps = float(max(0.0, radial_velocity_mps))
+        flyaway_cost = float(
+            near_target_gate
+            * np.log1p(flyaway_speed_mps / self.flyaway_speed_scale_mps)
+        )
+
+        goal.update(
+            {
+                "near_target_gate": near_target_gate,
+                "near_target_capture_cost": goal["smooth_worst"],
+                "axial_overshoot_m": axial_overshoot_m,
+                "axial_overshoot_ratio": axial_overshoot_ratio,
+                "axial_overshoot_cost": axial_overshoot_cost,
+                "radial_velocity_mps": radial_velocity_mps,
+                "flyaway_speed_mps": flyaway_speed_mps,
+                "flyaway_cost": flyaway_cost,
+            }
+        )
+        return goal
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        goal = self._v10_goal_state(state)
+        weights = self.reward_weights
+        v10_terms = {
+            "reward_near_target_capture": (
+                -weights["near_target_capture"]
+                * goal["near_target_gate"]
+                * goal["near_target_capture_cost"]
+            ),
+            "reward_axial_overshoot": (
+                -weights["axial_overshoot"] * goal["axial_overshoot_cost"]
+            ),
+            "reward_flyaway": -weights["flyaway"] * goal["flyaway_cost"],
+        }
+        reward = float(reward + sum(v10_terms.values()))
+        components.update(
+            {
+                "near_target_gate": goal["near_target_gate"],
+                "near_target_capture_cost": goal["near_target_capture_cost"],
+                "axial_overshoot_m": goal["axial_overshoot_m"],
+                "axial_overshoot_ratio": goal["axial_overshoot_ratio"],
+                "axial_overshoot_cost": goal["axial_overshoot_cost"],
+                "radial_velocity_mps": goal["radial_velocity_mps"],
+                "flyaway_speed_mps": goal["flyaway_speed_mps"],
+                "flyaway_cost": goal["flyaway_cost"],
+                **{key: float(value) for key, value in v10_terms.items()},
+                "reward_total": reward,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyExplorationV11GymEnv(ClosingSafetyExplorationV9GymEnv):
+    """V9 guidance with bounded near-target capture progress.
+
+    V10's persistent near-target and axial-overshoot occupancy costs made
+    avoiding P3 more rewarding than attempting capture.  V11 removes both
+    costs.  Instead, it rewards improvement and penalizes regression in the
+    smooth worst P3 component only while near P3.  The symmetric progress term
+    is clipped to the same per-step magnitude as the unsafe occupancy penalty.
+
+    Positive P3-relative radial velocity remains an explicit fly-away signal,
+    but its penalty is also bounded to the unsafe-step penalty magnitude.  The
+    axial overshoot distance is retained solely as a rollout diagnostic.
+    """
+
+    reward_scheme = "p3_reach_v11"
+    near_target_gate_distance_m = 400.0
+    near_target_gate_width_m = 100.0
+    capture_progress_clip = 0.1
+    flyaway_speed_scale_mps = 0.01
+    flyaway_penalty_clip = 0.1
+    reward_weights = {
+        **ClosingSafetyExplorationV9GymEnv.reward_weights,
+        "capture_progress": 1.0,
+        "flyaway": 1.0,
+    }
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        goal = self._v11_goal_state(self.core_env.state)
+        self._previous_capture_cost = goal["capture_cost"]
+        info["reward_scheme"] = self.reward_scheme
+        return observation, info
+
+    def _v11_goal_state(self, state):
+        goal = self._v9_goal_state(state)
+        error = goal["error"]
+        tolerance = np.maximum(
+            np.asarray(self.core_env.p3_target_tolerance, dtype=np.float64),
+            1e-12,
+        )
+
+        gate_argument = np.clip(
+            (goal["position_error"] - self.near_target_gate_distance_m)
+            / self.near_target_gate_width_m,
+            -60.0,
+            60.0,
+        )
+        near_target_gate = float(1.0 / (1.0 + np.exp(gate_argument)))
+
+        axial_overshoot_m = float(max(0.0, -error[0] - tolerance[0]))
+        if goal["position_error"] > 1e-12:
+            radial_velocity_mps = float(
+                np.dot(error[:2], error[2:4]) / goal["position_error"]
+            )
+        else:
+            radial_velocity_mps = 0.0
+        flyaway_speed_mps = float(max(0.0, radial_velocity_mps))
+        flyaway_cost_raw = float(
+            near_target_gate
+            * np.log1p(flyaway_speed_mps / self.flyaway_speed_scale_mps)
+        )
+        flyaway_cost_clipped = float(
+            min(flyaway_cost_raw, self.flyaway_penalty_clip)
+        )
+
+        goal.update(
+            {
+                "near_target_gate": near_target_gate,
+                "capture_cost": goal["smooth_worst"],
+                "axial_overshoot_m": axial_overshoot_m,
+                "radial_velocity_mps": radial_velocity_mps,
+                "flyaway_speed_mps": flyaway_speed_mps,
+                "flyaway_cost_raw": flyaway_cost_raw,
+                "flyaway_cost_clipped": flyaway_cost_clipped,
+            }
+        )
+        return goal
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        goal = self._v11_goal_state(state)
+        capture_progress_raw = float(
+            self._previous_capture_cost - goal["capture_cost"]
+        )
+        capture_progress_clipped = float(
+            np.clip(
+                capture_progress_raw,
+                -self.capture_progress_clip,
+                self.capture_progress_clip,
+            )
+        )
+        self._previous_capture_cost = goal["capture_cost"]
+
+        weights = self.reward_weights
+        v11_terms = {
+            "reward_capture_progress": (
+                weights["capture_progress"]
+                * goal["near_target_gate"]
+                * capture_progress_clipped
+            ),
+            "reward_flyaway": (
+                -weights["flyaway"] * goal["flyaway_cost_clipped"]
+            ),
+        }
+        reward = float(reward + sum(v11_terms.values()))
+        components.update(
+            {
+                "near_target_gate": goal["near_target_gate"],
+                "capture_cost": goal["capture_cost"],
+                "capture_progress_raw": capture_progress_raw,
+                "capture_progress_clipped": capture_progress_clipped,
+                "capture_progress_clip": float(self.capture_progress_clip),
+                "near_target_occupancy_penalty_active": False,
+                "axial_overshoot_m": goal["axial_overshoot_m"],
+                "axial_overshoot_penalty_active": False,
+                "radial_velocity_mps": goal["radial_velocity_mps"],
+                "flyaway_speed_mps": goal["flyaway_speed_mps"],
+                "flyaway_cost_raw": goal["flyaway_cost_raw"],
+                "flyaway_cost_clipped": goal["flyaway_cost_clipped"],
+                "flyaway_penalty_clip": float(self.flyaway_penalty_clip),
+                **{key: float(value) for key, value in v11_terms.items()},
+                "reward_total": reward,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyExplorationV12GymEnv(ClosingSafetyExplorationV9GymEnv):
+    """Stable v11 successor with balanced capture progress and early resets.
+
+    Capture progress is computed from separate position, attitude/rate, and
+    velocity group costs.  Their weighted combination is clipped before the
+    near-target gate is applied, keeping the complete additional progress term
+    in ``[-0.1, 0.1]``.  The fly-away penalty is independently capped at 0.05.
+
+    An approach that has entered the near-target region is truncated, without
+    an added reward penalty, only after it has lost substantial ground while
+    moving away continuously.  This replaces long post-failure trajectories
+    with fresh P2 episodes while preserving non-terminal safety exploration.
+    """
+
+    reward_scheme = "p3_reach_v12"
+    position_group_weight = 0.4
+    attitude_group_weight = 0.4
+    velocity_group_weight = 0.2
+    near_target_gate_distance_m = 400.0
+    near_target_gate_width_m = 100.0
+    capture_progress_clip = 0.1
+    flyaway_speed_scale_mps = 0.01
+    flyaway_penalty_clip = 0.05
+    failed_approach_entry_distance_m = 400.0
+    failed_approach_distance_growth_m = 200.0
+    failed_approach_radial_speed_mps = 0.01
+    failed_approach_patience_steps = 60
+    reward_weights = {
+        **ClosingSafetyExplorationV9GymEnv.reward_weights,
+        "capture_progress": 1.0,
+        "flyaway": 1.0,
+    }
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        goal = self._v12_goal_state(self.core_env.state)
+        self._previous_capture_position_cost = goal["position_cost"]
+        self._previous_capture_attitude_cost = goal["attitude_cost"]
+        self._previous_capture_velocity_cost = goal["velocity_cost"]
+        self._entered_near_target = bool(
+            goal["position_error"] <= self.failed_approach_entry_distance_m
+        )
+        self._minimum_position_error = goal["position_error"]
+        self._failed_approach_flyaway_steps = 0
+        info["reward_scheme"] = self.reward_scheme
+        info["failed_approach_reset_enabled"] = True
+        return observation, info
+
+    def _v12_goal_state(self, state):
+        goal = self._v9_goal_state(state)
+        error = goal["error"]
+        tolerance = np.maximum(
+            np.asarray(self.core_env.p3_target_tolerance, dtype=np.float64),
+            1e-12,
+        )
+
+        gate_argument = np.clip(
+            (goal["position_error"] - self.near_target_gate_distance_m)
+            / self.near_target_gate_width_m,
+            -60.0,
+            60.0,
+        )
+        near_target_gate = float(1.0 / (1.0 + np.exp(gate_argument)))
+
+        axial_overshoot_m = float(max(0.0, -error[0] - tolerance[0]))
+        if goal["position_error"] > 1e-12:
+            radial_velocity_mps = float(
+                np.dot(error[:2], error[2:4]) / goal["position_error"]
+            )
+        else:
+            radial_velocity_mps = 0.0
+        flyaway_speed_mps = float(max(0.0, radial_velocity_mps))
+        flyaway_cost_raw = float(
+            near_target_gate
+            * np.log1p(flyaway_speed_mps / self.flyaway_speed_scale_mps)
+        )
+        flyaway_cost_clipped = float(
+            min(flyaway_cost_raw, self.flyaway_penalty_clip)
+        )
+
+        goal.update(
+            {
+                "near_target_gate": near_target_gate,
+                "axial_overshoot_m": axial_overshoot_m,
+                "radial_velocity_mps": radial_velocity_mps,
+                "flyaway_speed_mps": flyaway_speed_mps,
+                "flyaway_cost_raw": flyaway_cost_raw,
+                "flyaway_cost_clipped": flyaway_cost_clipped,
+            }
+        )
+        return goal
+
+    def _update_failed_approach_state(self, goal):
+        position_error = float(goal["position_error"])
+        self._minimum_position_error = min(
+            self._minimum_position_error,
+            position_error,
+        )
+        if position_error <= self.failed_approach_entry_distance_m:
+            self._entered_near_target = True
+
+        lost_ground = (
+            position_error - self._minimum_position_error
+            >= self.failed_approach_distance_growth_m
+        )
+        moving_away = (
+            goal["radial_velocity_mps"]
+            >= self.failed_approach_radial_speed_mps
+        )
+        if self._entered_near_target and lost_ground and moving_away:
+            self._failed_approach_flyaway_steps += 1
+        else:
+            self._failed_approach_flyaway_steps = 0
+
+        return bool(
+            self._failed_approach_flyaway_steps
+            >= self.failed_approach_patience_steps
+        )
+
+    def step(self, action):
+        observation, reward, terminated, truncated, info = super().step(action)
+        goal = self._v12_goal_state(self.core_env.state)
+        failed_approach_reset = self._update_failed_approach_state(goal)
+
+        if not terminated and not truncated and failed_approach_reset:
+            truncated = True
+            info["failed_approach_reset"] = True
+            info["termination_reason"] = "failed_approach_reset"
+        else:
+            info["failed_approach_reset"] = False
+
+        info["entered_near_target"] = self._entered_near_target
+        info["minimum_position_error_m"] = self._minimum_position_error
+        info["failed_approach_flyaway_steps"] = (
+            self._failed_approach_flyaway_steps
+        )
+        reward_components = info.get("reward_components", {})
+        reward_components["failed_approach_reset"] = failed_approach_reset
+        reward_components["failed_approach_reset_reward"] = 0.0
+        return observation, reward, terminated, truncated, info
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        goal = self._v12_goal_state(state)
+        position_progress = float(
+            self._previous_capture_position_cost - goal["position_cost"]
+        )
+        attitude_progress = float(
+            self._previous_capture_attitude_cost - goal["attitude_cost"]
+        )
+        velocity_progress = float(
+            self._previous_capture_velocity_cost - goal["velocity_cost"]
+        )
+        self._previous_capture_position_cost = goal["position_cost"]
+        self._previous_capture_attitude_cost = goal["attitude_cost"]
+        self._previous_capture_velocity_cost = goal["velocity_cost"]
+
+        balanced_progress_raw = float(
+            self.position_group_weight * position_progress
+            + self.attitude_group_weight * attitude_progress
+            + self.velocity_group_weight * velocity_progress
+        )
+        balanced_progress_clipped = float(
+            np.clip(
+                balanced_progress_raw,
+                -self.capture_progress_clip,
+                self.capture_progress_clip,
+            )
+        )
+
+        weights = self.reward_weights
+        v12_terms = {
+            "reward_capture_progress": (
+                weights["capture_progress"]
+                * goal["near_target_gate"]
+                * balanced_progress_clipped
+            ),
+            "reward_flyaway": (
+                -weights["flyaway"] * goal["flyaway_cost_clipped"]
+            ),
+        }
+        reward = float(reward + sum(v12_terms.values()))
+        components.update(
+            {
+                "near_target_gate": goal["near_target_gate"],
+                "capture_position_progress": position_progress,
+                "capture_attitude_progress": attitude_progress,
+                "capture_velocity_progress": velocity_progress,
+                "capture_balanced_progress_raw": balanced_progress_raw,
+                "capture_balanced_progress_clipped": (
+                    balanced_progress_clipped
+                ),
+                "capture_progress_clip": float(self.capture_progress_clip),
+                "near_target_occupancy_penalty_active": False,
+                "axial_overshoot_m": goal["axial_overshoot_m"],
+                "axial_overshoot_penalty_active": False,
+                "radial_velocity_mps": goal["radial_velocity_mps"],
+                "flyaway_speed_mps": goal["flyaway_speed_mps"],
+                "flyaway_cost_raw": goal["flyaway_cost_raw"],
+                "flyaway_cost_clipped": goal["flyaway_cost_clipped"],
+                "flyaway_penalty_clip": float(self.flyaway_penalty_clip),
+                **{key: float(value) for key, value in v12_terms.items()},
+                "reward_total": reward,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyExplorationV13GymEnv(ClosingSafetyExplorationV12GymEnv):
+    """V12 dynamics with worst-unsatisfied-component capture progress.
+
+    V12 can trade a severe error in one P3 group against progress in another.
+    V13 instead removes already-satisfied components from its near-target
+    capture cost and blends a nominal group-weighted cost with a smooth maximum
+    over the three remaining group deficits.  Position and terminal velocity
+    receive most of the nominal weight, while the smooth-worst term still makes
+    alignment decisive whenever it becomes the limiting unsatisfied group.
+
+    Only bounded progress through this cost is rewarded.  V13 preserves V12's
+    absence of near-target occupancy and axial-overshoot penalties, its bounded
+    fly-away penalty, and its zero-penalty failed-approach reset.
+    """
+
+    reward_scheme = "p3_reach_v13"
+    capture_position_group_weight = 0.60
+    capture_velocity_group_weight = 0.30
+    capture_attitude_group_weight = 0.10
+    capture_weighted_cost_fraction = 0.35
+    capture_worst_cost_fraction = 0.65
+    capture_worst_beta = 4.0
+    capture_satisfied_log_threshold = float(np.log(2.0))
+    capture_satisfied_ratio_epsilon = 1e-12
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        goal = self._v13_goal_state(self.core_env.state)
+        self._previous_v13_capture_cost = goal["capture_cost"]
+        info["reward_scheme"] = self.reward_scheme
+        return observation, info
+
+    def _v13_smooth_max(self, values):
+        values = np.asarray(values, dtype=np.float64)
+        maximum = float(np.max(values))
+        return float(
+            maximum
+            + np.log(
+                np.mean(
+                    np.exp(self.capture_worst_beta * (values - maximum))
+                )
+            )
+            / self.capture_worst_beta
+        )
+
+    def _v13_goal_state(self, state):
+        goal = self._v12_goal_state(state)
+        log_components = np.asarray(goal["log_components"], dtype=np.float64)
+        ratios = np.asarray(goal["ratios"], dtype=np.float64)
+        deficits = np.maximum(
+            log_components - self.capture_satisfied_log_threshold,
+            0.0,
+        )
+        deficits = np.where(
+            ratios <= 1.0 + self.capture_satisfied_ratio_epsilon,
+            0.0,
+            deficits,
+        )
+
+        position_deficit = self._v13_smooth_max(deficits[:2])
+        velocity_deficit = self._v13_smooth_max(deficits[2:4])
+        attitude_deficit = self._v13_smooth_max(deficits[4:6])
+        nominal_cost = float(
+            self.capture_position_group_weight * position_deficit
+            + self.capture_velocity_group_weight * velocity_deficit
+            + self.capture_attitude_group_weight * attitude_deficit
+        )
+        worst_group_cost = self._v13_smooth_max(
+            [position_deficit, velocity_deficit, attitude_deficit]
+        )
+        capture_cost = float(
+            self.capture_weighted_cost_fraction * nominal_cost
+            + self.capture_worst_cost_fraction * worst_group_cost
+        )
+
+        goal.update(
+            {
+                "capture_component_deficits": deficits,
+                "capture_position_deficit": position_deficit,
+                "capture_velocity_deficit": velocity_deficit,
+                "capture_attitude_deficit": attitude_deficit,
+                "capture_nominal_cost": nominal_cost,
+                "capture_worst_group_cost": worst_group_cost,
+                "capture_cost": capture_cost,
+            }
+        )
+        return goal
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        # Deliberately bypass V12's additive capture term while retaining the
+        # complete V9 global guidance reward underneath the new V13 shaping.
+        reward, components = ClosingSafetyExplorationV9GymEnv._compute_sac_reward(
+            self,
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        goal = self._v13_goal_state(state)
+        capture_progress_raw = float(
+            self._previous_v13_capture_cost - goal["capture_cost"]
+        )
+        capture_progress_clipped = float(
+            np.clip(
+                capture_progress_raw,
+                -self.capture_progress_clip,
+                self.capture_progress_clip,
+            )
+        )
+        self._previous_v13_capture_cost = goal["capture_cost"]
+
+        weights = self.reward_weights
+        v13_terms = {
+            "reward_capture_progress": (
+                weights["capture_progress"]
+                * goal["near_target_gate"]
+                * capture_progress_clipped
+            ),
+            "reward_flyaway": (
+                -weights["flyaway"] * goal["flyaway_cost_clipped"]
+            ),
+        }
+        reward = float(reward + sum(v13_terms.values()))
+        component_names = self.goal_component_names
+        components.update(
+            {
+                "near_target_gate": goal["near_target_gate"],
+                "capture_cost": goal["capture_cost"],
+                "capture_nominal_cost": goal["capture_nominal_cost"],
+                "capture_worst_group_cost": goal[
+                    "capture_worst_group_cost"
+                ],
+                "capture_position_deficit": goal[
+                    "capture_position_deficit"
+                ],
+                "capture_velocity_deficit": goal[
+                    "capture_velocity_deficit"
+                ],
+                "capture_attitude_deficit": goal[
+                    "capture_attitude_deficit"
+                ],
+                "capture_progress_raw": capture_progress_raw,
+                "capture_progress_clipped": capture_progress_clipped,
+                "capture_progress_clip": float(self.capture_progress_clip),
+                "capture_satisfied_log_threshold": (
+                    self.capture_satisfied_log_threshold
+                ),
+                "capture_satisfied_ratio_epsilon": (
+                    self.capture_satisfied_ratio_epsilon
+                ),
+                "capture_weighted_cost_fraction": (
+                    self.capture_weighted_cost_fraction
+                ),
+                "capture_worst_cost_fraction": (
+                    self.capture_worst_cost_fraction
+                ),
+                "capture_worst_beta": self.capture_worst_beta,
+                "near_target_occupancy_penalty_active": False,
+                "axial_overshoot_m": goal["axial_overshoot_m"],
+                "axial_overshoot_penalty_active": False,
+                "radial_velocity_mps": goal["radial_velocity_mps"],
+                "flyaway_speed_mps": goal["flyaway_speed_mps"],
+                "flyaway_cost_raw": goal["flyaway_cost_raw"],
+                "flyaway_cost_clipped": goal["flyaway_cost_clipped"],
+                "flyaway_penalty_clip": float(self.flyaway_penalty_clip),
+                **{
+                    f"capture_{name}_deficit": float(value)
+                    for name, value in zip(
+                        component_names,
+                        goal["capture_component_deficits"],
+                    )
+                },
+                **{key: float(value) for key, value in v13_terms.items()},
+                "reward_total": reward,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyExplorationV14GymEnv(ClosingSafetyExplorationV12GymEnv):
+    """V12 with a bounded physical angle/rate soft constraint.
+
+    This is intentionally a direct V12 successor rather than a V13 successor.
+    All V12 task shaping is preserved.  The only new reward term is zero while
+    both physical docking alignment quantities are in their existing safe
+    bands, rises continuously through the warning bands, and saturates once
+    either quantity reaches its existing unsafe threshold.  Violations remain
+    non-terminal and the initial-state distribution is unchanged.
+    """
+
+    reward_scheme = "p3_reach_v14"
+    reward_weights = {
+        **ClosingSafetyExplorationV12GymEnv.reward_weights,
+        "angle_constraint": 0.1,
+    }
+    angle_constraint_psi_safe_deg = 3.0
+    angle_constraint_psi_unsafe_deg = 4.0
+    angle_constraint_omega_safe_degs = 0.15
+    angle_constraint_omega_unsafe_degs = 0.20
+
+    @staticmethod
+    def _bounded_warning_depth(value, safe_limit, unsafe_limit):
+        width = max(float(unsafe_limit - safe_limit), 1e-12)
+        return float(np.clip((value - safe_limit) / width, 0.0, 1.0))
+
+    def _v14_angle_constraint(self, state):
+        q = self.core_env.get_derived_quantities(state)
+        psi_abs = float(abs(q["psi_e"]))
+        omega_abs = float(abs(q["omega"]))
+        psi_depth = self._bounded_warning_depth(
+            psi_abs,
+            np.deg2rad(self.angle_constraint_psi_safe_deg),
+            np.deg2rad(self.angle_constraint_psi_unsafe_deg),
+        )
+        omega_depth = self._bounded_warning_depth(
+            omega_abs,
+            np.deg2rad(self.angle_constraint_omega_safe_degs),
+            np.deg2rad(self.angle_constraint_omega_unsafe_degs),
+        )
+        # Smooth bounded union: zero only when both depths are zero and one
+        # whenever either physical alignment quantity is fully unsafe.
+        combined_depth = float(
+            1.0 - (1.0 - psi_depth) * (1.0 - omega_depth)
+        )
+        return {
+            "psi_abs": psi_abs,
+            "omega_abs": omega_abs,
+            "psi_warning_depth": psi_depth,
+            "omega_warning_depth": omega_depth,
+            "combined_warning_depth": combined_depth,
+        }
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        constraint = self._v14_angle_constraint(state)
+        reward_angle_constraint = float(
+            -self.reward_weights["angle_constraint"]
+            * constraint["combined_warning_depth"]
+        )
+        reward = float(reward + reward_angle_constraint)
+        components.update(
+            {
+                "angle_constraint_penalty_enabled": True,
+                "angle_constraint_non_terminal": True,
+                "angle_constraint_psi_abs_deg": float(
+                    np.rad2deg(constraint["psi_abs"])
+                ),
+                "angle_constraint_omega_abs_degs": float(
+                    np.rad2deg(constraint["omega_abs"])
+                ),
+                "angle_constraint_psi_safe_deg": float(
+                    self.angle_constraint_psi_safe_deg
+                ),
+                "angle_constraint_psi_unsafe_deg": float(
+                    self.angle_constraint_psi_unsafe_deg
+                ),
+                "angle_constraint_omega_safe_degs": float(
+                    self.angle_constraint_omega_safe_degs
+                ),
+                "angle_constraint_omega_unsafe_degs": float(
+                    self.angle_constraint_omega_unsafe_degs
+                ),
+                "angle_constraint_psi_warning_depth": constraint[
+                    "psi_warning_depth"
+                ],
+                "angle_constraint_omega_warning_depth": constraint[
+                    "omega_warning_depth"
+                ],
+                "angle_constraint_combined_warning_depth": constraint[
+                    "combined_warning_depth"
+                ],
+                "angle_constraint_penalty_clip": float(
+                    self.reward_weights["angle_constraint"]
+                ),
+                "reward_angle_constraint": reward_angle_constraint,
+                "reward_total": reward,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyExplorationV15GymEnv(ClosingSafetyExplorationV12GymEnv):
+    """V12 with a bounded lateral docking-cone soft constraint.
+
+    The seeds 200--209 V12 diagnostic showed no axial cone exits: all observed
+    containment failures were lateral.  V15 therefore penalizes only physical
+    lateral excess beyond ``rho <= cone_slope * s``.  The excess is normalized
+    by the cone base radius and clipped, so the new term is continuous at the
+    cone boundary and never exceeds the existing 0.1 hard-safety penalty per
+    step.  It is zero everywhere inside the cone, remains non-terminal, and
+    does not change the initial-state distribution or V12 task shaping.
+
+    No separate axial-overshoot cost is reintroduced; V11 removed that cost
+    because persistent target-relative overshoot shaping harmed approach.
+    """
+
+    reward_scheme = "p3_reach_v15"
+    reward_weights = {
+        **ClosingSafetyExplorationV12GymEnv.reward_weights,
+        "cone_constraint": 0.1,
+    }
+
+    def _v15_cone_constraint(self, state):
+        q = self.core_env.get_derived_quantities(state)
+        cone_length = float(self.core_env.cone_length)
+        cone_base_radius = float(self.core_env.cone_base_radius)
+        axial_position = float(np.clip(q["s"], 0.0, cone_length))
+        allowed_radius = float(self.core_env.cone_slope * axial_position)
+        lateral_excess = float(max(0.0, q["rho"] - allowed_radius))
+        warning_depth = float(
+            np.clip(
+                lateral_excess / max(cone_base_radius, 1e-12),
+                0.0,
+                1.0,
+            )
+        )
+        return {
+            "s": float(q["s"]),
+            "rho": float(q["rho"]),
+            "allowed_radius": allowed_radius,
+            "lateral_excess": lateral_excess,
+            "warning_depth": warning_depth,
+        }
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        constraint = self._v15_cone_constraint(state)
+        reward_cone_constraint = float(
+            -self.reward_weights["cone_constraint"]
+            * constraint["warning_depth"]
+        )
+        reward = float(reward + reward_cone_constraint)
+        components.update(
+            {
+                "cone_constraint_penalty_enabled": True,
+                "cone_constraint_non_terminal": True,
+                "cone_constraint_lateral_only": True,
+                "cone_constraint_s_m": constraint["s"],
+                "cone_constraint_rho_m": constraint["rho"],
+                "cone_constraint_allowed_radius_m": constraint[
+                    "allowed_radius"
+                ],
+                "cone_constraint_lateral_excess_m": constraint[
+                    "lateral_excess"
+                ],
+                "cone_constraint_warning_depth": constraint[
+                    "warning_depth"
+                ],
+                "cone_constraint_penalty_clip": float(
+                    self.reward_weights["cone_constraint"]
+                ),
+                "reward_cone_constraint": reward_cone_constraint,
+                "reward_total": reward,
+            }
+        )
+        return reward, components

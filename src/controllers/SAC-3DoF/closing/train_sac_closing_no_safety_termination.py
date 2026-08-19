@@ -211,6 +211,51 @@ def p3_errors(core_env):
     return error, ratios
 
 
+def cone_diagnostics(core_env, info):
+    """Return bounded physical diagnostics for docking-cone containment.
+
+    ``cone_exit_depth`` is zero inside the finite cone.  Outside it, lateral
+    excess is normalized by the cone base radius and axial excess by the cone
+    length; the larger depth is clipped to one.  This keeps the diagnostic
+    comparable across the narrowing cone without dividing by a near-zero
+    local radius close to the docking point.
+    """
+    s = float(info["s"])
+    rho = float(info["rho"])
+    cone_length = float(core_env.cone_length)
+    cone_base_radius = float(core_env.cone_base_radius)
+    cone_slope = float(core_env.cone_slope)
+
+    axial_position = float(np.clip(s, 0.0, cone_length))
+    allowed_radius = cone_slope * axial_position
+    lateral_excess = max(0.0, rho - allowed_radius)
+    axial_excess = max(0.0, -s, s - cone_length)
+    lateral_depth = lateral_excess / max(cone_base_radius, 1e-12)
+    axial_depth = axial_excess / max(cone_length, 1e-12)
+    exit_depth = float(np.clip(max(lateral_depth, axial_depth), 0.0, 1.0))
+
+    geometry = info.get("geometry", {})
+    in_cone = bool(
+        geometry.get(
+            "in_C_dock",
+            0.0 <= s <= cone_length and rho <= cone_slope * s,
+        )
+    )
+    cone_exit = not in_cone
+    return {
+        "cone_exit": cone_exit,
+        "cone_warning": bool(cone_exit and geometry.get("warn", False)),
+        "cone_lateral_exit": bool(lateral_excess > 0.0),
+        "cone_axial_exit": bool(axial_excess > 0.0),
+        "cone_allowed_radius_m": float(allowed_radius),
+        "cone_lateral_excess_m": float(lateral_excess),
+        "cone_axial_excess_m": float(axial_excess),
+        "cone_lateral_exit_depth": float(np.clip(lateral_depth, 0.0, 1.0)),
+        "cone_axial_exit_depth": float(np.clip(axial_depth, 0.0, 1.0)),
+        "cone_exit_depth": exit_depth,
+    }
+
+
 def evaluate_rollout(
     model,
     vecnormalize,
@@ -233,6 +278,14 @@ def evaluate_rollout(
     violated_counts = Counter()
     episode_return = 0.0
     failure_penalty_total = 0.0
+    cone_counts = Counter()
+    cone_exit_depth_total = 0.0
+    cone_warning_depth_total = 0.0
+    cone_lateral_excess_total = 0.0
+    maximum_cone_exit_depth = 0.0
+    maximum_cone_warning_depth = 0.0
+    maximum_cone_lateral_excess = 0.0
+    maximum_cone_axial_excess = 0.0
     steps = 0
     terminal_info = {}
 
@@ -255,6 +308,37 @@ def evaluate_rollout(
         for constraint in info.get("violated_constraints", []):
             violated_counts[str(constraint)] += 1
 
+        cone = cone_diagnostics(env.core_env, info)
+        for name in (
+            "cone_exit",
+            "cone_warning",
+            "cone_lateral_exit",
+            "cone_axial_exit",
+        ):
+            if cone[name]:
+                cone_counts[name] += 1
+        cone_exit_depth_total += cone["cone_exit_depth"]
+        if cone["cone_warning"]:
+            cone_warning_depth_total += cone["cone_exit_depth"]
+        cone_lateral_excess_total += cone["cone_lateral_excess_m"]
+        maximum_cone_exit_depth = max(
+            maximum_cone_exit_depth,
+            cone["cone_exit_depth"],
+        )
+        if cone["cone_warning"]:
+            maximum_cone_warning_depth = max(
+                maximum_cone_warning_depth,
+                cone["cone_exit_depth"],
+            )
+        maximum_cone_lateral_excess = max(
+            maximum_cone_lateral_excess,
+            cone["cone_lateral_excess_m"],
+        )
+        maximum_cone_axial_excess = max(
+            maximum_cone_axial_excess,
+            cone["cone_axial_excess_m"],
+        )
+
         components = info.get("reward_components", {})
         failure_penalty_total += float(components.get("reward_failure", 0.0))
         error, _ = p3_errors(env.core_env)
@@ -274,6 +358,9 @@ def evaluate_rollout(
         "episode_return": float(episode_return),
         "success": int(bool(terminal_info.get("success", False))),
         "timeout": int(bool(terminal_info.get("time_limit", False))),
+        "failed_approach_reset": int(
+            bool(terminal_info.get("failed_approach_reset", False))
+        ),
         "numerical_failure": int(bool(terminal_info.get("failure", False))),
         "termination_reason": terminal_info.get("termination_reason"),
         "success_after_safety_violation": int(
@@ -289,6 +376,24 @@ def evaluate_rollout(
         "geometry_unsafe_steps": int(classification_counts["geometry_unsafe"]),
         "velocity_unsafe_steps": int(classification_counts["velocity_unsafe"]),
         "alignment_unsafe_steps": int(classification_counts["alignment_unsafe"]),
+        "cone_exit_ever": int(cone_counts["cone_exit"] > 0),
+        "cone_exit_steps": int(cone_counts["cone_exit"]),
+        "cone_exit_fraction": cone_counts["cone_exit"] / denominator,
+        "cone_warning_steps": int(cone_counts["cone_warning"]),
+        "cone_warning_fraction": cone_counts["cone_warning"] / denominator,
+        "cone_lateral_exit_steps": int(cone_counts["cone_lateral_exit"]),
+        "cone_lateral_exit_fraction": (
+            cone_counts["cone_lateral_exit"] / denominator
+        ),
+        "cone_axial_exit_steps": int(cone_counts["cone_axial_exit"]),
+        "cone_axial_exit_fraction": cone_counts["cone_axial_exit"] / denominator,
+        "mean_cone_exit_depth": cone_exit_depth_total / denominator,
+        "mean_cone_warning_depth": cone_warning_depth_total / denominator,
+        "max_cone_exit_depth": float(maximum_cone_exit_depth),
+        "max_cone_warning_depth": float(maximum_cone_warning_depth),
+        "mean_cone_lateral_excess_m": cone_lateral_excess_total / denominator,
+        "max_cone_lateral_excess_m": float(maximum_cone_lateral_excess),
+        "max_cone_axial_excess_m": float(maximum_cone_axial_excess),
         "safety_failure_penalty_total": float(failure_penalty_total),
         "violated_constraint_counts": json.dumps(
             dict(sorted(violated_counts.items())), sort_keys=True
@@ -318,6 +423,7 @@ def summarize_rollouts(results):
         "success_rate": mean("success"),
         "success_after_violation_rate": mean("success_after_safety_violation"),
         "timeout_rate": mean("timeout"),
+        "failed_approach_reset_rate": mean("failed_approach_reset"),
         "numerical_failure_rate": mean("numerical_failure"),
         "unsafe_episode_rate": mean("unsafe_ever"),
         "mean_unsafe_fraction": mean("unsafe_fraction"),
@@ -325,6 +431,18 @@ def summarize_rollouts(results):
         "mean_velocity_unsafe_steps": mean("velocity_unsafe_steps"),
         "mean_geometry_unsafe_steps": mean("geometry_unsafe_steps"),
         "mean_alignment_unsafe_steps": mean("alignment_unsafe_steps"),
+        "cone_exit_episode_rate": mean("cone_exit_ever"),
+        "mean_cone_exit_fraction": mean("cone_exit_fraction"),
+        "mean_cone_warning_fraction": mean("cone_warning_fraction"),
+        "mean_cone_lateral_exit_fraction": mean("cone_lateral_exit_fraction"),
+        "mean_cone_axial_exit_fraction": mean("cone_axial_exit_fraction"),
+        "mean_cone_exit_depth": mean("mean_cone_exit_depth"),
+        "mean_cone_warning_depth": mean("mean_cone_warning_depth"),
+        "mean_max_cone_exit_depth": mean("max_cone_exit_depth"),
+        "mean_max_cone_warning_depth": mean("max_cone_warning_depth"),
+        "mean_cone_lateral_excess_m": mean("mean_cone_lateral_excess_m"),
+        "mean_max_cone_lateral_excess_m": mean("max_cone_lateral_excess_m"),
+        "mean_max_cone_axial_excess_m": mean("max_cone_axial_excess_m"),
         "mean_return": mean("episode_return"),
         "mean_steps": mean("steps"),
         "mean_minimum_position_error_m": mean("minimum_position_error_m"),

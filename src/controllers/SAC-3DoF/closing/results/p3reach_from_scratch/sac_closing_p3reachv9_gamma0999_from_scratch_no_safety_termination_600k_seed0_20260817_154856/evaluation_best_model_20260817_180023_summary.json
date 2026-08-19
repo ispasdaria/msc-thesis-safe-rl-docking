@@ -1,0 +1,36 @@
+{
+  "checkpoint_step": null,
+  "experiment_name": "sac_closing_p3reachv9_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260817_154856",
+  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv9_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260817_154856\\best_model.zip",
+  "model_type": "best",
+  "reward_scheme": "p3_reach_v9",
+  "safety_violation_termination_enabled": false,
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "summary": {
+    "mean_alignment_unsafe_steps": 165.33333333333334,
+    "mean_final_attitude_error_deg": 2.4659111781906913,
+    "mean_final_lateral_error_m": 25.24201146842434,
+    "mean_final_max_target_ratio": 26.40945990472997,
+    "mean_final_position_error_m": 529.1222082811053,
+    "mean_final_rate_error_degs": 0.03078630952140067,
+    "mean_final_velocity_error_mps": 0.11630770379147724,
+    "mean_geometry_unsafe_steps": 1548.6666666666667,
+    "mean_minimum_position_error_m": 181.48562499418702,
+    "mean_return": -1473.985171761278,
+    "mean_steps": 12000.0,
+    "mean_unsafe_fraction": 0.23930555555555558,
+    "mean_velocity_unsafe_steps": 1323.0,
+    "mean_warning_fraction": 0.19555555555555557,
+    "numerical_failure_rate": 0.0,
+    "rollouts": 3,
+    "success_after_violation_rate": 0.0,
+    "success_rate": 0.0,
+    "timeout_rate": 1.0,
+    "unsafe_episode_rate": 1.0
+  },
+  "vecnormalize_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv9_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260817_154856\\best_vecnormalize.pkl"
+}

@@ -62,6 +62,8 @@ def test_closing_constraints_match_direct_cbf_expressions():
     config = ClosingCBFConfig(
         port_speed_alpha=0.4,
         axial_port_speed_alpha=0.6,
+        enable_cone=False,
+        enable_alignment=False,
     )
     constraints = build_closing_constraints(env, state, config)
     acceleration = (
@@ -86,13 +88,72 @@ def test_closing_constraints_match_direct_cbf_expressions():
         )
 
 
+def test_closing_cone_constraints_match_direct_hocbf_expressions():
+    env = make_closing_env()
+    state = np.array(
+        [1700.0, 8.0, -0.14, 0.08, np.deg2rad(2.0), np.deg2rad(0.05)]
+    )
+    action = np.array([0.003, -0.004, 0.001])
+    config = ClosingCBFConfig(
+        cone_k1=0.2,
+        cone_k2=0.3,
+        enable_port_speed=False,
+        enable_axial_port_speed=False,
+        enable_alignment=False,
+    )
+    constraints = build_closing_constraints(env, state, config)
+    acceleration = (
+        constraints.port_acceleration.drift
+        + constraints.port_acceleration.control_matrix @ action
+    )
+    gain_sum = config.cone_k1 + config.cone_k2
+    gain_product = config.cone_k1 * config.cone_k2
+
+    direct = {
+        "cone_upper": env.cone_slope * acceleration[0]
+        - acceleration[1]
+        + gain_sum * constraints.barrier_derivatives["cone_upper"]
+        + gain_product
+        * (
+            constraints.barrier_values["cone_upper"]
+            - config.cone_interior_margin
+        ),
+        "cone_lower": env.cone_slope * acceleration[0]
+        + acceleration[1]
+        + gain_sum * constraints.barrier_derivatives["cone_lower"]
+        + gain_product
+        * (
+            constraints.barrier_values["cone_lower"]
+            - config.cone_interior_margin
+        ),
+        "cone_axial_upper": -acceleration[0]
+        + gain_sum * constraints.barrier_derivatives["cone_axial_upper"]
+        + gain_product
+        * (
+            constraints.barrier_values["cone_axial_upper"]
+            - config.cone_interior_margin
+        ),
+    }
+
+    assert constraints.names == (
+        "cone_upper",
+        "cone_lower",
+        "cone_axial_upper",
+    )
+    for index, name in enumerate(constraints.names):
+        assert np.isclose(
+            constraints.A[index] @ action - constraints.b[index],
+            direct[name],
+        )
+
+
 def test_closing_axial_barrier_derivative_matches_finite_difference():
     env = make_closing_env()
     state = np.array(
         [1700.0, -4.0, -0.13, 0.03, np.deg2rad(-1.0), np.deg2rad(0.04)]
     )
     action = np.array([-0.002, 0.006, -0.001])
-    config = ClosingCBFConfig()
+    config = ClosingCBFConfig(enable_cone=False, enable_alignment=False)
     constraints = build_closing_constraints(env, state, config)
     acceleration = (
         constraints.port_acceleration.drift
@@ -110,6 +171,53 @@ def test_closing_axial_barrier_derivative_matches_finite_difference():
     ) / dt
 
     assert np.isclose(analytic, finite_difference, rtol=3.0e-4, atol=2.0e-7)
+
+
+def test_closing_alignment_constraints_match_direct_cbf_expressions():
+    env = make_closing_env()
+    state = np.array(
+        [1700.0, 8.0, -0.10, 0.02, np.deg2rad(2.0), np.deg2rad(0.05)]
+    )
+    action = np.array([0.003, -0.004, 0.001])
+    config = ClosingCBFConfig(
+        attitude_k1=0.2,
+        attitude_k2=0.3,
+        angular_rate_alpha=0.4,
+        enable_cone=False,
+        enable_port_speed=False,
+        enable_axial_port_speed=False,
+        enable_alignment=True,
+    )
+    constraints = build_closing_constraints(env, state, config)
+    gain_sum = config.attitude_k1 + config.attitude_k2
+    gain_product = config.attitude_k1 * config.attitude_k2
+
+    direct = {
+        "attitude_upper": -action[2]
+        - gain_sum * state[5]
+        + gain_product * constraints.barrier_values["attitude_upper"],
+        "attitude_lower": action[2]
+        + gain_sum * state[5]
+        + gain_product * constraints.barrier_values["attitude_lower"],
+        "angular_rate_upper": -action[2]
+        + config.angular_rate_alpha
+        * constraints.barrier_values["angular_rate_upper"],
+        "angular_rate_lower": action[2]
+        + config.angular_rate_alpha
+        * constraints.barrier_values["angular_rate_lower"],
+    }
+
+    assert constraints.names == (
+        "attitude_upper",
+        "attitude_lower",
+        "angular_rate_upper",
+        "angular_rate_lower",
+    )
+    for index, name in enumerate(constraints.names):
+        assert np.isclose(
+            constraints.A[index] @ action - constraints.b[index],
+            direct[name],
+        )
 
 
 def test_alignment_barrier_signs():

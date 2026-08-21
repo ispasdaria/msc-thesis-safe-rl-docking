@@ -148,6 +148,57 @@ a finite integration step. The analytic CBF construction plus sampled rollout
 tests support the implementation, but should not be presented as a formal
 discrete-time safety proof.
 
+## Closing-phase cone, speed, and alignment filter
+
+The closing controller has a separate hard CBF-QP filter. It protects the
+simulator's complete finite docking cone with three relative-degree-two rows:
+
+```text
+cone_slope*s - y_p >= 0
+cone_slope*s + y_p >= 0
+cone_length - s    >= 0
+```
+
+The first two rows jointly imply `s >= 0`; the third prevents exiting through
+the cone base at `s = cone_length`. The same filter can also enforce the
+closing-phase total port-speed and axial port-speed limits. Four additional
+rows protect the P3 handoff alignment envelope:
+
+```text
+|psi_error| <= 3 deg
+|omega|     <= 0.15 deg/s
+```
+
+The attitude bounds use relative-degree-two HOCBF rows and the angular-rate
+bounds use relative-degree-one CBF rows. Closing-phase simulator termination
+does not classify alignment as a safety failure; the filter nevertheless
+protects it as an explicit deployment/handoff requirement. The geometry
+(`cone_slope = 0.1`, `cone_length = 2000 m`) is read directly from the
+simulator and is not configurable through the evaluator.
+The default filter uses a `0.0001 m` inward guard margin so OSQP and sampled
+integration roundoff do not toggle the simulator's exact boundary-membership
+test; this is configurable with `--cone-interior-margin`.
+
+To compare the unfiltered policy, the five-row translational filter, and the
+complete nine-row filter:
+
+```powershell
+.\.venv\Scripts\python.exe src/controllers/cbf_3DoF/evaluate_closing_cbf.py `
+  --model "PATH_TO_MODEL.zip" `
+  --vecnormalize "PATH_TO_VECNORMALIZE.pkl" `
+  --variants baseline all full `
+  --seed-start 200 `
+  --num-seeds 10 `
+  --solver osqp
+```
+
+Closing ablations are `cone`, `total_speed`, `axial_speed`, and `both`;
+historical `both` means the two speed rows without cone containment, `all`
+means cone containment plus both speed rows, and `full` adds attitude and
+angular-rate protection. The evaluator logs every protected boundary before
+and after each step, hard-row residuals, cone-exit and alignment occupancy,
+interventions, and independently diagnosed QP failures.
+
 ## Trajectory plots
 
 `plot_final_approach_cbf_trajectories.py` creates figures directly from a

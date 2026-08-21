@@ -2634,3 +2634,354 @@ class ClosingSafetyExplorationV15GymEnv(ClosingSafetyExplorationV12GymEnv):
             }
         )
         return reward, components
+
+
+class ClosingSafetyExplorationV16GymEnv(ClosingSafetyExplorationV12GymEnv):
+    """V12 with bounded progress shaping for lateral cone containment.
+
+    V15's persistent cone-exit occupancy cost admitted a conservative solution:
+    remaining near P2 keeps the cone wide and avoids accumulating a penalty.
+    V16 removes that occupancy cost completely.  It instead penalizes increases
+    in normalized lateral cone-exit depth and rewards equal-sized reductions.
+    An unchanged depth has exactly zero cone reward, whether inside or outside
+    the cone.  The transition term is clipped to the same 0.1 per-step scale as
+    the existing hard-safety and capture-progress terms.
+
+    V16 is a direct V12 successor.  It does not inherit V15's occupancy term,
+    does not add an axial-overshoot cost, and changes no terminal condition or
+    initial-state distribution.
+    """
+
+    reward_scheme = "p3_reach_v16"
+    cone_progress_clip = 0.1
+    reward_weights = {
+        **ClosingSafetyExplorationV12GymEnv.reward_weights,
+        "cone_progress": 1.0,
+    }
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        constraint = self._v16_cone_constraint(self.core_env.state)
+        self._previous_cone_exit_depth = constraint["exit_depth"]
+        info["reward_scheme"] = self.reward_scheme
+        info["cone_progress_shaping_enabled"] = True
+        return observation, info
+
+    def _v16_cone_constraint(self, state):
+        q = self.core_env.get_derived_quantities(state)
+        cone_length = float(self.core_env.cone_length)
+        cone_base_radius = float(self.core_env.cone_base_radius)
+        axial_position = float(np.clip(q["s"], 0.0, cone_length))
+        allowed_radius = float(self.core_env.cone_slope * axial_position)
+        lateral_excess = float(max(0.0, q["rho"] - allowed_radius))
+        exit_depth = float(
+            np.clip(
+                lateral_excess / max(cone_base_radius, 1e-12),
+                0.0,
+                1.0,
+            )
+        )
+        return {
+            "s": float(q["s"]),
+            "rho": float(q["rho"]),
+            "allowed_radius": allowed_radius,
+            "lateral_excess": lateral_excess,
+            "exit_depth": exit_depth,
+        }
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        constraint = self._v16_cone_constraint(state)
+        previous_depth = float(self._previous_cone_exit_depth)
+        current_depth = constraint["exit_depth"]
+        depth_improvement = float(previous_depth - current_depth)
+        cone_progress_raw = float(
+            self.reward_weights["cone_progress"] * depth_improvement
+        )
+        reward_cone_progress = float(
+            np.clip(
+                cone_progress_raw,
+                -self.cone_progress_clip,
+                self.cone_progress_clip,
+            )
+        )
+        self._previous_cone_exit_depth = current_depth
+        reward = float(reward + reward_cone_progress)
+        components.update(
+            {
+                "cone_progress_shaping_enabled": True,
+                "cone_constraint_non_terminal": True,
+                "cone_constraint_lateral_only": True,
+                "cone_occupancy_penalty_active": False,
+                "cone_constraint_s_m": constraint["s"],
+                "cone_constraint_rho_m": constraint["rho"],
+                "cone_constraint_allowed_radius_m": constraint[
+                    "allowed_radius"
+                ],
+                "cone_constraint_lateral_excess_m": constraint[
+                    "lateral_excess"
+                ],
+                "cone_previous_exit_depth": previous_depth,
+                "cone_current_exit_depth": current_depth,
+                "cone_depth_improvement": depth_improvement,
+                "cone_progress_raw": cone_progress_raw,
+                "cone_progress_clip": float(self.cone_progress_clip),
+                "reward_cone_progress": reward_cone_progress,
+                "reward_total": reward,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyExplorationV17GymEnv(ClosingSafetyExplorationV12GymEnv):
+    """V12 with cone-feasibility gating of positive task progress.
+
+    V15's persistent cone occupancy penalty encouraged standoff, while V16's
+    transition-only cone reward allowed the agent to pay once and remain
+    outside.  V17 adds no independent cone reward.  Instead, positive task
+    progress is retained only while the state is inside the finite docking cone
+    or its normalized cone-exit depth is decreasing.  Outside without recovery,
+    positive position, attitude/rate, terminal-velocity, and balanced capture
+    progress terms are suppressed.
+
+    Negative task progress and every non-progress term remain untouched.  The
+    gate covers both lateral and axial exits, is non-terminal, and changes no
+    state/action constraints or initial-state distribution.
+    """
+
+    reward_scheme = "p3_reach_v17"
+    cone_recovery_epsilon = 1e-9
+    gated_positive_progress_terms = (
+        "reward_position_progress",
+        "reward_attitude_progress",
+        "reward_terminal_velocity_progress",
+        "reward_capture_progress",
+    )
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        constraint = self._v17_cone_constraint(self.core_env.state)
+        self._previous_cone_exit_depth = constraint["exit_depth"]
+        info["reward_scheme"] = self.reward_scheme
+        info["cone_feasibility_progress_gate_enabled"] = True
+        return observation, info
+
+    def _v17_cone_constraint(self, state):
+        q = self.core_env.get_derived_quantities(state)
+        cone_length = float(self.core_env.cone_length)
+        cone_base_radius = float(self.core_env.cone_base_radius)
+        axial_position = float(np.clip(q["s"], 0.0, cone_length))
+        allowed_radius = float(self.core_env.cone_slope * axial_position)
+        lateral_excess = float(max(0.0, q["rho"] - allowed_radius))
+        axial_excess = float(max(0.0, -q["s"], q["s"] - cone_length))
+        lateral_depth = lateral_excess / max(cone_base_radius, 1e-12)
+        axial_depth = axial_excess / max(cone_length, 1e-12)
+        exit_depth = float(
+            np.clip(max(lateral_depth, axial_depth), 0.0, 1.0)
+        )
+        return {
+            "inside": bool(self.core_env.is_in_C_dock(q)),
+            "s": float(q["s"]),
+            "rho": float(q["rho"]),
+            "allowed_radius": allowed_radius,
+            "lateral_excess": lateral_excess,
+            "axial_excess": axial_excess,
+            "lateral_depth": float(np.clip(lateral_depth, 0.0, 1.0)),
+            "axial_depth": float(np.clip(axial_depth, 0.0, 1.0)),
+            "exit_depth": exit_depth,
+        }
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        constraint = self._v17_cone_constraint(state)
+        previous_depth = float(self._previous_cone_exit_depth)
+        current_depth = constraint["exit_depth"]
+        depth_improvement = float(previous_depth - current_depth)
+        recovering = bool(depth_improvement > self.cone_recovery_epsilon)
+        positive_progress_eligible = bool(constraint["inside"] or recovering)
+
+        suppressed_total = 0.0
+        for name in self.gated_positive_progress_terms:
+            raw_value = float(components[name])
+            gated_value = (
+                raw_value
+                if positive_progress_eligible or raw_value <= 0.0
+                else 0.0
+            )
+            components[f"{name}_before_cone_gate"] = raw_value
+            components[name] = float(gated_value)
+            suppressed_total += raw_value - gated_value
+
+        self._previous_cone_exit_depth = current_depth
+        reward = float(reward - suppressed_total)
+        components.update(
+            {
+                "cone_feasibility_progress_gate_enabled": True,
+                "cone_constraint_non_terminal": True,
+                "cone_constraint_inside": constraint["inside"],
+                "cone_constraint_s_m": constraint["s"],
+                "cone_constraint_rho_m": constraint["rho"],
+                "cone_constraint_allowed_radius_m": constraint[
+                    "allowed_radius"
+                ],
+                "cone_constraint_lateral_excess_m": constraint[
+                    "lateral_excess"
+                ],
+                "cone_constraint_axial_excess_m": constraint["axial_excess"],
+                "cone_constraint_lateral_depth": constraint["lateral_depth"],
+                "cone_constraint_axial_depth": constraint["axial_depth"],
+                "cone_previous_exit_depth": previous_depth,
+                "cone_current_exit_depth": current_depth,
+                "cone_depth_improvement": depth_improvement,
+                "cone_recovery_epsilon": float(self.cone_recovery_epsilon),
+                "cone_recovering": recovering,
+                "cone_positive_progress_eligible": (
+                    positive_progress_eligible
+                ),
+                "cone_suppressed_positive_progress_total": float(
+                    suppressed_total
+                ),
+                "cone_occupancy_penalty_active": False,
+                "cone_additive_progress_reward_active": False,
+                "reward_total": reward,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyExplorationV18GymEnv(ClosingSafetyExplorationV12GymEnv):
+    """V12 with task weight shifted toward P3 position and velocity capture.
+
+    V12 already controls attitude/rate comparatively well, while its held-out
+    rollouts remain far from the P3 position and terminal-velocity tolerances.
+    V18 therefore changes only the V12 group weights and adds bounded progress
+    in the P3-relative axial-position component near the target.  The new term
+    is a symmetric temporal difference of a log-compressed tolerance ratio: an
+    unchanged error has zero reward, improvement is positive, and regression
+    is negative.  Gating and clipping keep its magnitude below 0.05 per step.
+
+    No occupancy, overshoot, cone, waypoint, or prescribed-speed term is added.
+    The initial distribution, success set, failed-approach reset, and vanilla
+    SAC interaction remain identical to V12.
+    """
+
+    reward_scheme = "p3_reach_v18"
+    position_group_weight = 0.60
+    velocity_group_weight = 0.30
+    attitude_group_weight = 0.10
+    axial_capture_progress_clip = 0.05
+    reward_weights = {
+        **ClosingSafetyExplorationV12GymEnv.reward_weights,
+        "axial_capture_progress": 1.0,
+    }
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        axial = self._v18_axial_capture_state(self.core_env.state)
+        self._previous_axial_capture_cost = axial["axial_capture_cost"]
+        info["reward_scheme"] = self.reward_scheme
+        info["axial_capture_progress_shaping_enabled"] = True
+        return observation, info
+
+    def _v18_axial_capture_state(self, state):
+        goal = self._v12_goal_state(state)
+        axial_tolerance = max(
+            float(self.core_env.p3_target_tolerance[0]),
+            1e-12,
+        )
+        axial_error = float(abs(goal["error"][0]))
+        axial_ratio = axial_error / axial_tolerance
+        return {
+            "near_target_gate": goal["near_target_gate"],
+            "axial_error": axial_error,
+            "axial_tolerance": axial_tolerance,
+            "axial_ratio": axial_ratio,
+            "axial_capture_cost": float(np.log1p(axial_ratio)),
+        }
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        axial = self._v18_axial_capture_state(state)
+        axial_progress_raw = float(
+            self._previous_axial_capture_cost - axial["axial_capture_cost"]
+        )
+        axial_progress_clipped = float(
+            np.clip(
+                axial_progress_raw,
+                -self.axial_capture_progress_clip,
+                self.axial_capture_progress_clip,
+            )
+        )
+        self._previous_axial_capture_cost = axial["axial_capture_cost"]
+        reward_axial_capture_progress = float(
+            self.reward_weights["axial_capture_progress"]
+            * axial["near_target_gate"]
+            * axial_progress_clipped
+        )
+        reward = float(reward + reward_axial_capture_progress)
+        components.update(
+            {
+                "axial_capture_progress_shaping_enabled": True,
+                "axial_capture_occupancy_penalty_active": False,
+                "axial_capture_overshoot_penalty_active": False,
+                "axial_capture_error_m": axial["axial_error"],
+                "axial_capture_tolerance_m": axial["axial_tolerance"],
+                "axial_capture_ratio": axial["axial_ratio"],
+                "axial_capture_cost": axial["axial_capture_cost"],
+                "axial_capture_progress_raw": axial_progress_raw,
+                "axial_capture_progress_clipped": axial_progress_clipped,
+                "axial_capture_progress_clip": float(
+                    self.axial_capture_progress_clip
+                ),
+                "reward_axial_capture_progress": (
+                    reward_axial_capture_progress
+                ),
+                "reward_total": reward,
+            }
+        )
+        return reward, components

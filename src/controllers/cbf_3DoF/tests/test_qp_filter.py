@@ -191,7 +191,10 @@ def test_osqp_backend_solves_the_seven_row_filter():
 
 def test_closing_filter_builds_only_the_two_requested_speed_constraints():
     env = make_closing_env()
-    cbf = ClosingCBFFilter(env.core_env, closing_scipy_config())
+    cbf = ClosingCBFFilter(
+        env.core_env,
+        closing_scipy_config(enable_cone=False, enable_alignment=False),
+    )
     state = np.array([1700.0, 0.0, -0.10, 0.02, 0.0, 0.0])
 
     result = cbf.filter(state, np.zeros(3))
@@ -206,8 +209,10 @@ def test_closing_total_port_speed_cbf_filters_lateral_acceleration():
     state = np.array([1700.0, 0.0, -0.05, 0.244, 0.0, 0.0])
     nominal = np.array([0.0, -0.01, 0.0])
     config = closing_scipy_config(
+        enable_cone=False,
         enable_port_speed=True,
         enable_axial_port_speed=False,
+        enable_alignment=False,
         allow_slack=False,
     )
 
@@ -224,8 +229,10 @@ def test_closing_axial_port_speed_cbf_filters_excessive_closing_acceleration():
     state = np.array([1700.0, 0.0, -0.149, 0.0, 0.0, 0.0])
     nominal = np.array([0.01, 0.0, 0.0])
     config = closing_scipy_config(
+        enable_cone=False,
         enable_port_speed=False,
         enable_axial_port_speed=True,
+        enable_alignment=False,
         allow_slack=False,
     )
 
@@ -235,6 +242,72 @@ def test_closing_axial_port_speed_cbf_filters_excessive_closing_acceleration():
     assert result.intervened
     assert result.action_filtered[0] < nominal[0]
     assert result.cbf_residuals["axial_port_speed"] >= -1.0e-7
+
+
+def test_closing_cone_cbf_filters_outward_lateral_acceleration():
+    env = make_closing_env()
+    # At psi=0, the port is at [rx - 24.1, ry].  This puts it just inside
+    # the upper lateral boundary y_p = cone_slope * s.
+    state = np.array([1024.1, 99.0, -0.03, 0.04, 0.0, 0.0])
+    nominal = np.array([0.0, -0.01, 0.0])
+    config = closing_scipy_config(
+        enable_cone=True,
+        enable_port_speed=False,
+        enable_axial_port_speed=False,
+        enable_alignment=False,
+        allow_slack=False,
+    )
+
+    result = ClosingCBFFilter(env.core_env, config).filter(state, nominal)
+
+    assert not result.qp_failed
+    assert result.intervened
+    assert result.action_filtered[1] > nominal[1]
+    assert result.cbf_residuals["cone_upper"] >= -1.0e-7
+
+
+def test_closing_cone_cbf_filters_acceleration_past_axial_cap():
+    env = make_closing_env()
+    # At psi=0 this puts the port just inside s = cone_length.
+    state = np.array([2023.1, 0.0, 0.03, 0.0, 0.0, 0.0])
+    nominal = np.array([-0.01, 0.0, 0.0])
+    config = closing_scipy_config(
+        enable_cone=True,
+        enable_port_speed=False,
+        enable_axial_port_speed=False,
+        enable_alignment=False,
+        allow_slack=False,
+    )
+
+    result = ClosingCBFFilter(env.core_env, config).filter(state, nominal)
+
+    assert not result.qp_failed
+    assert result.intervened
+    assert result.action_filtered[0] > nominal[0]
+    assert result.cbf_residuals["cone_axial_upper"] >= -1.0e-7
+
+
+def test_closing_alignment_cbf_filters_outward_angular_acceleration():
+    env = make_closing_env()
+    state = np.array(
+        [1700.0, 0.0, -0.10, 0.0, np.deg2rad(2.9), np.deg2rad(0.1)]
+    )
+    nominal = np.array([0.0, 0.0, env.core_env.alphaz_max])
+    config = closing_scipy_config(
+        enable_cone=False,
+        enable_port_speed=False,
+        enable_axial_port_speed=False,
+        enable_alignment=True,
+        allow_slack=False,
+    )
+
+    result = ClosingCBFFilter(env.core_env, config).filter(state, nominal)
+
+    assert not result.qp_failed
+    assert result.intervened
+    assert result.action_filtered[2] < nominal[2]
+    assert result.cbf_residuals["attitude_upper"] >= -1.0e-7
+    assert result.cbf_residuals["angular_rate_upper"] >= -1.0e-7
 
 
 def test_closing_filter_rejects_non_closing_environment():

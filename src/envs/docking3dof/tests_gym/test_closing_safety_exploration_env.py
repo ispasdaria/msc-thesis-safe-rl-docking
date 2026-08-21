@@ -16,6 +16,9 @@ from envs.docking3dof.closing_safety_exploration_env import (
     ClosingSafetyExplorationV13GymEnv,
     ClosingSafetyExplorationV14GymEnv,
     ClosingSafetyExplorationV15GymEnv,
+    ClosingSafetyExplorationV16GymEnv,
+    ClosingSafetyExplorationV17GymEnv,
+    ClosingSafetyExplorationV18GymEnv,
 )
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
@@ -1289,3 +1292,277 @@ def test_v15_cone_penalty_uses_bounded_lateral_exit_depth():
     _, clipped = _reward_at_state(v15, state)
     assert clipped["cone_constraint_warning_depth"] == 1.0
     assert clipped["reward_cone_constraint"] == -0.1
+
+
+def _state_at_cone_lateral_excess(env, lateral_excess_m):
+    state = env.core_env.p3_target.copy()
+    q = env.core_env.get_derived_quantities(state)
+    cone_radius = env.core_env.cone_slope * q["s"]
+    state[1] += cone_radius + lateral_excess_m - q["r_p"][1]
+    return state
+
+
+def test_v16_matches_v12_when_cone_depth_is_unchanged():
+    v12 = ClosingSafetyExplorationV12GymEnv(mode="testing", seed=251)
+    v16 = ClosingSafetyExplorationV16GymEnv(mode="testing", seed=251)
+    v12.reset(seed=251)
+    _, reset_info = v16.reset(seed=251)
+    state = _state_at_cone_lateral_excess(v16, 50.0)
+    v16._previous_cone_exit_depth = 0.25
+
+    v12_reward, _ = _reward_at_state(v12, state)
+    v16_reward, components = _reward_at_state(v16, state)
+
+    np.testing.assert_allclose(v16_reward, v12_reward)
+    assert reset_info["reward_scheme"] == "p3_reach_v16"
+    assert components["cone_current_exit_depth"] == 0.25
+    assert components["cone_depth_improvement"] == 0.0
+    assert components["reward_cone_progress"] == 0.0
+    assert components["cone_occupancy_penalty_active"] is False
+
+
+def test_v16_penalizes_worsening_and_rewards_recovery_symmetrically():
+    v12 = ClosingSafetyExplorationV12GymEnv(mode="testing", seed=257)
+    v16 = ClosingSafetyExplorationV16GymEnv(mode="testing", seed=257)
+    v12.reset(seed=257)
+    v16.reset(seed=257)
+    state = _state_at_cone_lateral_excess(v16, 50.0)
+
+    v16._previous_cone_exit_depth = 0.20
+    v12_reward, _ = _reward_at_state(v12, state)
+    worsening_reward, worsening = _reward_at_state(v16, state)
+    np.testing.assert_allclose(worsening["cone_depth_improvement"], -0.05)
+    np.testing.assert_allclose(worsening["reward_cone_progress"], -0.05)
+    np.testing.assert_allclose(worsening_reward, v12_reward - 0.05)
+
+    recovery_state = _state_at_cone_lateral_excess(v16, 40.0)
+    v12_reward, _ = _reward_at_state(v12, recovery_state)
+    recovery_reward, recovery = _reward_at_state(v16, recovery_state)
+    np.testing.assert_allclose(recovery["cone_depth_improvement"], 0.05)
+    np.testing.assert_allclose(recovery["reward_cone_progress"], 0.05)
+    np.testing.assert_allclose(recovery_reward, v12_reward + 0.05)
+
+
+def test_v16_cone_progress_reward_is_clipped_to_safety_scale():
+    env = ClosingSafetyExplorationV16GymEnv(mode="testing", seed=263)
+    env.reset(seed=263)
+    outside_state = _state_at_cone_lateral_excess(env, 100.0)
+
+    env._previous_cone_exit_depth = 0.0
+    _, worsening = _reward_at_state(env, outside_state)
+    assert worsening["cone_progress_raw"] == -0.5
+    assert worsening["reward_cone_progress"] == -0.1
+
+    inside_state = env.core_env.p3_target.copy()
+    env._previous_cone_exit_depth = 0.5
+    _, recovery = _reward_at_state(env, inside_state)
+    assert recovery["cone_progress_raw"] == 0.5
+    assert recovery["reward_cone_progress"] == 0.1
+    assert env.reward_scheme == "p3_reach_v16"
+
+
+def _prepare_v12_progress_offset(env, state, offset):
+    goal = env._v12_goal_state(state)
+    env._previous_position_cost = goal["position_cost"] + offset
+    env._previous_attitude_cost = goal["attitude_cost"] + offset
+    env._previous_velocity_cost = goal["velocity_cost"] + offset
+    env._previous_capture_position_cost = goal["position_cost"] + offset
+    env._previous_capture_attitude_cost = goal["attitude_cost"] + offset
+    env._previous_capture_velocity_cost = goal["velocity_cost"] + offset
+
+
+def _reward_with_progress_offset(env, state, offset):
+    _prepare_v12_progress_offset(env, state, offset)
+    return env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"success": False, "safety_violation_observed": False},
+        terminated=False,
+        truncated=False,
+    )
+
+
+def test_v17_preserves_v12_positive_progress_inside_cone():
+    v12 = ClosingSafetyExplorationV12GymEnv(mode="testing", seed=269)
+    v17 = ClosingSafetyExplorationV17GymEnv(mode="testing", seed=269)
+    v12.reset(seed=269)
+    _, reset_info = v17.reset(seed=269)
+    state = v17.core_env.p3_target.copy()
+    state[0] += 100.0
+    v17._previous_cone_exit_depth = 0.0
+
+    v12_reward, _ = _reward_with_progress_offset(v12, state, 0.01)
+    v17_reward, components = _reward_with_progress_offset(v17, state, 0.01)
+
+    np.testing.assert_allclose(v17_reward, v12_reward)
+    assert reset_info["reward_scheme"] == "p3_reach_v17"
+    assert components["cone_constraint_inside"] is True
+    assert components["cone_positive_progress_eligible"] is True
+    assert components["cone_suppressed_positive_progress_total"] == 0.0
+
+
+def test_v17_suppresses_positive_progress_outside_without_recovery():
+    v12 = ClosingSafetyExplorationV12GymEnv(mode="testing", seed=271)
+    v17 = ClosingSafetyExplorationV17GymEnv(mode="testing", seed=271)
+    v12.reset(seed=271)
+    v17.reset(seed=271)
+    state = _state_at_cone_lateral_excess(v17, 50.0)
+    v17._previous_cone_exit_depth = 0.25
+
+    v12_reward, v12_components = _reward_with_progress_offset(
+        v12,
+        state,
+        0.01,
+    )
+    v17_reward, components = _reward_with_progress_offset(v17, state, 0.01)
+
+    assert components["cone_constraint_inside"] is False
+    assert components["cone_recovering"] is False
+    assert components["cone_positive_progress_eligible"] is False
+    assert components["cone_suppressed_positive_progress_total"] > 0.0
+    for name in v17.gated_positive_progress_terms:
+        assert v12_components[name] > 0.0
+        assert components[f"{name}_before_cone_gate"] > 0.0
+        assert components[name] == 0.0
+    np.testing.assert_allclose(
+        v17_reward,
+        v12_reward - components["cone_suppressed_positive_progress_total"],
+    )
+    assert components["cone_occupancy_penalty_active"] is False
+    assert components["cone_additive_progress_reward_active"] is False
+
+
+def test_v17_preserves_positive_progress_while_recovering():
+    v12 = ClosingSafetyExplorationV12GymEnv(mode="testing", seed=277)
+    v17 = ClosingSafetyExplorationV17GymEnv(mode="testing", seed=277)
+    v12.reset(seed=277)
+    v17.reset(seed=277)
+    state = _state_at_cone_lateral_excess(v17, 50.0)
+    v17._previous_cone_exit_depth = 0.30
+
+    v12_reward, _ = _reward_with_progress_offset(v12, state, 0.01)
+    v17_reward, components = _reward_with_progress_offset(v17, state, 0.01)
+
+    np.testing.assert_allclose(v17_reward, v12_reward)
+    assert components["cone_constraint_inside"] is False
+    assert components["cone_recovering"] is True
+    assert components["cone_positive_progress_eligible"] is True
+    assert components["cone_suppressed_positive_progress_total"] == 0.0
+
+
+def test_v17_preserves_negative_progress_outside_cone():
+    v12 = ClosingSafetyExplorationV12GymEnv(mode="testing", seed=281)
+    v17 = ClosingSafetyExplorationV17GymEnv(mode="testing", seed=281)
+    v12.reset(seed=281)
+    v17.reset(seed=281)
+    state = _state_at_cone_lateral_excess(v17, 50.0)
+    v17._previous_cone_exit_depth = 0.25
+
+    v12_reward, v12_components = _reward_with_progress_offset(
+        v12,
+        state,
+        -0.01,
+    )
+    v17_reward, components = _reward_with_progress_offset(v17, state, -0.01)
+
+    np.testing.assert_allclose(v17_reward, v12_reward)
+    assert components["cone_positive_progress_eligible"] is False
+    assert components["cone_suppressed_positive_progress_total"] == 0.0
+    for name in v17.gated_positive_progress_terms:
+        assert v12_components[name] < 0.0
+        np.testing.assert_allclose(components[name], v12_components[name])
+
+
+def test_v17_cone_depth_includes_axial_exits():
+    env = ClosingSafetyExplorationV17GymEnv(mode="testing", seed=283)
+    env.reset(seed=283)
+    state = env.core_env.state.copy()
+    q = env.core_env.get_derived_quantities(state)
+    state[0] += env.core_env.cone_length + 100.0 - q["s"]
+
+    constraint = env._v17_cone_constraint(state)
+
+    assert constraint["inside"] is False
+    np.testing.assert_allclose(constraint["axial_excess"], 100.0)
+    np.testing.assert_allclose(constraint["axial_depth"], 0.05)
+    np.testing.assert_allclose(constraint["exit_depth"], 0.05)
+
+
+def _reward_v18_with_axial_progress_offset(env, state, offset):
+    goal = env._v12_goal_state(state)
+    env._previous_position_cost = goal["position_cost"]
+    env._previous_attitude_cost = goal["attitude_cost"]
+    env._previous_velocity_cost = goal["velocity_cost"]
+    env._previous_capture_position_cost = goal["position_cost"]
+    env._previous_capture_attitude_cost = goal["attitude_cost"]
+    env._previous_capture_velocity_cost = goal["velocity_cost"]
+    axial = env._v18_axial_capture_state(state)
+    env._previous_axial_capture_cost = axial["axial_capture_cost"] + offset
+    return env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"success": False, "safety_violation_observed": False},
+        terminated=False,
+        truncated=False,
+    )
+
+
+def test_v18_redistributes_v12_group_weights_toward_capture():
+    env = ClosingSafetyExplorationV18GymEnv(mode="testing", seed=293)
+    _, reset_info = env.reset(seed=293)
+
+    assert reset_info["reward_scheme"] == "p3_reach_v18"
+    assert env.position_group_weight == 0.60
+    assert env.velocity_group_weight == 0.30
+    assert env.attitude_group_weight == 0.10
+    np.testing.assert_allclose(
+        env.position_group_weight
+        + env.velocity_group_weight
+        + env.attitude_group_weight,
+        1.0,
+    )
+
+
+def test_v18_axial_capture_progress_is_symmetric_and_near_target_gated():
+    env = ClosingSafetyExplorationV18GymEnv(mode="testing", seed=307)
+    env.reset(seed=307)
+    state = env.core_env.p3_target.copy()
+    state[0] += 100.0
+
+    _, improving = _reward_v18_with_axial_progress_offset(env, state, 0.02)
+    _, worsening = _reward_v18_with_axial_progress_offset(env, state, -0.02)
+
+    np.testing.assert_allclose(
+        improving["axial_capture_progress_clipped"],
+        0.02,
+    )
+    np.testing.assert_allclose(
+        worsening["axial_capture_progress_clipped"],
+        -0.02,
+    )
+    np.testing.assert_allclose(
+        improving["reward_axial_capture_progress"],
+        -worsening["reward_axial_capture_progress"],
+    )
+    assert 0.0 < improving["reward_axial_capture_progress"] < 0.02
+    assert improving["axial_capture_occupancy_penalty_active"] is False
+    assert improving["axial_capture_overshoot_penalty_active"] is False
+
+
+def test_v18_axial_capture_progress_is_clipped_to_half_safety_scale():
+    env = ClosingSafetyExplorationV18GymEnv(mode="testing", seed=311)
+    env.reset(seed=311)
+    state = env.core_env.p3_target.copy()
+
+    _, improving = _reward_v18_with_axial_progress_offset(env, state, 1.0)
+    _, worsening = _reward_v18_with_axial_progress_offset(env, state, -1.0)
+
+    assert improving["axial_capture_progress_clipped"] == 0.05
+    assert worsening["axial_capture_progress_clipped"] == -0.05
+    np.testing.assert_allclose(
+        improving["reward_axial_capture_progress"],
+        -worsening["reward_axial_capture_progress"],
+    )
+    assert abs(improving["reward_axial_capture_progress"]) <= 0.05

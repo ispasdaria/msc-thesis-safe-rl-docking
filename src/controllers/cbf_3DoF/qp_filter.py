@@ -353,7 +353,7 @@ class FinalApproachCBFFilter:
 
 
 class ClosingCBFFilter(FinalApproachCBFFilter):
-    """Filter a nominal physical action through the two closing speed CBFs."""
+    """Filter a nominal action through closing cone, speed, and alignment CBFs."""
 
     required_phase = "closing"
 
@@ -373,14 +373,29 @@ class ClosingCBFFilter(FinalApproachCBFFilter):
                 "unsafe limit."
             )
 
-    def with_enabled_constraints(self, *, port_speed, axial_port_speed):
-        """Return a closing filter with selected speed CBF families."""
+    def with_enabled_constraints(
+        self,
+        *,
+        port_speed,
+        axial_port_speed,
+        cone=None,
+        alignment=None,
+    ):
+        """Return a closing filter with selected CBF families."""
         return ClosingCBFFilter(
             self.core_env,
             replace(
                 self.config,
+                enable_cone=(
+                    self.config.enable_cone if cone is None else cone
+                ),
                 enable_port_speed=port_speed,
                 enable_axial_port_speed=axial_port_speed,
+                enable_alignment=(
+                    self.config.enable_alignment
+                    if alignment is None
+                    else alignment
+                ),
             ),
         )
 
@@ -390,7 +405,11 @@ class ClosingCBFFilter(FinalApproachCBFFilter):
     def _slack_penalties(self, names):
         return np.asarray(
             [
-                self.config.axial_port_speed_slack_penalty
+                self.config.cone_slack_penalty
+                if name.startswith("cone_")
+                else self.config.alignment_slack_penalty
+                if name.startswith(("attitude_", "angular_rate_"))
+                else self.config.axial_port_speed_slack_penalty
                 if name == "axial_port_speed"
                 else self.config.port_speed_slack_penalty
                 for name in names

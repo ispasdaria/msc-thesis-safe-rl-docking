@@ -1,0 +1,207 @@
+{
+  "checkpoint_selection": "success, target ratio, position error, unsafe fraction, return",
+  "checkpoint_steps": [
+    25000,
+    50000,
+    75000,
+    100000,
+    125000,
+    150000,
+    175000,
+    200000,
+    225000,
+    250000,
+    275000,
+    300000,
+    325000,
+    350000,
+    375000,
+    400000,
+    425000,
+    450000,
+    475000,
+    500000,
+    525000,
+    550000,
+    575000,
+    600000
+  ],
+  "departure_shaping": {
+    "axial_overshoot_metric_logged": true,
+    "axial_overshoot_penalty": false,
+    "flyaway": "bounded near-target log1p positive P3-relative radial speed",
+    "flyaway_penalty_clip": 0.05,
+    "flyaway_speed_scale_mps": 0.01,
+    "uses_episode_history": false
+  },
+  "device": "auto",
+  "experiment_name": "sac_closing_p3reachv17_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260821_183315",
+  "experiment_reward_scheme": "p3_reach_v17",
+  "experiment_reward_weights": {
+    "action": 0.001,
+    "capture_progress": 1.0,
+    "flyaway": 1.0,
+    "goal_progress": 10.0,
+    "goal_state": 0.05,
+    "success": 100.0,
+    "time": 0.001,
+    "timeout": 0.0,
+    "unsafe_step": 0.1
+  },
+  "failed_approach_reset": {
+    "added_reward_penalty": 0.0,
+    "distance_growth_from_minimum_m": 200.0,
+    "enabled": true,
+    "entry_distance_m": 400.0,
+    "gym_semantics": "truncated",
+    "minimum_radial_speed_mps": 0.01,
+    "patience_steps": 60
+  },
+  "gamma": 0.999,
+  "goal_metric": {
+    "active_from_p2": true,
+    "aggregate_mean_weight": 0.5,
+    "aggregate_smooth_worst_weight": 0.5,
+    "aggregation": "grouped equal blends of component mean and smooth worst",
+    "components": [
+      "axial",
+      "lateral",
+      "vx",
+      "vy",
+      "attitude",
+      "rate"
+    ],
+    "distance_gate": false,
+    "error_transform": "log1p of each tolerance ratio",
+    "group_weights": {
+      "attitude_rate": 0.4,
+      "position": 0.4,
+      "terminal_velocity": 0.2
+    },
+    "logarithmic_error_compression": true,
+    "normalization": "absolute P3 error divided by P3 tolerance",
+    "smooth_max_beta": 2.0
+  },
+  "initial_distribution": "normal P2 training distribution",
+  "initialization": {
+    "actor": "new random initialization",
+    "critics": "new random initialization",
+    "pretrained_model_loaded": false,
+    "pretrained_vecnormalize_loaded": false,
+    "replay_buffer": "new empty buffer",
+    "vecnormalize": "new statistics"
+  },
+  "max_time": 12000.0,
+  "near_target_capture_shaping": {
+    "gate": "sigmoid in Euclidean P3 position error",
+    "gate_midpoint_m": 400.0,
+    "gate_width_m": 100.0,
+    "group_weights": {
+      "attitude_rate": 0.4,
+      "position": 0.4,
+      "terminal_velocity": 0.2
+    },
+    "persistent_occupancy_penalty": false,
+    "progress_clip": 0.1,
+    "progress_metric": "weighted changes in position, attitude/rate, and velocity group costs",
+    "type": "V12 bounded symmetric balanced capture progress"
+  },
+  "phase": "closing",
+  "prescribed_velocity_profile": false,
+  "purpose": "closing SAC P3-reaching training from scratch",
+  "regression_early_stop": {
+    "enabled": true,
+    "patience": 4,
+    "requires_target_and_safety_regression": true,
+    "start_step": 250000,
+    "target_ratio_factor": 2.0,
+    "unsafe_fraction_increase": 0.25
+  },
+  "reward_shaping": {
+    "action_cost": "squared normalized action norm",
+    "progress_clip": null,
+    "state_cost_clip": null,
+    "unsafe_penalty": "per hard-unsafe state; non-terminal"
+  },
+  "sac_parameters": {
+    "batch_size": 512,
+    "buffer_size": 1000000,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.999,
+    "gradient_steps": 8,
+    "learning_rate": 0.0001,
+    "learning_starts": 10000,
+    "target_update_interval": 1,
+    "tau": 0.005,
+    "train_freq": 16
+  },
+  "safety_classification_enabled": true,
+  "safety_penalties_enabled": true,
+  "safety_violation_termination_enabled": false,
+  "shared_gym_reward_version_used_for_experiment": false,
+  "shared_reward_files_modified": false,
+  "soft_constraints": {
+    "docking_cone": {
+      "additive_cone_progress_reward": false,
+      "constraint": "0 <= s <= cone_length and rho <= cone_slope * s",
+      "enabled": true,
+      "exit_depth": "clip(max(lateral excess / cone base radius, axial excess / cone length), 0, 1)",
+      "gated_terms": [
+        "reward_position_progress",
+        "reward_attitude_progress",
+        "reward_terminal_velocity_progress",
+        "reward_capture_progress"
+      ],
+      "lateral_and_axial_containment": true,
+      "negative_progress_preserved": true,
+      "non_progress_reward_terms_preserved": true,
+      "persistent_occupancy_penalty": false,
+      "positive_progress_eligibility": "inside cone or exit depth decreasing",
+      "restricts_initial_distribution": false,
+      "terminates_episode": false,
+      "type": "feasibility gate on positive task progress"
+    }
+  },
+  "terminal_conditions": [
+    "P3 success",
+    "failed-approach reset truncation",
+    "time limit",
+    "non-finite state"
+  ],
+  "terminal_velocity_shaping": {
+    "active_from_p2": false,
+    "gate": "sigmoid in Euclidean P3 position error",
+    "gate_applied_after_velocity_progress_difference": true,
+    "gate_midpoint_m": 400.0,
+    "gate_width_m": 100.0,
+    "target": "sampled exact P3 velocity"
+  },
+  "total_timesteps": 600000,
+  "training_learning_curve": {
+    "evaluation_checkpoints_marked": true,
+    "file": "episode_return_learning_curve.png",
+    "moving_average_window_episodes": 10,
+    "raw_episode_return": true,
+    "refresh_interval_episodes": 5
+  },
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "vecnormalize": {
+    "clip_obs": 10.0,
+    "clip_reward": 10.0,
+    "gamma": 0.999,
+    "norm_obs": true,
+    "norm_reward": false
+  }
+}

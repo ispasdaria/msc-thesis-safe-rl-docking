@@ -29,7 +29,7 @@ if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 
 from envs.docking3dof.closing_safety_exploration_env import (
-    ClosingSafetyExplorationV15GymEnv,
+    ClosingSafetyExplorationV18GymEnv,
 )
 from train_sac_closing_no_safety_termination import (
     ExperimentCheckpointCallback,
@@ -41,14 +41,14 @@ from train_sac_closing_no_safety_termination import (
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 EXPERIMENT_FAMILY = "p3reach_from_scratch"
-EXPERIMENT_ENV_CLASS = ClosingSafetyExplorationV15GymEnv
+EXPERIMENT_ENV_CLASS = ClosingSafetyExplorationV18GymEnv
 EXPERIMENT_REWARD_SCHEME = EXPERIMENT_ENV_CLASS.reward_scheme
 MODEL_ROOT = os.path.join(SCRIPT_DIR, "models", EXPERIMENT_FAMILY)
 LOG_ROOT = os.path.join(SCRIPT_DIR, "logs", EXPERIMENT_FAMILY)
 RESULT_ROOT = os.path.join(SCRIPT_DIR, "results", EXPERIMENT_FAMILY)
 
-# V15 retains the stable vanilla-SAC settings used by V12 so this experiment
-# isolates only the effect of the lateral cone-containment soft constraint.
+# V18 retains the stable vanilla-SAC settings used by V12 so this experiment
+# isolates task-weight redistribution and bounded axial capture progress.
 SAC_PARAMETERS = {
     "learning_rate": 1e-4,
     "buffer_size": 1_000_000,
@@ -66,7 +66,7 @@ SAC_PARAMETERS = {
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Train a new closing SAC from scratch with p3_reach_v15 and "
+            "Train a new closing SAC from scratch with p3_reach_v18 and "
             "non-terminal safety exploration."
         )
     )
@@ -291,7 +291,7 @@ def build_config(args, checkpoints, experiment_name):
             "unsafe_penalty": "per hard-unsafe state; non-terminal",
         },
         "near_target_capture_shaping": {
-            "type": "V12 bounded symmetric balanced capture progress",
+            "type": "V18 bounded position/velocity-focused capture progress",
             "gate": "sigmoid in Euclidean P3 position error",
             "gate_midpoint_m": (
                 EXPERIMENT_ENV_CLASS.near_target_gate_distance_m
@@ -309,21 +309,26 @@ def build_config(args, checkpoints, experiment_name):
             "progress_clip": EXPERIMENT_ENV_CLASS.capture_progress_clip,
             "persistent_occupancy_penalty": False,
         },
+        "axial_capture_progress": {
+            "enabled": True,
+            "target": "episode-specific P3 axial position component",
+            "cost": "log1p(abs(axial error) / axial P3 tolerance)",
+            "type": "bounded symmetric temporal-difference progress",
+            "gate": "same sigmoid near-target gate as V12 capture",
+            "progress_clip": (
+                EXPERIMENT_ENV_CLASS.axial_capture_progress_clip
+            ),
+            "weight": EXPERIMENT_ENV_CLASS.reward_weights[
+                "axial_capture_progress"
+            ],
+            "persistent_occupancy_penalty": False,
+            "overshoot_penalty": False,
+        },
         "soft_constraints": {
             "docking_cone": {
-                "enabled": True,
-                "type": "bounded non-terminal lateral-exit occupancy penalty",
-                "constraint": "rho <= cone_slope * clipped_s",
-                "normalization": "lateral excess / cone base radius",
-                "clipping": [0.0, 1.0],
-                "lateral_only": True,
-                "axial_exit_penalty": False,
-                "maximum_penalty_per_step": (
-                    EXPERIMENT_ENV_CLASS.reward_weights["cone_constraint"]
-                ),
-                "zero_inside_cone": True,
-                "terminates_episode": False,
-                "restricts_initial_distribution": False,
+                "enabled": False,
+                "training_filter_enabled": False,
+                "deployment_filter": "frozen closing cone/speed CBF-QP",
             }
         },
         "departure_shaping": {
@@ -411,7 +416,7 @@ def main():
     checkpoints = resolve_checkpoint_steps(args)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     experiment_name = args.experiment_name or (
-        "sac_closing_p3reachv15_gamma0999_from_scratch_"
+        "sac_closing_p3reachv18_gamma0999_from_scratch_"
         "no_safety_termination_"
         f"{args.total_timesteps // 1000}k_seed{args.training_seed}_{timestamp}"
     )

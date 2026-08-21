@@ -1,0 +1,58 @@
+{
+  "result_schema_version": 2,
+  "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+  "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+  "variants": [
+    "baseline",
+    "all"
+  ],
+  "seed_start": 200,
+  "num_seeds": 10,
+  "mode": "testing",
+  "max_steps": 12000,
+  "paired_evaluation": true,
+  "protected_barrier_tolerance": 1e-06,
+  "constraint_policy": "hard_no_slack",
+  "qp_failure_behavior": "record_feasibility_diagnosis_and_retain_nominal_action_fallback_not_cbf_certified",
+  "p3_tolerances_used_as_cbf_constraints": false,
+  "p3_target_sampling": "sampled_per_episode_and_saved_in_per_episode_metrics",
+  "closing_reward_version": "v15",
+  "cbf": {
+    "cone_k1": 0.1,
+    "cone_k2": 0.1,
+    "cone_interior_margin": 0.0001,
+    "port_speed_max": 0.25,
+    "axial_port_speed_max": 0.15,
+    "port_speed_alpha": 0.5,
+    "axial_port_speed_alpha": 0.5,
+    "cone_slack_penalty": 100000000.0,
+    "port_speed_slack_penalty": 100000000.0,
+    "axial_port_speed_slack_penalty": 100000000.0,
+    "numerical_eps": 1e-09,
+    "intervention_eps": 1e-07,
+    "solver_eps_abs": 1e-08,
+    "solver_eps_rel": 1e-08,
+    "solver_max_iter": 20000,
+    "allow_slack": false,
+    "enable_cone": true,
+    "enable_port_speed": true,
+    "enable_axial_port_speed": true,
+    "solver_backend": "osqp"
+  },
+  "environment": {
+    "vp_safe_close": 0.25,
+    "vp_unsafe_close": 0.35,
+    "sdot_safe_close": 0.15,
+    "sdot_unsafe_close": 0.25,
+    "cone_slope": 0.1,
+    "cone_length": 2000.0,
+    "p3_target_tolerance": [
+      20.0,
+      2.0,
+      0.01,
+      0.01,
+      0.008726646259971648,
+      0.0008726646259971648
+    ]
+  }
+}

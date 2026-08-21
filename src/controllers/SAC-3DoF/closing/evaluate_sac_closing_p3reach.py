@@ -29,6 +29,9 @@ from envs.docking3dof.closing_safety_exploration_env import (
     ClosingSafetyExplorationV13GymEnv,
     ClosingSafetyExplorationV14GymEnv,
     ClosingSafetyExplorationV15GymEnv,
+    ClosingSafetyExplorationV16GymEnv,
+    ClosingSafetyExplorationV17GymEnv,
+    ClosingSafetyExplorationV18GymEnv,
 )
 from train_sac_closing_no_safety_termination import (
     evaluate_rollout,
@@ -73,6 +76,15 @@ ENV_CLASSES = {
     ),
     ClosingSafetyExplorationV15GymEnv.reward_scheme: (
         ClosingSafetyExplorationV15GymEnv
+    ),
+    ClosingSafetyExplorationV16GymEnv.reward_scheme: (
+        ClosingSafetyExplorationV16GymEnv
+    ),
+    ClosingSafetyExplorationV17GymEnv.reward_scheme: (
+        ClosingSafetyExplorationV17GymEnv
+    ),
+    ClosingSafetyExplorationV18GymEnv.reward_scheme: (
+        ClosingSafetyExplorationV18GymEnv
     ),
 }
 

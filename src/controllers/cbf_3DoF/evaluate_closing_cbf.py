@@ -1,4 +1,4 @@
-"""Paired evaluation of a closing-phase SAC policy with speed CBF-QP variants.
+"""Paired evaluation of a closing SAC policy with closing CBF-QP variants.
 
 Every requested variant uses the same deterministic policy, evaluation seeds,
 initial-state distribution, VecNormalize statistics, and rollout limit.  The
@@ -52,28 +52,39 @@ DEFAULT_RESULTS_DIR = (
 )
 
 VARIANT_FLAGS = {
-    "baseline": (False, False),
-    "total_speed": (True, False),
-    "axial_speed": (False, True),
-    "both": (True, True),
+    "baseline": (False, False, False, False),
+    "cone": (True, False, False, False),
+    "total_speed": (False, True, False, False),
+    "axial_speed": (False, False, True, False),
+    # Historical closing variant: both speed constraints, without cone.
+    "both": (False, True, True, False),
+    # Existing translational safety filter, retained for direct ablation.
+    "all": (True, True, True, False),
+    # Complete deployment filter: translational rows plus alignment.
+    "full": (True, True, True, True),
 }
 STEP_LOG_LABELS = {
     "baseline": "unfiltered",
+    "cone": "cone_cbf",
     "total_speed": "total_speed_cbf",
     "axial_speed": "axial_speed_cbf",
     "both": "both_speed_cbfs",
+    "all": "cone_and_both_speed_cbfs",
+    "full": "cone_speed_and_alignment_cbfs",
 }
 CONSTRAINT_FAMILY_FIELDS = {
+    "cone": "enable_cone",
     "total_speed": "enable_port_speed",
     "axial_speed": "enable_axial_port_speed",
+    "alignment": "enable_alignment",
 }
 
 RUN_CONFIG_FILENAME = "run_configuration.json"
 EPISODE_METRICS_FILENAME = "per_episode_metrics.csv"
 VARIANT_SUMMARY_FILENAME = "aggregate_metrics_by_filter_variant.csv"
-PAIRED_COMPARISON_FILENAME = "paired_baseline_vs_both.csv"
+PAIRED_COMPARISON_FILENAME = "paired_baseline_vs_filter.csv"
 PROTECTED_BARRIER_TOLERANCE = 1.0e-6
-RESULT_SCHEMA_VERSION = 1
+RESULT_SCHEMA_VERSION = 3
 
 
 def make_env(seed: int, mode: str) -> Docking3DoFGymEnv:
@@ -241,13 +252,17 @@ def run_rollout(
     p3_target = np.asarray(env.core_env.p3_target, dtype=np.float64).copy()
     total_reward = 0.0
     records: list[dict[str, object]] = []
-    total_enabled, axial_enabled = VARIANT_FLAGS[variant]
+    cone_enabled, total_enabled, axial_enabled, alignment_enabled = (
+        VARIANT_FLAGS[variant]
+    )
 
     # Baseline runs both barriers in shadow mode for a like-for-like comparison.
     config = replace(
         base_config,
+        enable_cone=True if variant == "baseline" else cone_enabled,
         enable_port_speed=True if variant == "baseline" else total_enabled,
         enable_axial_port_speed=True if variant == "baseline" else axial_enabled,
+        enable_alignment=True if variant == "baseline" else alignment_enabled,
     )
     cbf_filter = None if variant == "baseline" else ClosingCBFFilter(
         env.core_env,
@@ -370,15 +385,53 @@ def run_rollout(
                 "s_dot": float(kinematics.s_dot),
                 "y_p_dot": float(kinematics.y_p_dot),
                 "port_speed": float(np.linalg.norm(kinematics.v_p)),
+                "h_cone_upper": float(values.get("cone_upper", np.nan)),
+                "h_cone_lower": float(values.get("cone_lower", np.nan)),
+                "h_cone_axial_upper": float(
+                    values.get("cone_axial_upper", np.nan)
+                ),
                 "h_port_speed": float(values.get("port_speed", np.nan)),
                 "h_axial_port_speed": float(
                     values.get("axial_port_speed", np.nan)
+                ),
+                "h_attitude_upper": float(
+                    values.get("attitude_upper", np.nan)
+                ),
+                "h_attitude_lower": float(
+                    values.get("attitude_lower", np.nan)
+                ),
+                "h_angular_rate_upper": float(
+                    values.get("angular_rate_upper", np.nan)
+                ),
+                "h_angular_rate_lower": float(
+                    values.get("angular_rate_lower", np.nan)
+                ),
+                "post_h_cone_upper": float(
+                    post_values.get("cone_upper", np.nan)
+                ),
+                "post_h_cone_lower": float(
+                    post_values.get("cone_lower", np.nan)
+                ),
+                "post_h_cone_axial_upper": float(
+                    post_values.get("cone_axial_upper", np.nan)
                 ),
                 "post_h_port_speed": float(
                     post_values.get("port_speed", np.nan)
                 ),
                 "post_h_axial_port_speed": float(
                     post_values.get("axial_port_speed", np.nan)
+                ),
+                "post_h_attitude_upper": float(
+                    post_values.get("attitude_upper", np.nan)
+                ),
+                "post_h_attitude_lower": float(
+                    post_values.get("attitude_lower", np.nan)
+                ),
+                "post_h_angular_rate_upper": float(
+                    post_values.get("angular_rate_upper", np.nan)
+                ),
+                "post_h_angular_rate_lower": float(
+                    post_values.get("angular_rate_lower", np.nan)
                 ),
                 "strict_protected_barrier_violation": bool(strict),
                 "strict_protected_barriers_violated": ",".join(strict),
@@ -388,11 +441,32 @@ def run_rollout(
                 "protected_barriers_violated_beyond_tolerance": ",".join(
                     beyond_tolerance
                 ),
+                "residual_cone_upper": float(
+                    residuals.get("cone_upper", np.nan)
+                ),
+                "residual_cone_lower": float(
+                    residuals.get("cone_lower", np.nan)
+                ),
+                "residual_cone_axial_upper": float(
+                    residuals.get("cone_axial_upper", np.nan)
+                ),
                 "residual_port_speed": float(
                     residuals.get("port_speed", np.nan)
                 ),
                 "residual_axial_port_speed": float(
                     residuals.get("axial_port_speed", np.nan)
+                ),
+                "residual_attitude_upper": float(
+                    residuals.get("attitude_upper", np.nan)
+                ),
+                "residual_attitude_lower": float(
+                    residuals.get("attitude_lower", np.nan)
+                ),
+                "residual_angular_rate_upper": float(
+                    residuals.get("angular_rate_upper", np.nan)
+                ),
+                "residual_angular_rate_lower": float(
+                    residuals.get("angular_rate_lower", np.nan)
                 ),
                 "post_port_distance": float(
                     final_info.get("port_distance", np.nan)
@@ -405,6 +479,9 @@ def run_rollout(
                 "post_geometry_safe": bool(geometry.get("safe", False)),
                 "post_geometry_warning": bool(geometry.get("warn", False)),
                 "post_geometry_unsafe": bool(geometry.get("unsafe", False)),
+                "post_in_docking_cone": bool(
+                    geometry.get("in_C_dock", False)
+                ),
                 "post_alignment_safe": bool(alignment.get("safe", False)),
                 "post_alignment_warning": bool(
                     alignment.get("warn", False)
@@ -516,11 +593,32 @@ def run_rollout(
         "p3_target_vy": float(p3_target[3]),
         "p3_target_psi": float(p3_target[4]),
         "p3_target_omega": float(p3_target[5]),
+        "initial_h_cone_upper": float(
+            initial_barriers.get("cone_upper", np.nan)
+        ),
+        "initial_h_cone_lower": float(
+            initial_barriers.get("cone_lower", np.nan)
+        ),
+        "initial_h_cone_axial_upper": float(
+            initial_barriers.get("cone_axial_upper", np.nan)
+        ),
         "initial_h_port_speed": float(
             initial_barriers.get("port_speed", np.nan)
         ),
         "initial_h_axial_port_speed": float(
             initial_barriers.get("axial_port_speed", np.nan)
+        ),
+        "initial_h_attitude_upper": float(
+            initial_barriers.get("attitude_upper", np.nan)
+        ),
+        "initial_h_attitude_lower": float(
+            initial_barriers.get("attitude_lower", np.nan)
+        ),
+        "initial_h_angular_rate_upper": float(
+            initial_barriers.get("angular_rate_upper", np.nan)
+        ),
+        "initial_h_angular_rate_lower": float(
+            initial_barriers.get("angular_rate_lower", np.nan)
         ),
         "initial_protected_set_satisfied": initial_protected_set_satisfied,
         "steps": len(records),
@@ -556,6 +654,9 @@ def run_rollout(
         "geometry_unsafe_fraction": float(
             np.mean(array("post_geometry_unsafe"))
         ),
+        "cone_exit_fraction": float(
+            np.mean(np.logical_not(array("post_in_docking_cone")))
+        ),
         "alignment_safe_fraction": float(np.mean(array("post_alignment_safe"))),
         "alignment_warning_fraction": float(
             np.mean(array("post_alignment_warning"))
@@ -587,13 +688,50 @@ def run_rollout(
         "protected_barriers_violated_beyond_tolerance": barrier_names(
             "protected_barriers_violated_beyond_tolerance"
         ),
+        "min_h_cone_upper": finite_min("h_cone_upper"),
+        "min_h_cone_lower": finite_min("h_cone_lower"),
+        "min_h_cone_axial_upper": finite_min("h_cone_axial_upper"),
         "min_h_port_speed": finite_min("h_port_speed"),
         "min_h_axial_port_speed": finite_min("h_axial_port_speed"),
+        "min_h_attitude_upper": finite_min("h_attitude_upper"),
+        "min_h_attitude_lower": finite_min("h_attitude_lower"),
+        "min_h_angular_rate_upper": finite_min("h_angular_rate_upper"),
+        "min_h_angular_rate_lower": finite_min("h_angular_rate_lower"),
+        "min_post_h_cone_upper": finite_min("post_h_cone_upper"),
+        "min_post_h_cone_lower": finite_min("post_h_cone_lower"),
+        "min_post_h_cone_axial_upper": finite_min(
+            "post_h_cone_axial_upper"
+        ),
         "min_post_h_port_speed": finite_min("post_h_port_speed"),
         "min_post_h_axial_port_speed": finite_min("post_h_axial_port_speed"),
+        "min_post_h_attitude_upper": finite_min("post_h_attitude_upper"),
+        "min_post_h_attitude_lower": finite_min("post_h_attitude_lower"),
+        "min_post_h_angular_rate_upper": finite_min(
+            "post_h_angular_rate_upper"
+        ),
+        "min_post_h_angular_rate_lower": finite_min(
+            "post_h_angular_rate_lower"
+        ),
+        "min_raw_residual_cone_upper": finite_min("residual_cone_upper"),
+        "min_raw_residual_cone_lower": finite_min("residual_cone_lower"),
+        "min_raw_residual_cone_axial_upper": finite_min(
+            "residual_cone_axial_upper"
+        ),
         "min_raw_residual_port_speed": finite_min("residual_port_speed"),
         "min_raw_residual_axial_port_speed": finite_min(
             "residual_axial_port_speed"
+        ),
+        "min_raw_residual_attitude_upper": finite_min(
+            "residual_attitude_upper"
+        ),
+        "min_raw_residual_attitude_lower": finite_min(
+            "residual_attitude_lower"
+        ),
+        "min_raw_residual_angular_rate_upper": finite_min(
+            "residual_angular_rate_upper"
+        ),
+        "min_raw_residual_angular_rate_lower": finite_min(
+            "residual_angular_rate_lower"
         ),
         "step_log": rollout_path.name,
     }
@@ -664,6 +802,9 @@ def summarize_variant(variant: str, rows: list[dict[str, object]]):
         "mean_geometry_unsafe_fraction": float(
             np.mean([row["geometry_unsafe_fraction"] for row in rows])
         ),
+        "mean_cone_exit_fraction": float(
+            np.mean([row["cone_exit_fraction"] for row in rows])
+        ),
         "mean_alignment_warning_fraction": float(
             np.mean([row["alignment_warning_fraction"] for row in rows])
         ),
@@ -703,20 +844,34 @@ def summarize_variant(variant: str, rows: list[dict[str, object]]):
 
 
 def build_paired_comparison(rows: list[dict[str, object]]):
-    """Build seed-matched baseline-versus-both rows when both are present."""
+    """Build seed-matched baseline versus the most complete requested filter."""
     indexed = {(row["variant"], row["eval_seed"]): row for row in rows}
+    requested_variants = {row["variant"] for row in rows}
+    comparable_variants = requested_variants.intersection({"full", "all", "both"})
+    filtered_variant = (
+        next(
+            variant
+            for variant in ("full", "all", "both")
+            if variant in requested_variants
+        )
+        if comparable_variants
+        else None
+    )
+    if filtered_variant is None:
+        return []
     seeds = sorted(
         seed
         for variant, seed in indexed
-        if variant == "baseline" and ("both", seed) in indexed
+        if variant == "baseline" and (filtered_variant, seed) in indexed
     )
     paired = []
     for seed in seeds:
         baseline = indexed[("baseline", seed)]
-        cbf = indexed[("both", seed)]
+        cbf = indexed[(filtered_variant, seed)]
         paired.append(
             {
                 "eval_seed": seed,
+                "filtered_variant": filtered_variant,
                 "baseline_success": baseline["success"],
                 "cbf_success": cbf["success"],
                 "baseline_failure": baseline["failure"],
@@ -740,6 +895,14 @@ def build_paired_comparison(rows: list[dict[str, object]]):
                 ],
                 "cbf_velocity_warning_fraction": cbf[
                     "velocity_warning_fraction"
+                ],
+                "baseline_cone_exit_fraction": baseline["cone_exit_fraction"],
+                "cbf_cone_exit_fraction": cbf["cone_exit_fraction"],
+                "baseline_alignment_unsafe_fraction": baseline[
+                    "alignment_unsafe_fraction"
+                ],
+                "cbf_alignment_unsafe_fraction": cbf[
+                    "alignment_unsafe_fraction"
                 ],
                 "baseline_protected_violations_beyond_tolerance": baseline[
                     "protected_barrier_violation_beyond_tolerance_count"
@@ -765,7 +928,9 @@ def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Paired closing SAC versus hard speed-CBF evaluation."
+        description=(
+            "Paired closing SAC versus hard cone/speed/alignment-CBF evaluation."
+        )
     )
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_PATH)
     parser.add_argument("--vecnormalize", type=Path, default=DEFAULT_VECNORM_PATH)
@@ -773,7 +938,7 @@ def parse_args():
         "--variants",
         nargs="+",
         choices=tuple(VARIANT_FLAGS),
-        default=["baseline", "both"],
+        default=["baseline", "all", "full"],
     )
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--num-seeds", type=int, default=10)
@@ -784,10 +949,18 @@ def parse_args():
     )
     parser.add_argument("--max-steps", type=int, default=12_000)
     parser.add_argument("--solver", choices=("auto", "osqp", "scipy"), default="auto")
+    parser.add_argument("--cone-k1", type=float, default=0.1)
+    parser.add_argument("--cone-k2", type=float, default=0.1)
+    parser.add_argument("--cone-interior-margin", type=float, default=1.0e-4)
     parser.add_argument("--port-speed-max", type=float, default=0.25)
     parser.add_argument("--axial-port-speed-max", type=float, default=0.15)
     parser.add_argument("--port-speed-alpha", type=float, default=0.5)
     parser.add_argument("--axial-port-speed-alpha", type=float, default=0.5)
+    parser.add_argument("--attitude-max-deg", type=float, default=3.0)
+    parser.add_argument("--angular-rate-max-deg-s", type=float, default=0.15)
+    parser.add_argument("--attitude-k1", type=float, default=0.3)
+    parser.add_argument("--attitude-k2", type=float, default=0.3)
+    parser.add_argument("--angular-rate-alpha", type=float, default=0.5)
     parser.add_argument("--output-dir", type=Path, default=None)
     return parser.parse_args()
 
@@ -809,11 +982,23 @@ def main() -> None:
 
     # Closing thesis evaluations deliberately use hard constraints.
     config = ClosingCBFConfig(
+        cone_k1=args.cone_k1,
+        cone_k2=args.cone_k2,
+        cone_interior_margin=args.cone_interior_margin,
         port_speed_max=args.port_speed_max,
         axial_port_speed_max=args.axial_port_speed_max,
         port_speed_alpha=args.port_speed_alpha,
         axial_port_speed_alpha=args.axial_port_speed_alpha,
+        attitude_max=np.deg2rad(args.attitude_max_deg),
+        angular_rate_max=np.deg2rad(args.angular_rate_max_deg_s),
+        attitude_k1=args.attitude_k1,
+        attitude_k2=args.attitude_k2,
+        angular_rate_alpha=args.angular_rate_alpha,
         allow_slack=False,
+        enable_cone=True,
+        enable_port_speed=True,
+        enable_axial_port_speed=True,
+        enable_alignment=True,
         solver_backend=args.solver,
     )
     model = SAC.load(str(args.model))
@@ -863,6 +1048,12 @@ def main() -> None:
             "vp_unsafe_close": float(metadata_env.core_env.vp_unsafe_close),
             "sdot_safe_close": float(metadata_env.core_env.sdot_safe_close),
             "sdot_unsafe_close": float(metadata_env.core_env.sdot_unsafe_close),
+            "cone_slope": float(metadata_env.core_env.cone_slope),
+            "cone_length": float(metadata_env.core_env.cone_length),
+            "psi_safe": float(metadata_env.core_env.psi_safe),
+            "psi_unsafe": float(metadata_env.core_env.psi_unsafe),
+            "omega_safe": float(metadata_env.core_env.omega_safe),
+            "omega_unsafe": float(metadata_env.core_env.omega_unsafe),
             "p3_target_tolerance": np.asarray(
                 metadata_env.core_env.p3_target_tolerance,
                 dtype=float,
@@ -907,6 +1098,7 @@ def main() -> None:
             f"{summary['variant']:12s}: success={summary['success_rate']:.3f}, "
             f"failure={summary['failure_rate']:.3f}, "
             f"P3 error={summary['mean_final_p3_position_error']:.2f} m, "
+            f"cone exit={summary['mean_cone_exit_fraction']:.3f}, "
             f"intervention={summary['mean_intervention_fraction']:.3f}, "
             f"QP failures={summary['qp_failure_count']}, strict crossings="
             f"{summary['strict_protected_barrier_violation_count']}, beyond "

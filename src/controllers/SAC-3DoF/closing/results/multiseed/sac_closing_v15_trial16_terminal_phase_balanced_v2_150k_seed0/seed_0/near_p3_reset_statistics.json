@@ -1,0 +1,10 @@
+{
+  "configured_near_p3_fraction": 0.2,
+  "maximum_target_ratio": 4.0,
+  "minimum_target_ratio": 1.2,
+  "near_p3_resets": 4,
+  "near_p3_sampling_failures": 0,
+  "realized_near_p3_fraction": 0.26666666666666666,
+  "standard_resets": 11,
+  "total_resets": 15
+}

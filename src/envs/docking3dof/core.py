@@ -1016,7 +1016,7 @@ class Docking3DoFEnv:
 
 
     ### Reset, step, and logging
-    def reset(self, initial_state=None, mode="training"):
+    def reset(self, initial_state=None, mode="training", p3_target=None):
         """
         Resets the environment.
 
@@ -1026,6 +1026,12 @@ class Docking3DoFEnv:
             If provided, this state is used directly.
             Expected shape: (6,)
             State order: [rx, ry, vx, vy, psi, omegaz]
+
+        p3_target : np.ndarray or None
+            Optional closing target paired with ``initial_state``.  This is
+            used by reset-distribution augmentation, where the initial state
+            must be constructed relative to the exact sampled P3 target.
+            Ordinary resets continue to sample P3 exactly as before.
 
         mode : str
             Defines the initialization range used when initial_state is None.
@@ -1050,6 +1056,22 @@ class Docking3DoFEnv:
         self.time = 0.0
         self.history = []
         self.mode = mode
+
+        if p3_target is not None:
+            if self.phase != "closing":
+                raise ValueError(
+                    "p3_target may only be provided for the closing phase."
+                )
+            p3_target = np.asarray(p3_target, dtype=float)
+            if p3_target.shape != (6,):
+                raise ValueError(
+                    "P3 target must have shape (6,), i.e. "
+                    "[rx, ry, vx, vy, psi, omegaz]."
+                )
+            if not np.all(np.isfinite(p3_target)):
+                raise ValueError("P3 target must contain only finite values.")
+            self.p3_target = p3_target.copy()
+            self.p3_target[4] = self.wrap_to_pi(self.p3_target[4])
 
         if initial_state is not None:
             initial_state = np.asarray(initial_state, dtype=float)
@@ -1091,7 +1113,8 @@ class Docking3DoFEnv:
         else:
             if self.phase == "closing":
                 self.state = self.sample_X_P2(mode)
-                self.p3_target = self.sample_X_P3(mode)
+                if self.p3_target is None:
+                    self.p3_target = self.sample_X_P3(mode)
 
             elif self.phase == "final":
                 self.state = self.sample_X_P3(mode)

@@ -1,0 +1,120 @@
+{
+  "actual_replay_warmup_interaction_steps": 72001,
+  "cbf_filter_used_during_training": false,
+  "checkpoint_additional_steps": [
+    0,
+    100000,
+    200000,
+    300000,
+    400000,
+    500000,
+    600000
+  ],
+  "checkpoint_selection": [
+    "highest success rate",
+    "lowest safety-failure rate",
+    "lowest mean minimum P3 position error",
+    "lowest final max target ratio",
+    "highest safety-first score",
+    "highest mean return"
+  ],
+  "checkpoint_steps": [
+    0,
+    100000,
+    200000,
+    300000,
+    400000,
+    500000,
+    600000
+  ],
+  "continuation_optimizer": {
+    "gradient_steps": 1,
+    "learning_rate": 2.5e-05,
+    "source_gradient_steps": 8,
+    "source_learning_rate": 0.00026276728418436003,
+    "train_freq": 16
+  },
+  "critic_initialization": "loaded V15 trial-16 400k checkpoint",
+  "curriculum_used": false,
+  "device": "auto",
+  "experiment_name": "sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0",
+  "gradient_training_timesteps": 600000,
+  "gradient_updates_during_replay_warmup": false,
+  "lqr_policy_or_transitions_used": false,
+  "max_eval_steps": 12000,
+  "maximum_replay_warmup_interaction_steps": 200000,
+  "phase_balanced_replay": {
+    "capture_batch_fraction": 0.25,
+    "capture_buffer_size": 100000,
+    "capture_distance_m": 200.0,
+    "capture_partition": "current-agent online transitions at or below the P3 capture distance",
+    "fallback_before_activation": "ordinary global uniform replay",
+    "global_buffer_size": 300000,
+    "global_partition": "all current-agent online transitions",
+    "minimum_capture_transitions_before_balancing": 5000,
+    "minimum_completed_capture_episodes_before_balancing": 5,
+    "priority_events": [
+      "one true closest-approach transition per completed episode",
+      "velocity stopping-margin crossing",
+      "axial overshoot onset",
+      "successful-braking onset while approaching",
+      "P3 success"
+    ],
+    "priority_fraction_within_capture": 0.5,
+    "protected_priority_buffer_size": 25000
+  },
+  "policy_initialization": "loaded V15 trial-16 400k checkpoint",
+  "purpose": "continue terminal V15 Optuna trial 16 with online phase-balanced replay",
+  "replay_initialization": "new empty phase-balanced online buffer",
+  "replay_ready_after_warmup": true,
+  "replay_warmup_action_source": "loaded stochastic SAC policy",
+  "reward_version": "v15",
+  "safety_violation_termination_enabled": true,
+  "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+  "source_model_num_timesteps": 400000,
+  "source_model_sha256": "2fed2a5924488bf88837bec6b1f74c94a9e35b02245783d50629222b4c61fe3f",
+  "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+  "source_vecnormalize_sha256": "97db792aa9e729cc6b95b6d0d4a50eb393bef8d471d3ba0ced6937467ba2619c",
+  "terminal_conditions": [
+    "P3 success",
+    "hard safety violation",
+    "time limit",
+    "numerical failure"
+  ],
+  "total_timesteps": 600000,
+  "training_environment": "standard Docking3DoFGymEnv closing V15 with hard safety termination",
+  "training_seed": 0,
+  "training_seeds": [
+    0
+  ],
+  "trial_16_params": {
+    "batch_size": 512,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.99,
+    "gradient_steps": 8,
+    "learning_rate": 0.00026276728418436003,
+    "learning_starts": 10000,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "vecnormalize": {
+    "gamma": 0.99,
+    "loaded_from_source": true,
+    "norm_obs": true,
+    "norm_reward": true,
+    "statistics_frozen_during_warmup_and_training": true,
+    "training_updates_enabled": false
+  }
+}

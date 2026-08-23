@@ -1,0 +1,5 @@
+episode,additional_timestep,episode_length,episode_return,termination_reason,success,timeout,unsafe_steps,unsafe_fraction,warning_steps,geometry_unsafe_steps,velocity_unsafe_steps,alignment_unsafe_steps,violated_constraint_counts
+1,3653,3653,-1307.753657,failed_approach_reset,0,0,3118,0.8535450314809745,516,0,3118,3628,"{""velocity"": 3118}"
+2,15653,12000,-3245.005801,timeout,0,1,3804,0.317,5538,0,3804,11904,"{""velocity"": 3804}"
+3,27653,12000,-2075.902252,timeout,0,1,72,0.006,10230,0,72,11426,"{""velocity"": 72}"
+4,39653,12000,-2562.264241,timeout,0,1,4389,0.36575,7196,4389,0,11833,"{""geometry"": 4389}"

@@ -88,6 +88,10 @@ AGGREGATE_METRICS = (
     "mean_steps",
     "mean_final_position_error",
     "mean_min_position_error",
+    "mean_best_max_target_ratio",
+    "mean_target_2x_steps",
+    "mean_target_2x_fraction",
+    "mean_longest_target_2x_dwell_steps",
     "mean_progress_fraction",
     "mean_final_lateral_error",
     "mean_final_velocity_error",
@@ -418,6 +422,8 @@ class EvaluationCheckpointCallback(BaseCallback):
         model_dir,
         result_dir,
         model_name,
+        rank_function=None,
+        selection_metric="mean_return",
     ):
         super().__init__()
         self.training_seed = int(training_seed)
@@ -428,6 +434,8 @@ class EvaluationCheckpointCallback(BaseCallback):
         self.model_dir = model_dir
         self.result_dir = result_dir
         self.model_name = model_name
+        self.rank_function = rank_function
+        self.selection_metric = str(selection_metric)
 
         self.next_checkpoint_index = 0
         self.completed_episodes = 0
@@ -437,6 +445,7 @@ class EvaluationCheckpointCallback(BaseCallback):
         self.evaluation_lengths = []
         self.rollout_rows = []
         self.best_mean_return = -np.inf
+        self.best_rank = None
         self.best_checkpoint = None
         self.best_checkpoint_episode = None
 
@@ -550,10 +559,16 @@ class EvaluationCheckpointCallback(BaseCallback):
                 }
             )
 
-        # Match the original training script: the best intermediate model is
-        # selected by the highest mean deterministic evaluation return. The
-        # safety-first score remains recorded as a separate diagnostic.
-        if mean_return > self.best_mean_return:
+        # Mean return remains the default for backward compatibility. New
+        # experiments may supply a task/safety rank when early failure can
+        # obtain a deceptively high (less negative) episodic return.
+        rank = (
+            (float(mean_return),)
+            if self.rank_function is None
+            else tuple(self.rank_function(summary, mean_return, score))
+        )
+        if self.best_rank is None or rank > self.best_rank:
+            self.best_rank = rank
             self.best_mean_return = mean_return
             self.best_checkpoint = checkpoint
             self.best_checkpoint_episode = self.completed_episodes
@@ -567,7 +582,8 @@ class EvaluationCheckpointCallback(BaseCallback):
                     "training_seed": self.training_seed,
                     "checkpoint": checkpoint,
                     "episode": self.completed_episodes,
-                    "selection_metric": "mean_return",
+                    "selection_metric": self.selection_metric,
+                    "selection_rank": list(rank),
                     "mean_return": mean_return,
                     "std_return": std_return,
                     "score": score,
@@ -636,7 +652,14 @@ class EvaluationCheckpointCallback(BaseCallback):
 
             results = np.asarray(self.evaluation_results, dtype=np.float64)
             mean_returns = np.mean(results, axis=1)
-            best_index = int(np.argmax(mean_returns))
+            if self.rank_function is None:
+                best_index = int(np.argmax(mean_returns))
+            else:
+                best_index = next(
+                    index
+                    for index, row in enumerate(self.evaluation_rows)
+                    if row["timestep"] == self.best_checkpoint
+                )
             np.savez(
                 self.evaluations_npz,
                 timesteps=np.asarray(
@@ -1114,7 +1137,11 @@ def write_learning_curve_plots(
     plt.close()
 
 
-def write_aggregate_outputs(experiment_name, seeds):
+def write_aggregate_outputs(
+    experiment_name,
+    seeds,
+    best_checkpoint_by_seed=None,
+):
     rows = read_checkpoint_rows(experiment_name, seeds)
     if not rows:
         return
@@ -1159,7 +1186,25 @@ def write_aggregate_outputs(experiment_name, seeds):
         seed_rows = [row for row in rows if row["training_seed"] == seed]
         if not seed_rows:
             continue
-        best = max(seed_rows, key=lambda row: row["mean_return"])
+        requested_checkpoint = (
+            None
+            if best_checkpoint_by_seed is None
+            else best_checkpoint_by_seed.get(seed)
+        )
+        if requested_checkpoint is None:
+            best = max(seed_rows, key=lambda row: row["mean_return"])
+        else:
+            matches = [
+                row
+                for row in seed_rows
+                if row["checkpoint"] == requested_checkpoint
+            ]
+            if not matches:
+                raise RuntimeError(
+                    "Selected checkpoint is absent from aggregate rows: "
+                    f"seed={seed}, checkpoint={requested_checkpoint}."
+                )
+            best = matches[0]
         best_rows.append(best)
 
     best_csv = os.path.join(result_root, "best_checkpoint_per_seed.csv")

@@ -1,0 +1,2 @@
+evaluation_seed,success,failure,time_limit,steps,return,initial_position_error,final_position_error,minimum_position_error,best_max_target_ratio,target_2x_steps,longest_target_2x_dwell_steps,final_lateral_error,final_velocity_error,final_attitude_error_deg,final_rate_error_degs,final_max_target_ratio
+200,0,0,1,1,-0.8190941214561462,1428.683726096327,1428.536520248555,1428.536520248555,71.40715323420673,0,0,33.525758432257796,0.09982402285296847,0.7278566530103694,0.024539506689745045,71.40715323420673

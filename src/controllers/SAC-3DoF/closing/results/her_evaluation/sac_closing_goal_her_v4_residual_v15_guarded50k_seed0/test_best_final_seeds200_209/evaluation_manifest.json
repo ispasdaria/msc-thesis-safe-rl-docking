@@ -1,0 +1,21 @@
+{
+  "experiment_name": "sac_closing_goal_her_v4_residual_v15_guarded50k_seed0",
+  "max_eval_steps": 12000,
+  "model_types": [
+    "best",
+    "final"
+  ],
+  "reward_version": "v4",
+  "test_seeds": [
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209
+  ]
+}

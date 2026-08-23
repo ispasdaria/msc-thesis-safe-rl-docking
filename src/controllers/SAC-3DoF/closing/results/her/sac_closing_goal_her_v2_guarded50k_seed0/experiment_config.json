@@ -1,0 +1,59 @@
+{
+  "actual_timesteps": 50000,
+  "algorithm": "stable_baselines3.SAC MultiInputPolicy",
+  "best_checkpoint": 25000,
+  "cbf_filter_used_during_training": false,
+  "checkpoint_steps": [
+    0,
+    25000,
+    50000
+  ],
+  "curriculum_used": false,
+  "experiment_name": "sac_closing_goal_her_v2_guarded50k_seed0",
+  "goal_success_evaluation": "first entry into the exact P3 set",
+  "goal_success_termination_during_training": false,
+  "her": {
+    "copy_info_dict": true,
+    "goal_selection_strategy": "future",
+    "n_sampled_goal": 4
+  },
+  "max_eval_steps": 12000,
+  "max_time": 12000.0,
+  "method": "goal-conditioned SAC with Hindsight Experience Replay",
+  "near_p3_resets_used": false,
+  "reward_history_dependent": false,
+  "reward_parameters": {
+    "goal_ratio_clip": 100.0,
+    "safety_failure_penalty": 1000.0,
+    "success_bonus": 1.0,
+    "velocity_warning_penalty": 10.0
+  },
+  "reward_scheme": "goal_conditioned_p3_v2",
+  "reward_version": "v2",
+  "sac": {
+    "batch_size": 512,
+    "buffer_size": 300000,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.99,
+    "gradient_steps": 8,
+    "learning_rate": 0.00026276728418436003,
+    "learning_starts": 12001,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "total_timesteps": 50000,
+  "training_environment": "original P2 distribution with hard safety termination",
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ]
+}

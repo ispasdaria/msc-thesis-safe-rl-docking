@@ -32,6 +32,10 @@ from envs.docking3dof.closing_safety_exploration_env import (
     ClosingSafetyExplorationV16GymEnv,
     ClosingSafetyExplorationV17GymEnv,
     ClosingSafetyExplorationV18GymEnv,
+    ClosingSafetyExplorationV19GymEnv,
+    ClosingSafetyTerminalV19GymEnv,
+    ClosingSafetyTerminalV20GymEnv,
+    ClosingSafetyTerminalV21GymEnv,
 )
 from train_sac_closing_no_safety_termination import (
     evaluate_rollout,
@@ -85,6 +89,18 @@ ENV_CLASSES = {
     ),
     ClosingSafetyExplorationV18GymEnv.reward_scheme: (
         ClosingSafetyExplorationV18GymEnv
+    ),
+    ClosingSafetyExplorationV19GymEnv.reward_scheme: (
+        ClosingSafetyExplorationV19GymEnv
+    ),
+    ClosingSafetyTerminalV19GymEnv.reward_scheme: (
+        ClosingSafetyTerminalV19GymEnv
+    ),
+    ClosingSafetyTerminalV20GymEnv.reward_scheme: (
+        ClosingSafetyTerminalV20GymEnv
+    ),
+    ClosingSafetyTerminalV21GymEnv.reward_scheme: (
+        ClosingSafetyTerminalV21GymEnv
     ),
 }
 
@@ -205,7 +221,13 @@ def main():
             "model_path": model_path,
             "vecnormalize_path": vecnormalize_path,
             "reward_scheme": reward_scheme,
-            "safety_violation_termination_enabled": False,
+            "safety_violation_termination_enabled": bool(
+                getattr(
+                    env_class,
+                    "safety_violation_termination_enabled",
+                    False,
+                )
+            ),
             "seeds": args.seeds,
             "summary": summary,
         },
@@ -220,6 +242,20 @@ def main():
             f"unsafe_fraction={result['unsafe_fraction']:.2%} "
             f"cone_exit_fraction={result['cone_exit_fraction']:.2%} "
             f"max_cone_depth={result['max_cone_exit_depth']:.3f}"
+        )
+        print(
+            "  velocity: "
+            f"trigger={result['velocity_failure_trigger']} "
+            f"terminal_port={result['terminal_port_speed_mps']:.3f}/"
+            f"{result['port_speed_unsafe_threshold_mps']:.3f} m/s "
+            f"terminal_|s_dot|={result['terminal_axial_speed_abs_mps']:.3f}/"
+            f"{result['axial_speed_unsafe_threshold_mps']:.3f} m/s | "
+            "braking: "
+            f"terminal_error={result['terminal_braking_reference_error_mps']:.3f} m/s "
+            f"outside={result['braking_outside_envelope_fraction']:.2%} | "
+            "body saturation: "
+            f"ax={result['body_ax_saturation_fraction']:.2%} "
+            f"ay={result['body_ay_saturation_fraction']:.2%}"
         )
     print(json.dumps(summary, indent=2, sort_keys=True))
     print(f"Rollouts: {csv_path}")

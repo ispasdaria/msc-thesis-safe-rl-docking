@@ -1,0 +1,262 @@
+{
+  "additional_observations": [
+    "port_lqr_vx_error_ratio",
+    "port_lqr_vy_error_ratio",
+    "port_lqr_attitude_error_ratio",
+    "port_lqr_rate_error_ratio",
+    "port_speed_warning_depth",
+    "axial_speed_warning_depth",
+    "port_lqr_braking_blend"
+  ],
+  "axial_capture_progress": {
+    "cost": "log1p(abs(axial error) / axial P3 tolerance)",
+    "enabled": true,
+    "gate": "same sigmoid near-target gate as V12 capture",
+    "overshoot_penalty": false,
+    "persistent_occupancy_penalty": false,
+    "progress_clip": 0.05,
+    "target": "episode-specific P3 axial position component",
+    "type": "bounded symmetric temporal-difference progress",
+    "weight": 1.0
+  },
+  "cbf_filter_used_during_training": false,
+  "checkpoint_selection": [
+    "highest success rate",
+    "if success is zero: lowest mean minimum P3 position error",
+    "if success is nonzero: lowest mean final max target ratio",
+    "lowest mean final P3 position error",
+    "lowest mean final max target ratio",
+    "lowest mean unsafe fraction",
+    "highest mean return"
+  ],
+  "checkpoint_steps": [
+    25000,
+    50000,
+    75000,
+    100000
+  ],
+  "closing_velocity_warning": {
+    "axial_speed_band_mps": [
+      0.15,
+      0.25
+    ],
+    "enabled": true,
+    "penalty_max": 0.1,
+    "port_speed_band_mps": [
+      0.25,
+      0.35
+    ],
+    "type": "bounded quadratic warning-band occupancy cost"
+  },
+  "departure_shaping": {
+    "axial_overshoot_metric_logged": true,
+    "axial_overshoot_penalty": false,
+    "flyaway": "bounded near-target log1p positive P3-relative radial speed",
+    "flyaway_penalty_clip": 0.05,
+    "flyaway_speed_scale_mps": 0.01,
+    "uses_episode_history": false
+  },
+  "device": "auto",
+  "experiment_name": "sac_closing_v21_port_lqr_terminal_pilot100k_seed0",
+  "experiment_reward_scheme": "p3_reach_v21_port_lqr_safety_terminal",
+  "experiment_reward_weights": {
+    "action": 0.001,
+    "axial_capture_progress": 1.0,
+    "braking_envelope": 0.0,
+    "braking_progress": 0.0,
+    "capture_progress": 1.0,
+    "closing_velocity_warning": 0.1,
+    "flyaway": 1.0,
+    "goal_progress": 10.0,
+    "goal_state": 0.0,
+    "port_lqr_envelope": 0.1,
+    "port_lqr_progress": 1.0,
+    "success": 100.0,
+    "time": 0.0,
+    "timeout": 0.0,
+    "unsafe_step": 100.0
+  },
+  "failed_approach_reset": {
+    "added_reward_penalty": 0.0,
+    "distance_growth_from_minimum_m": 200.0,
+    "enabled": true,
+    "entry_distance_m": 400.0,
+    "gym_semantics": "truncated",
+    "minimum_radial_speed_mps": 0.01,
+    "patience_steps": 60
+  },
+  "gamma": 0.999,
+  "goal_metric": {
+    "active_from_p2": true,
+    "aggregate_mean_weight": 0.5,
+    "aggregate_smooth_worst_weight": 0.5,
+    "aggregation": "grouped equal blends of component mean and smooth worst",
+    "components": [
+      "axial",
+      "lateral",
+      "vx",
+      "vy",
+      "attitude",
+      "rate"
+    ],
+    "distance_gate": false,
+    "error_transform": "log1p of each tolerance ratio",
+    "group_weights": {
+      "attitude_rate": 0.4,
+      "position": 0.4,
+      "terminal_velocity": 0.2
+    },
+    "logarithmic_error_compression": true,
+    "normalization": "absolute P3 error divided by P3 tolerance",
+    "smooth_max_beta": 2.0
+  },
+  "group_weights": {
+    "alignment_rate": 0.4,
+    "position": 0.4,
+    "velocity": 0.2
+  },
+  "initial_distribution": "normal P2 training distribution",
+  "initialization": {
+    "actor": "new random initialization",
+    "critics": "new random initialization",
+    "pretrained_model_loaded": false,
+    "pretrained_vecnormalize_loaded": false,
+    "replay_buffer": "new empty buffer",
+    "vecnormalize": "new statistics"
+  },
+  "lqr_policy_or_actions_used": false,
+  "max_time": 12000.0,
+  "near_target_capture_shaping": {
+    "gate": "sigmoid in Euclidean P3 position error",
+    "gate_midpoint_m": 400.0,
+    "gate_width_m": 100.0,
+    "group_weights": {
+      "attitude_rate": 0.4,
+      "position": 0.4,
+      "terminal_velocity": 0.2
+    },
+    "persistent_occupancy_penalty": false,
+    "progress_clip": 0.1,
+    "progress_metric": "weighted changes in position, attitude/rate, and velocity group costs",
+    "type": "V18 bounded position/velocity-focused capture progress"
+  },
+  "observation_size": 19,
+  "persistent_goal_state_cost_enabled": false,
+  "persistent_time_cost_enabled": false,
+  "phase": "closing",
+  "pilot_decision_checks": {
+    "maximum_training_steps": 100000,
+    "required_improvements": [
+      "lower velocity safety-failure rate than V20",
+      "lower port/cone exit occupancy than V20",
+      "lower alignment error than V20",
+      "continued reduction in minimum P3 distance"
+    ]
+  },
+  "port_lqr_envelope": {
+    "aggregation": "worst normalized component",
+    "axial_reference": "LQR -0.08 m/s beyond 100 m, linear blend to P3 velocity by 10 m, mirrored after overshoot",
+    "design_scales": {
+      "attitude_deg": 2.0,
+      "axial_velocity_mps": 0.02,
+      "lateral_velocity_mps": 0.01,
+      "rate_degs": 0.05
+    },
+    "enabled": true,
+    "outside_envelope_penalty_max": 0.1,
+    "progress_clip": 0.1,
+    "tracked_components": [
+      "docking-port axial velocity",
+      "docking-port lateral velocity",
+      "attitude",
+      "angular rate"
+    ],
+    "tracking_cost": "log1p(worst normalized component)"
+  },
+  "prescribed_velocity_profile": true,
+  "purpose": "100k decision pilot for terminal vanilla SAC with a coupled docking-port LQR envelope",
+  "regression_early_stop": {
+    "enabled": true,
+    "patience": 4,
+    "requires_target_and_safety_regression": true,
+    "start_step": 250000,
+    "target_ratio_factor": 2.0,
+    "unsafe_fraction_increase": 0.25
+  },
+  "reward_shaping": {
+    "action_cost": "squared normalized action norm",
+    "progress_clip": null,
+    "state_cost_clip": null,
+    "unsafe_penalty": "bounded terminal failure penalty"
+  },
+  "sac_parameters": {
+    "batch_size": 512,
+    "buffer_size": 1000000,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.999,
+    "gradient_steps": 8,
+    "learning_rate": 0.0001,
+    "learning_starts": 10000,
+    "target_update_interval": 1,
+    "tau": 0.005,
+    "train_freq": 16
+  },
+  "safety_classification_enabled": true,
+  "safety_penalties_enabled": true,
+  "safety_violation_termination_enabled": true,
+  "scalar_axial_braking_reward_enabled": false,
+  "shared_gym_reward_version_used_for_experiment": false,
+  "shared_reward_files_modified": false,
+  "soft_constraints": {
+    "docking_cone": {
+      "deployment_filter": "frozen closing cone/speed CBF-QP",
+      "enabled": false,
+      "training_filter_enabled": false
+    }
+  },
+  "success_bonus": 100.0,
+  "terminal_conditions": [
+    "P3 success",
+    "hard safety violation",
+    "failed-approach reset truncation",
+    "time limit",
+    "non-finite state"
+  ],
+  "terminal_safety_penalty": 100.0,
+  "terminal_velocity_shaping": {
+    "active_from_p2": false,
+    "gate": "sigmoid in Euclidean P3 position error",
+    "gate_applied_after_velocity_progress_difference": true,
+    "gate_midpoint_m": 400.0,
+    "gate_width_m": 100.0,
+    "target": "sampled exact P3 velocity"
+  },
+  "total_timesteps": 100000,
+  "training_learning_curve": {
+    "evaluation_checkpoints_marked": true,
+    "file": "episode_return_learning_curve.png",
+    "moving_average_window_episodes": 10,
+    "raw_episode_return": true,
+    "refresh_interval_episodes": 5
+  },
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "vecnormalize": {
+    "clip_obs": 10.0,
+    "clip_reward": 10.0,
+    "gamma": 0.999,
+    "norm_obs": true,
+    "norm_reward": false
+  }
+}

@@ -19,6 +19,10 @@ from envs.docking3dof.closing_safety_exploration_env import (
     ClosingSafetyExplorationV16GymEnv,
     ClosingSafetyExplorationV17GymEnv,
     ClosingSafetyExplorationV18GymEnv,
+    ClosingSafetyExplorationV19GymEnv,
+    ClosingSafetyTerminalV19GymEnv,
+    ClosingSafetyTerminalV20GymEnv,
+    ClosingSafetyTerminalV21GymEnv,
 )
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
@@ -1566,3 +1570,343 @@ def test_v18_axial_capture_progress_is_clipped_to_half_safety_scale():
         -worsening["reward_axial_capture_progress"],
     )
     assert abs(improving["reward_axial_capture_progress"]) <= 0.05
+
+
+def _reward_v19_with_braking_progress_offset(env, state, offset):
+    goal = env._v12_goal_state(state)
+    env._previous_position_cost = goal["position_cost"]
+    env._previous_attitude_cost = goal["attitude_cost"]
+    env._previous_velocity_cost = goal["velocity_cost"]
+    env._previous_capture_position_cost = goal["position_cost"]
+    env._previous_capture_attitude_cost = goal["attitude_cost"]
+    env._previous_capture_velocity_cost = goal["velocity_cost"]
+    axial = env._v18_axial_capture_state(state)
+    env._previous_axial_capture_cost = axial["axial_capture_cost"]
+    braking = env._v19_braking_state(state)
+    env._previous_braking_tracking_cost = braking["tracking_cost"] + offset
+    return env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"success": False, "safety_violation_observed": False},
+        terminated=False,
+        truncated=False,
+    )
+
+
+def test_v19_matches_lqr_braking_schedule_and_mirrors_overshoot():
+    env = ClosingSafetyExplorationV19GymEnv(mode="testing", seed=313)
+    _, reset_info = env.reset(seed=313)
+    target = env.core_env.p3_target.copy()
+
+    far_approach = target.copy()
+    far_approach[0] += env.lqr_fast_distance_m
+    far = env._v19_braking_state(far_approach)
+    np.testing.assert_allclose(
+        far["reference_velocity_mps"],
+        env.lqr_fast_axial_velocity_mps,
+    )
+    np.testing.assert_allclose(far["blend"], 1.0)
+    np.testing.assert_allclose(
+        far["envelope_half_width_mps"],
+        env.lqr_axial_velocity_design_scale_mps,
+    )
+
+    midpoint = target.copy()
+    midpoint[0] += 0.5 * (
+        env.lqr_fast_distance_m + env.lqr_slow_distance_m
+    )
+    middle = env._v19_braking_state(midpoint)
+    np.testing.assert_allclose(middle["blend"], 0.5)
+    np.testing.assert_allclose(
+        middle["reference_velocity_mps"],
+        0.5 * (target[2] + env.lqr_fast_axial_velocity_mps),
+    )
+
+    at_target = env._v19_braking_state(target)
+    np.testing.assert_allclose(
+        at_target["reference_velocity_mps"], target[2]
+    )
+    np.testing.assert_allclose(
+        at_target["envelope_half_width_mps"],
+        env.core_env.p3_target_tolerance[2],
+    )
+
+    far_overshoot = target.copy()
+    far_overshoot[0] -= env.lqr_fast_distance_m
+    recovered = env._v19_braking_state(far_overshoot)
+    np.testing.assert_allclose(
+        recovered["reference_velocity_mps"],
+        2.0 * target[2] - env.lqr_fast_axial_velocity_mps,
+    )
+    assert recovered["reference_relative_velocity_mps"] > 0.0
+    assert reset_info["braking_reference_source"] == "closing LQR design"
+
+
+def test_v19_observation_exposes_braking_envelope_state():
+    env = ClosingSafetyExplorationV19GymEnv(mode="testing", seed=317)
+    observation, info = env.reset(seed=317)
+    braking = env._v19_braking_state(env.core_env.state)
+
+    assert observation.shape == (15,)
+    assert env.observation_space.shape == (15,)
+    assert len(info["observation_labels"]) == 15
+    assert info["observation_labels"][-3:] == (
+        "braking_vx_reference_error_ratio",
+        "braking_envelope_margin_ratio",
+        "braking_blend",
+    )
+    np.testing.assert_allclose(
+        observation[-3:],
+        [
+            braking["tracking_error_ratio"],
+            braking["envelope_margin_ratio"],
+            braking["blend"],
+        ],
+    )
+    next_observation, _, _, _, step_info = env.step(
+        np.zeros(3, dtype=np.float32)
+    )
+    assert next_observation.shape == (15,)
+    assert step_info["reward_components"]["braking_envelope_enabled"] is True
+
+
+def test_v19_braking_progress_is_symmetric_and_bounded():
+    env = ClosingSafetyExplorationV19GymEnv(mode="testing", seed=331)
+    env.reset(seed=331)
+    state = env.core_env.p3_target.copy()
+    state[0] += 55.0
+    state[2] = env._v19_braking_state(state)["reference_velocity_mps"]
+
+    _, improving = _reward_v19_with_braking_progress_offset(
+        env, state, 1.0
+    )
+    _, worsening = _reward_v19_with_braking_progress_offset(
+        env, state, -1.0
+    )
+
+    np.testing.assert_allclose(improving["braking_progress_clipped"], 0.1)
+    np.testing.assert_allclose(worsening["braking_progress_clipped"], -0.1)
+    np.testing.assert_allclose(
+        improving["reward_braking_progress"],
+        -worsening["reward_braking_progress"],
+    )
+    assert abs(improving["reward_braking_progress"]) <= 0.1
+
+
+def test_v19_outside_envelope_penalty_is_zero_inside_and_safety_scaled():
+    env = ClosingSafetyExplorationV19GymEnv(mode="testing", seed=337)
+    env.reset(seed=337)
+    inside = env.core_env.p3_target.copy()
+    inside[0] += env.lqr_fast_distance_m
+    inside[2] = env._v19_braking_state(inside)["reference_velocity_mps"]
+
+    _, inside_components = _reward_v19_with_braking_progress_offset(
+        env, inside, 0.0
+    )
+    assert inside_components["reward_braking_envelope"] == 0.0
+
+    outside = inside.copy()
+    braking = env._v19_braking_state(outside)
+    outside[2] += (
+        braking["envelope_half_width_mps"]
+        + 2.0 * env.lqr_axial_velocity_design_scale_mps
+    )
+    _, outside_components = _reward_v19_with_braking_progress_offset(
+        env, outside, 0.0
+    )
+
+    np.testing.assert_allclose(
+        outside_components["reward_braking_envelope"], -0.1
+    )
+    np.testing.assert_allclose(
+        abs(outside_components["reward_braking_envelope"]),
+        env.reward_weights["unsafe_step"],
+    )
+
+
+def test_v19_safety_terminal_variant_stops_on_hard_violation():
+    env = ClosingSafetyTerminalV19GymEnv(mode="testing", seed=347)
+    observation, reset_info = env.reset(seed=347)
+    _set_velocity_unsafe_state(env)
+
+    next_observation, _, terminated, truncated, info = env.step(
+        np.zeros(3, dtype=np.float32)
+    )
+    components = info["reward_components"]
+
+    assert observation.shape == (15,)
+    assert next_observation.shape == (15,)
+    assert reset_info["safety_violation_termination_enabled"] is True
+    assert terminated is True
+    assert truncated is False
+    assert info["failure_reason"] == "safety_violation"
+    assert info["safety_violation_observed"] is True
+    assert info["safety_termination_disabled"] is False
+    assert components["reward_scheme"] == (
+        "p3_reach_v19_safety_terminal"
+    )
+    assert components["terminal_safety_penalty_active"] is True
+    assert components["unsafe_occupancy_penalty_active"] is False
+    np.testing.assert_allclose(
+        components["reward_failure"],
+        -env.reward_weights["unsafe_step"],
+    )
+
+
+def test_v20_removes_persistent_goal_and_time_costs():
+    env = ClosingSafetyTerminalV20GymEnv(mode="testing", seed=349)
+    _, reset_info = env.reset(seed=349)
+    state = env.core_env.state.copy()
+
+    _, components = _reward_v19_with_braking_progress_offset(
+        env, state, 0.0
+    )
+
+    assert reset_info["reward_scheme"] == "p3_reach_v20_safety_terminal"
+    assert reset_info["persistent_goal_state_cost_enabled"] is False
+    assert reset_info["persistent_time_cost_enabled"] is False
+    assert components["reward_position_state"] == 0.0
+    assert components["reward_attitude_state"] == 0.0
+    assert components["reward_terminal_velocity_state"] == 0.0
+    assert components["reward_time"] == 0.0
+    assert components["reward_failure"] == 0.0
+
+
+def test_v20_terminal_safety_penalty_matches_success_bonus_magnitude():
+    env = ClosingSafetyTerminalV20GymEnv(mode="testing", seed=353)
+    env.reset(seed=353)
+    _set_velocity_unsafe_state(env)
+
+    _, reward, terminated, truncated, info = env.step(
+        np.zeros(3, dtype=np.float32)
+    )
+    components = info["reward_components"]
+
+    assert terminated is True
+    assert truncated is False
+    assert info["termination_reason"] == "safety_violation"
+    np.testing.assert_allclose(components["reward_failure"], -100.0)
+    np.testing.assert_allclose(
+        abs(components["reward_failure"]),
+        env.reward_weights["success"],
+    )
+    assert reward <= components["reward_failure"] + 0.2
+
+
+def _reward_v21_with_port_lqr_progress_offset(env, state, offset):
+    goal = env._v12_goal_state(state)
+    env._previous_position_cost = goal["position_cost"]
+    env._previous_attitude_cost = goal["attitude_cost"]
+    env._previous_velocity_cost = goal["velocity_cost"]
+    env._previous_capture_position_cost = goal["position_cost"]
+    env._previous_capture_attitude_cost = goal["attitude_cost"]
+    env._previous_capture_velocity_cost = goal["velocity_cost"]
+    axial = env._v18_axial_capture_state(state)
+    env._previous_axial_capture_cost = axial["axial_capture_cost"]
+    braking = env._v19_braking_state(state)
+    env._previous_braking_tracking_cost = braking["tracking_cost"]
+    port_lqr = env._v21_port_lqr_state(state)
+    env._previous_port_lqr_tracking_cost = port_lqr["tracking_cost"] + offset
+    return env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"success": False, "safety_violation_observed": False},
+        terminated=False,
+        truncated=False,
+    )
+
+
+def test_v21_restores_v12_balance_and_replaces_scalar_braking_reward():
+    env = ClosingSafetyTerminalV21GymEnv(mode="testing", seed=359)
+    observation, reset_info = env.reset(seed=359)
+
+    assert observation.shape == (19,)
+    assert env.observation_space.shape == (19,)
+    assert len(reset_info["observation_labels"]) == 19
+    assert env.position_group_weight == 0.4
+    assert env.attitude_group_weight == 0.4
+    assert env.velocity_group_weight == 0.2
+    assert env.reward_weights["braking_progress"] == 0.0
+    assert env.reward_weights["braking_envelope"] == 0.0
+    assert reset_info["scalar_axial_braking_reward_enabled"] is False
+    assert reset_info["port_lqr_envelope_enabled"] is True
+
+
+def test_v21_port_lqr_envelope_is_zero_at_complete_p3_target():
+    env = ClosingSafetyTerminalV21GymEnv(mode="testing", seed=367)
+    env.reset(seed=367)
+
+    port_lqr = env._v21_port_lqr_state(env.core_env.p3_target.copy())
+
+    np.testing.assert_allclose(port_lqr["port_velocity_error_mps"], 0.0)
+    np.testing.assert_allclose(port_lqr["attitude_error_rad"], 0.0)
+    np.testing.assert_allclose(port_lqr["rate_error_rads"], 0.0)
+    np.testing.assert_allclose(port_lqr["tracking_ratios"], 0.0)
+    assert port_lqr["worst_envelope_violation_ratio"] == 0.0
+    assert port_lqr["port_speed_warning_depth"] == 0.0
+    assert port_lqr["axial_speed_warning_depth"] == 0.0
+
+
+def test_v21_far_port_axial_reference_matches_lqr_relative_schedule():
+    env = ClosingSafetyTerminalV21GymEnv(mode="testing", seed=373)
+    env.reset(seed=373)
+    target = env.core_env.p3_target.copy()
+    state = target.copy()
+    state[0] += env.lqr_fast_distance_m
+
+    port_lqr = env._v21_port_lqr_state(state)
+    target_port_velocity = env.core_env.get_derived_quantities(target)["v_p"]
+    expected_relative_velocity = (
+        env.lqr_fast_axial_velocity_mps - target[2]
+    )
+
+    np.testing.assert_allclose(
+        port_lqr["desired_port_velocity_mps"][0],
+        target_port_velocity[0] + expected_relative_velocity,
+    )
+    np.testing.assert_allclose(
+        port_lqr["desired_port_velocity_mps"][1],
+        target_port_velocity[1],
+    )
+    assert port_lqr["braking_blend"] == 1.0
+
+
+def test_v21_port_lqr_progress_is_symmetric_bounded_and_scalar_term_is_off():
+    env = ClosingSafetyTerminalV21GymEnv(mode="testing", seed=379)
+    env.reset(seed=379)
+    state = env.core_env.p3_target.copy()
+
+    _, improving = _reward_v21_with_port_lqr_progress_offset(
+        env, state, 1.0
+    )
+    _, worsening = _reward_v21_with_port_lqr_progress_offset(
+        env, state, -1.0
+    )
+
+    np.testing.assert_allclose(improving["port_lqr_progress_clipped"], 0.1)
+    np.testing.assert_allclose(worsening["port_lqr_progress_clipped"], -0.1)
+    np.testing.assert_allclose(
+        improving["reward_port_lqr_progress"],
+        -worsening["reward_port_lqr_progress"],
+    )
+    assert improving["reward_braking_progress"] == 0.0
+    assert improving["reward_braking_envelope"] == 0.0
+
+
+def test_v21_velocity_warning_penalty_is_bounded_to_point_one():
+    env = ClosingSafetyTerminalV21GymEnv(mode="testing", seed=383)
+    env.reset(seed=383)
+    state = env.core_env.p3_target.copy()
+    state[2] = 1.0
+
+    _, components = _reward_v21_with_port_lqr_progress_offset(
+        env, state, 0.0
+    )
+
+    assert components["worst_velocity_warning_depth"] == 1.0
+    np.testing.assert_allclose(
+        components["reward_closing_velocity_warning"], -0.1
+    )
+    assert abs(components["reward_port_lqr_envelope"]) <= 0.1

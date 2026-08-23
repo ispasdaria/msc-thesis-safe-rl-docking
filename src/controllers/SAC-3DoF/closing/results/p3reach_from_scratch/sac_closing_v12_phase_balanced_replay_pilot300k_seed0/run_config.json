@@ -1,0 +1,242 @@
+{
+  "axial_capture_progress": {
+    "cost": "log1p(abs(axial error) / axial P3 tolerance)",
+    "enabled": false,
+    "gate": "same sigmoid near-target gate as V12 capture",
+    "overshoot_penalty": false,
+    "persistent_occupancy_penalty": false,
+    "progress_clip": null,
+    "target": "episode-specific P3 axial position component",
+    "type": "bounded symmetric temporal-difference progress",
+    "weight": 0.0
+  },
+  "cbf_filter_used_during_training": false,
+  "checkpoint_selection": [
+    "highest success rate",
+    "if success is zero: lowest mean minimum P3 position error",
+    "if success is nonzero: lowest mean final max target ratio",
+    "lowest mean final P3 position error",
+    "lowest mean final max target ratio",
+    "lowest mean unsafe fraction",
+    "highest mean return"
+  ],
+  "checkpoint_steps": [
+    25000,
+    50000,
+    75000,
+    100000,
+    125000,
+    150000,
+    175000,
+    200000,
+    225000,
+    250000,
+    275000,
+    300000
+  ],
+  "curriculum_used": false,
+  "departure_shaping": {
+    "axial_overshoot_metric_logged": true,
+    "axial_overshoot_penalty": false,
+    "flyaway": "bounded near-target log1p positive P3-relative radial speed",
+    "flyaway_penalty_clip": 0.05,
+    "flyaway_speed_scale_mps": 0.01,
+    "uses_episode_history": false
+  },
+  "device": "auto",
+  "experiment_name": "sac_closing_v12_phase_balanced_replay_pilot300k_seed0",
+  "experiment_reward_scheme": "p3_reach_v12",
+  "experiment_reward_weights": {
+    "action": 0.001,
+    "capture_progress": 1.0,
+    "flyaway": 1.0,
+    "goal_progress": 10.0,
+    "goal_state": 0.05,
+    "success": 100.0,
+    "time": 0.001,
+    "timeout": 0.0,
+    "unsafe_step": 0.1
+  },
+  "failed_approach_reset": {
+    "added_reward_penalty": 0.0,
+    "distance_growth_from_minimum_m": 200.0,
+    "enabled": true,
+    "entry_distance_m": 400.0,
+    "gym_semantics": "truncated",
+    "minimum_radial_speed_mps": 0.01,
+    "patience_steps": 60
+  },
+  "gamma": 0.999,
+  "goal_metric": {
+    "active_from_p2": true,
+    "aggregate_mean_weight": 0.5,
+    "aggregate_smooth_worst_weight": 0.5,
+    "aggregation": "grouped equal blends of component mean and smooth worst",
+    "components": [
+      "axial",
+      "lateral",
+      "vx",
+      "vy",
+      "attitude",
+      "rate"
+    ],
+    "distance_gate": false,
+    "error_transform": "log1p of each tolerance ratio",
+    "group_weights": {
+      "attitude_rate": 0.4,
+      "position": 0.4,
+      "terminal_velocity": 0.2
+    },
+    "logarithmic_error_compression": true,
+    "normalization": "absolute P3 error divided by P3 tolerance",
+    "smooth_max_beta": 2.0
+  },
+  "initial_distribution": "normal P2 training distribution",
+  "initialization": {
+    "actor": "new random initialization",
+    "critics": "new random initialization",
+    "pretrained_model_loaded": false,
+    "pretrained_vecnormalize_loaded": false,
+    "replay_buffer": "new empty buffer",
+    "vecnormalize": "new statistics"
+  },
+  "lqr_policy_or_actions_used": false,
+  "max_time": 12000.0,
+  "near_target_capture_shaping": {
+    "gate": "sigmoid in Euclidean P3 position error",
+    "gate_midpoint_m": 400.0,
+    "gate_width_m": 100.0,
+    "group_weights": {
+      "attitude_rate": 0.4,
+      "position": 0.4,
+      "terminal_velocity": 0.2
+    },
+    "persistent_occupancy_penalty": false,
+    "progress_clip": 0.1,
+    "progress_metric": "weighted changes in position, attitude/rate, and velocity group costs",
+    "type": "unchanged V12 bounded balanced capture progress"
+  },
+  "phase": "closing",
+  "phase_balanced_replay": {
+    "activation_after_capture_transitions": 256,
+    "batch_composition_after_activation": {
+      "capture_fraction": 0.5,
+      "global_fraction": 0.5,
+      "priority_fraction_within_capture": 0.5
+    },
+    "capture_boundary_rationale": "400 m matches the existing V12 near-target gate and allows the partition to activate for the observed 225-290 m V12 approach; 200 m remains a later ablation",
+    "capture_buffer_capacity": 100000,
+    "enabled": true,
+    "fallback_before_activation": "100% ordinary global uniform replay",
+    "logical_partitions": {
+      "capture": "online transitions with P3 position error at or below 400 m",
+      "global": "all online closing transitions"
+    },
+    "priority_events": [
+      "closest approach",
+      "velocity stopping-margin crossing",
+      "P3 axial overshoot",
+      "successful braking while approaching",
+      "P3 success"
+    ],
+    "protected_priority_capacity": 25000
+  },
+  "policy_or_critic_warm_start_used": false,
+  "prescribed_velocity_profile": false,
+  "purpose": "V12 vanilla SAC ablation with online phase-balanced replay",
+  "regression_early_stop": {
+    "enabled": true,
+    "patience": 4,
+    "requires_target_and_safety_regression": true,
+    "start_step": 250000,
+    "target_ratio_factor": 2.0,
+    "unsafe_fraction_increase": 0.25
+  },
+  "replay_buffer": {
+    "class": "PhaseBalancedReplayBuffer",
+    "experience_source": "online agent experience only",
+    "kwargs": {
+      "capture_batch_fraction": 0.5,
+      "capture_buffer_size": 100000,
+      "capture_distance_m": 400.0,
+      "minimum_capture_transitions": 256,
+      "priority_buffer_size": 25000,
+      "priority_capture_fraction": 0.5
+    },
+    "lqr_transitions_used": false,
+    "offline_demonstrations_used": false
+  },
+  "reward_changed_from_v12": false,
+  "reward_shaping": {
+    "action_cost": "squared normalized action norm",
+    "progress_clip": null,
+    "state_cost_clip": null,
+    "unsafe_penalty": "per hard-unsafe state; non-terminal"
+  },
+  "sac_parameters": {
+    "batch_size": 512,
+    "buffer_size": 1000000,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.999,
+    "gradient_steps": 8,
+    "learning_rate": 0.0001,
+    "learning_starts": 10000,
+    "target_update_interval": 1,
+    "tau": 0.005,
+    "train_freq": 16
+  },
+  "safety_classification_enabled": true,
+  "safety_penalties_enabled": true,
+  "safety_violation_termination_enabled": false,
+  "shared_gym_reward_version_used_for_experiment": false,
+  "shared_reward_files_modified": false,
+  "soft_constraints": {
+    "docking_cone": {
+      "deployment_filter": "frozen closing cone/speed CBF-QP",
+      "enabled": false,
+      "training_filter_enabled": false
+    }
+  },
+  "terminal_conditions": [
+    "P3 success",
+    "failed-approach reset truncation",
+    "time limit",
+    "non-finite state"
+  ],
+  "terminal_velocity_shaping": {
+    "active_from_p2": false,
+    "gate": "sigmoid in Euclidean P3 position error",
+    "gate_applied_after_velocity_progress_difference": true,
+    "gate_midpoint_m": 400.0,
+    "gate_width_m": 100.0,
+    "target": "sampled exact P3 velocity"
+  },
+  "total_timesteps": 300000,
+  "training_learning_curve": {
+    "evaluation_checkpoints_marked": true,
+    "file": "episode_return_learning_curve.png",
+    "moving_average_window_episodes": 10,
+    "raw_episode_return": true,
+    "refresh_interval_episodes": 5
+  },
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "vecnormalize": {
+    "clip_obs": 10.0,
+    "clip_reward": 10.0,
+    "gamma": 0.999,
+    "norm_obs": true,
+    "norm_reward": false
+  }
+}

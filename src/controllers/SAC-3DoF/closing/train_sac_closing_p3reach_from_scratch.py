@@ -2,9 +2,9 @@
 
 This experiment starts every rollout from the normal P2 training distribution.
 It creates a new actor, new critics, an empty replay buffer, and new observation
-normalization statistics. Safety classifications and occupancy penalties are
-retained, but a safety violation does not end an exploration episode. Raw
-rewards are deliberately not normalized.
+normalization statistics. The selected isolated environment determines whether
+a safety violation terminates an episode. Raw rewards are deliberately not
+normalized.
 
 No pretrained model or VecNormalize file is loaded or modified.
 """
@@ -34,7 +34,9 @@ from envs.docking3dof.closing_safety_exploration_env import (
 from train_sac_closing_no_safety_termination import (
     ExperimentCheckpointCallback,
     TrainingSafetyDiagnosticsCallback,
+    checkpoint_rank,
     make_env,
+    write_csv,
     write_json,
 )
 
@@ -46,6 +48,17 @@ EXPERIMENT_REWARD_SCHEME = EXPERIMENT_ENV_CLASS.reward_scheme
 MODEL_ROOT = os.path.join(SCRIPT_DIR, "models", EXPERIMENT_FAMILY)
 LOG_ROOT = os.path.join(SCRIPT_DIR, "logs", EXPERIMENT_FAMILY)
 RESULT_ROOT = os.path.join(SCRIPT_DIR, "results", EXPERIMENT_FAMILY)
+CHECKPOINT_RANK_FUNCTION = checkpoint_rank
+CHECKPOINT_SELECTION_ORDER = [
+    "highest success rate",
+    "lowest mean final max target ratio",
+    "lowest mean final position error",
+    "lowest mean unsafe fraction",
+    "highest mean return",
+]
+EXPERIMENT_REPLAY_BUFFER_CLASS = None
+EXPERIMENT_REPLAY_BUFFER_KWARGS = {}
+EXPERIMENT_NAME_EXTRA_TAG = ""
 
 # V18 retains the stable vanilla-SAC settings used by V12 so this experiment
 # isolates task-weight redistribution and bounded axial capture progress.
@@ -66,8 +79,9 @@ SAC_PARAMETERS = {
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Train a new closing SAC from scratch with p3_reach_v18 and "
-            "non-terminal safety exploration."
+            f"Train a new closing SAC from scratch with "
+            f"{EXPERIMENT_REWARD_SCHEME} and non-terminal safety "
+            "exploration."
         )
     )
     parser.add_argument("--total-timesteps", type=int, default=600_000)
@@ -162,6 +176,7 @@ class RegressionEarlyStoppingCheckpointCallback(ExperimentCheckpointCallback):
         )
         self.regression_streak = 0
         self.regression_stop_requested = False
+        self.replay_statistics_rows = []
 
     def _on_step(self):
         continue_training = super()._on_step()
@@ -169,6 +184,22 @@ class RegressionEarlyStoppingCheckpointCallback(ExperimentCheckpointCallback):
 
     def _evaluate_and_save(self, step):
         super()._evaluate_and_save(step)
+        statistics = getattr(
+            getattr(self.model, "replay_buffer", None),
+            "replay_statistics",
+            None,
+        )
+        if callable(statistics):
+            self.replay_statistics_rows.append(
+                {"additional_timestep": int(step), **statistics()}
+            )
+            write_csv(
+                os.path.join(
+                    self.result_dir,
+                    "replay_buffer_checkpoint_metrics.csv",
+                ),
+                self.replay_statistics_rows,
+            )
         if (
             not self.regression_stop_enabled
             or step < self.regression_start_step
@@ -232,6 +263,21 @@ class RegressionEarlyStoppingCheckpointCallback(ExperimentCheckpointCallback):
 
 
 def build_config(args, checkpoints, experiment_name):
+    axial_capture_enabled = hasattr(
+        EXPERIMENT_ENV_CLASS,
+        "axial_capture_progress_clip",
+    )
+    replay_buffer_config = {
+        "class": (
+            EXPERIMENT_REPLAY_BUFFER_CLASS.__name__
+            if EXPERIMENT_REPLAY_BUFFER_CLASS is not None
+            else "ReplayBuffer"
+        ),
+        "kwargs": dict(EXPERIMENT_REPLAY_BUFFER_KWARGS),
+        "experience_source": "online agent experience only",
+        "offline_demonstrations_used": False,
+        "lqr_transitions_used": False,
+    }
     return {
         "experiment_name": experiment_name,
         "purpose": "closing SAC P3-reaching training from scratch",
@@ -288,7 +334,15 @@ def build_config(args, checkpoints, experiment_name):
             "progress_clip": EXPERIMENT_ENV_CLASS.progress_clip,
             "state_cost_clip": None,
             "action_cost": "squared normalized action norm",
-            "unsafe_penalty": "per hard-unsafe state; non-terminal",
+            "unsafe_penalty": (
+                "bounded terminal failure penalty"
+                if getattr(
+                    EXPERIMENT_ENV_CLASS,
+                    "safety_violation_termination_enabled",
+                    False,
+                )
+                else "per hard-unsafe state; non-terminal"
+            ),
         },
         "near_target_capture_shaping": {
             "type": "V18 bounded position/velocity-focused capture progress",
@@ -310,17 +364,20 @@ def build_config(args, checkpoints, experiment_name):
             "persistent_occupancy_penalty": False,
         },
         "axial_capture_progress": {
-            "enabled": True,
+            "enabled": axial_capture_enabled,
             "target": "episode-specific P3 axial position component",
             "cost": "log1p(abs(axial error) / axial P3 tolerance)",
             "type": "bounded symmetric temporal-difference progress",
             "gate": "same sigmoid near-target gate as V12 capture",
-            "progress_clip": (
-                EXPERIMENT_ENV_CLASS.axial_capture_progress_clip
+            "progress_clip": getattr(
+                EXPERIMENT_ENV_CLASS,
+                "axial_capture_progress_clip",
+                None,
             ),
-            "weight": EXPERIMENT_ENV_CLASS.reward_weights[
-                "axial_capture_progress"
-            ],
+            "weight": EXPERIMENT_ENV_CLASS.reward_weights.get(
+                "axial_capture_progress",
+                0.0,
+            ),
             "persistent_occupancy_penalty": False,
             "overshoot_penalty": False,
         },
@@ -362,10 +419,22 @@ def build_config(args, checkpoints, experiment_name):
             "added_reward_penalty": 0.0,
             "gym_semantics": "truncated",
         },
-        "prescribed_velocity_profile": False,
+        "prescribed_velocity_profile": bool(
+            getattr(
+                EXPERIMENT_ENV_CLASS,
+                "prescribed_velocity_profile_enabled",
+                False,
+            )
+        ),
         "safety_classification_enabled": True,
         "safety_penalties_enabled": True,
-        "safety_violation_termination_enabled": False,
+        "safety_violation_termination_enabled": bool(
+            getattr(
+                EXPERIMENT_ENV_CLASS,
+                "safety_violation_termination_enabled",
+                False,
+            )
+        ),
         "terminal_conditions": [
             "P3 success",
             "failed-approach reset truncation",
@@ -379,6 +448,7 @@ def build_config(args, checkpoints, experiment_name):
         "max_time": args.max_time,
         "device": args.device,
         "sac_parameters": SAC_PARAMETERS,
+        "replay_buffer": replay_buffer_config,
         "gamma": SAC_PARAMETERS["gamma"],
         "vecnormalize": {
             "norm_obs": True,
@@ -387,9 +457,7 @@ def build_config(args, checkpoints, experiment_name):
             "clip_reward": 10.0,
             "gamma": SAC_PARAMETERS["gamma"],
         },
-        "checkpoint_selection": (
-            "success, target ratio, position error, unsafe fraction, return"
-        ),
+        "checkpoint_selection": CHECKPOINT_SELECTION_ORDER,
         "regression_early_stop": {
             "enabled": not args.disable_regression_early_stop,
             "start_step": args.early_stop_start_step,
@@ -415,9 +483,20 @@ def main():
     validate_args(args)
     checkpoints = resolve_checkpoint_steps(args)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    reward_tag = EXPERIMENT_REWARD_SCHEME.replace("_", "")
+    termination_tag = (
+        "safety_termination"
+        if getattr(
+            EXPERIMENT_ENV_CLASS,
+            "safety_violation_termination_enabled",
+            False,
+        )
+        else "no_safety_termination"
+    )
     experiment_name = args.experiment_name or (
-        "sac_closing_p3reachv18_gamma0999_from_scratch_"
-        "no_safety_termination_"
+        f"sac_closing_{reward_tag}_gamma0999_from_scratch_"
+        f"{termination_tag}_"
+        f"{EXPERIMENT_NAME_EXTRA_TAG}"
         f"{args.total_timesteps // 1000}k_seed{args.training_seed}_{timestamp}"
     )
     config = build_config(args, checkpoints, experiment_name)
@@ -459,6 +538,13 @@ def main():
         gamma=SAC_PARAMETERS["gamma"],
     )
 
+    replay_buffer_options = {}
+    if EXPERIMENT_REPLAY_BUFFER_CLASS is not None:
+        replay_buffer_options = {
+            "replay_buffer_class": EXPERIMENT_REPLAY_BUFFER_CLASS,
+            "replay_buffer_kwargs": dict(EXPERIMENT_REPLAY_BUFFER_KWARGS),
+        }
+
     model = SAC(
         policy="MlpPolicy",
         env=training_env,
@@ -476,6 +562,7 @@ def main():
         seed=args.training_seed,
         tensorboard_log=log_dir,
         device=args.device,
+        **replay_buffer_options,
     )
 
     training_callback = TrainingSafetyDiagnosticsCallback(
@@ -488,6 +575,15 @@ def main():
             "episode_return_learning_curve.png",
         ),
         checkpoint_steps=checkpoints,
+        plot_subtitle=(
+            "P3-reaching reward with terminal safety violations"
+            if getattr(
+                EXPERIMENT_ENV_CLASS,
+                "safety_violation_termination_enabled",
+                False,
+            )
+            else "P3-reaching reward with non-terminal safety exploration"
+        ),
     )
     checkpoint_callback = RegressionEarlyStoppingCheckpointCallback(
         checkpoint_steps=checkpoints,
@@ -497,6 +593,8 @@ def main():
         result_dir=result_dir,
         evaluate_initial=False,
         env_class=EXPERIMENT_ENV_CLASS,
+        rank_function=CHECKPOINT_RANK_FUNCTION,
+        selection_order=CHECKPOINT_SELECTION_ORDER,
         enabled=not args.disable_regression_early_stop,
         start_step=args.early_stop_start_step,
         patience=args.early_stop_patience,
@@ -511,7 +609,19 @@ def main():
     print("Initialization:      new actor, critics, replay buffer, normalization")
     print("Initial states:      normal P2 training distribution")
     print(f"Reward:              isolated {EXPERIMENT_REWARD_SCHEME}")
-    print("Safety violations:   occupancy-penalized, but non-terminal")
+    if EXPERIMENT_REPLAY_BUFFER_CLASS is not None:
+        print(
+            "Replay buffer:       "
+            f"{EXPERIMENT_REPLAY_BUFFER_CLASS.__name__}"
+        )
+    if getattr(
+        EXPERIMENT_ENV_CLASS,
+        "safety_violation_termination_enabled",
+        False,
+    ):
+        print("Safety violations:   terminate the episode; no training filter")
+    else:
+        print("Safety violations:   occupancy-penalized, but non-terminal")
     print(f"Training steps:      {args.total_timesteps:,}")
     print(f"Checkpoints:         {checkpoints}")
     print(f"Validation seeds:    {args.validation_seeds}")
@@ -535,6 +645,16 @@ def main():
         )
         model.save(os.path.join(model_dir, "final_model"))
         training_env.save(os.path.join(model_dir, "final_vecnormalize.pkl"))
+        replay_statistics = getattr(
+            model.replay_buffer,
+            "replay_statistics",
+            None,
+        )
+        if callable(replay_statistics):
+            write_json(
+                os.path.join(result_dir, "replay_buffer_final.json"),
+                replay_statistics(),
+            )
     finally:
         training_env.close()
 

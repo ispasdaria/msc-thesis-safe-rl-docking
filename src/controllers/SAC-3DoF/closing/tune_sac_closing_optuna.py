@@ -155,6 +155,10 @@ def evaluate_model(
                 initial_metrics = target_error_metrics(initial_error, tolerance)
 
                 min_position_error = initial_metrics["position_error"]
+                best_max_target_ratio = initial_metrics["max_target_ratio"]
+                target_2x_steps = 0
+                longest_target_2x_dwell_steps = 0
+                current_target_2x_dwell_steps = 0
                 port_distances = []
                 rho_values = []
                 port_speeds = []
@@ -174,10 +178,27 @@ def evaluate_model(
                     episode_return += float(reward)
 
                     current_error = target_error(env)
+                    current_metrics = target_error_metrics(
+                        current_error,
+                        tolerance,
+                    )
                     min_position_error = min(
                         min_position_error,
-                        float(np.linalg.norm(current_error[0:2])),
+                        current_metrics["position_error"],
                     )
+                    best_max_target_ratio = min(
+                        best_max_target_ratio,
+                        current_metrics["max_target_ratio"],
+                    )
+                    if current_metrics["max_target_ratio"] <= 2.0:
+                        target_2x_steps += 1
+                        current_target_2x_dwell_steps += 1
+                        longest_target_2x_dwell_steps = max(
+                            longest_target_2x_dwell_steps,
+                            current_target_2x_dwell_steps,
+                        )
+                    else:
+                        current_target_2x_dwell_steps = 0
                     port_distances.append(info.get("port_distance", np.nan))
                     rho_values.append(info.get("rho", np.nan))
                     port_speeds.append(info.get("port_speed", np.nan))
@@ -214,6 +235,12 @@ def evaluate_model(
                         "initial_position_error": initial_position_error,
                         "final_position_error": final_metrics["position_error"],
                         "min_position_error": min_position_error,
+                        "best_max_target_ratio": best_max_target_ratio,
+                        "target_2x_steps": target_2x_steps,
+                        "target_2x_fraction": target_2x_steps / (step + 1),
+                        "longest_target_2x_dwell_steps": (
+                            longest_target_2x_dwell_steps
+                        ),
                         "progress_fraction": float(
                             np.clip(progress_fraction, -1.0, 1.0)
                         ),
@@ -273,6 +300,12 @@ def summarize_results(results):
         "mean_initial_position_error": mean("initial_position_error"),
         "mean_final_position_error": mean("final_position_error"),
         "mean_min_position_error": mean("min_position_error"),
+        "mean_best_max_target_ratio": mean("best_max_target_ratio"),
+        "mean_target_2x_steps": mean("target_2x_steps"),
+        "mean_target_2x_fraction": mean("target_2x_fraction"),
+        "mean_longest_target_2x_dwell_steps": mean(
+            "longest_target_2x_dwell_steps"
+        ),
         "mean_progress_fraction": mean("progress_fraction"),
         "mean_final_lateral_error": mean("final_lateral_error"),
         "mean_final_velocity_error": mean("final_velocity_error"),

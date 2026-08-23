@@ -256,6 +256,138 @@ def cone_diagnostics(core_env, info):
     }
 
 
+ACTION_SATURATION_THRESHOLD = 0.95
+
+
+def velocity_limit_diagnostics(core_env, info):
+    """Identify which closing velocity limit is active or violated."""
+    velocity = info.get("velocity", {})
+    port_speed = float(
+        velocity.get("vp_norm", info.get("port_speed", 0.0))
+    )
+    axial_speed_abs = float(
+        velocity.get("s_dot_abs", abs(float(info.get("s_dot", 0.0))))
+    )
+    port_speed_unsafe = bool(port_speed > core_env.vp_unsafe_close)
+    axial_speed_unsafe = bool(axial_speed_abs > core_env.sdot_unsafe_close)
+    if port_speed_unsafe and axial_speed_unsafe:
+        trigger = "both"
+    elif port_speed_unsafe:
+        trigger = "port_speed"
+    elif axial_speed_unsafe:
+        trigger = "axial_speed"
+    else:
+        trigger = "none"
+    return {
+        "port_speed_mps": port_speed,
+        "axial_speed_abs_mps": axial_speed_abs,
+        "port_speed_unsafe_threshold_mps": float(
+            core_env.vp_unsafe_close
+        ),
+        "axial_speed_unsafe_threshold_mps": float(
+            core_env.sdot_unsafe_close
+        ),
+        "port_speed_unsafe": port_speed_unsafe,
+        "axial_speed_unsafe": axial_speed_unsafe,
+        "velocity_failure_trigger": trigger,
+    }
+
+
+def action_command_diagnostics(
+    core_env,
+    normalized_action,
+    physical_action,
+    pre_step_psi,
+):
+    """Return body-command saturation and applied orbital acceleration."""
+    normalized_action = np.asarray(normalized_action, dtype=np.float64)
+    physical_action = np.asarray(physical_action, dtype=np.float64)
+    if normalized_action.shape != (3,) or physical_action.shape != (3,):
+        raise ValueError("Closing actions must have shape (3,).")
+    orbital_action = core_env.transform_action_to_orbital_frame(
+        action_body=physical_action,
+        psi=float(pre_step_psi),
+    )
+    return {
+        "body_ax_saturated": bool(
+            abs(normalized_action[0]) >= ACTION_SATURATION_THRESHOLD
+        ),
+        "body_ay_saturated": bool(
+            abs(normalized_action[1]) >= ACTION_SATURATION_THRESHOLD
+        ),
+        "body_alpha_saturated": bool(
+            abs(normalized_action[2]) >= ACTION_SATURATION_THRESHOLD
+        ),
+        "normalized_ax": float(normalized_action[0]),
+        "normalized_ay": float(normalized_action[1]),
+        "normalized_alpha": float(normalized_action[2]),
+        "orbital_ax_mps2": float(orbital_action[0]),
+        "orbital_ay_mps2": float(orbital_action[1]),
+        "orbital_alpha_rads2": float(orbital_action[2]),
+    }
+
+
+def braking_envelope_diagnostics(env):
+    """Read V19+ braking state without requiring it from older environments."""
+    if hasattr(env, "_v21_port_lqr_state"):
+        port_lqr = env._v21_port_lqr_state(env.core_env.state)
+        errors = port_lqr["port_velocity_error_mps"]
+        half_widths = port_lqr["envelope_half_widths"]
+        violation_ratios = port_lqr["envelope_violation_ratios"]
+        return {
+            "available": True,
+            "full_port_lqr_available": True,
+            "reference_velocity_mps": float(
+                port_lqr["desired_port_velocity_mps"][0]
+            ),
+            "reference_error_mps": float(errors[0]),
+            "lateral_reference_error_mps": float(errors[1]),
+            "attitude_error_rad": float(port_lqr["attitude_error_rad"]),
+            "rate_error_rads": float(port_lqr["rate_error_rads"]),
+            "tracking_error_ratio": float(
+                port_lqr["signed_tracking_ratios"][0]
+            ),
+            "envelope_half_width_mps": float(half_widths[0]),
+            "envelope_margin_mps": float(
+                half_widths[0] - abs(errors[0])
+            ),
+            "envelope_violation_ratio": float(
+                port_lqr["worst_envelope_violation_ratio"]
+            ),
+            "component_violation_ratios": np.asarray(
+                violation_ratios,
+                dtype=np.float64,
+            ),
+            "port_speed_warning_depth": float(
+                port_lqr["port_speed_warning_depth"]
+            ),
+            "axial_speed_warning_depth": float(
+                port_lqr["axial_speed_warning_depth"]
+            ),
+            "blend": float(port_lqr["braking_blend"]),
+        }
+    if not hasattr(env, "_v19_braking_state"):
+        return {"available": False}
+    braking = env._v19_braking_state(env.core_env.state)
+    return {
+        "available": True,
+        "full_port_lqr_available": False,
+        "reference_velocity_mps": float(
+            braking["reference_velocity_mps"]
+        ),
+        "reference_error_mps": float(braking["reference_error_mps"]),
+        "tracking_error_ratio": float(braking["tracking_error_ratio"]),
+        "envelope_half_width_mps": float(
+            braking["envelope_half_width_mps"]
+        ),
+        "envelope_margin_mps": float(braking["envelope_margin_mps"]),
+        "envelope_violation_ratio": float(
+            braking["envelope_violation_ratio"]
+        ),
+        "blend": float(braking["blend"]),
+    }
+
+
 def evaluate_rollout(
     model,
     vecnormalize,
@@ -269,10 +401,30 @@ def evaluate_rollout(
         max_time=max_time,
         env_class=env_class,
     )
-    observation, _ = env.reset(seed=seed)
+    observation, reset_info = env.reset(seed=seed)
     initial_error, _ = p3_errors(env.core_env)
     initial_position_error = float(np.linalg.norm(initial_error[:2]))
     minimum_position_error = initial_position_error
+
+    initial_velocity = velocity_limit_diagnostics(env.core_env, reset_info)
+    initial_braking = braking_envelope_diagnostics(env)
+    closest_approach = {
+        "lateral_error_m": float(abs(initial_error[1])),
+        "velocity_error_mps": float(np.linalg.norm(initial_error[2:4])),
+        "attitude_error_deg": float(np.rad2deg(abs(initial_error[4]))),
+        "rate_error_degs": float(np.rad2deg(abs(initial_error[5]))),
+        "port_speed_mps": initial_velocity["port_speed_mps"],
+        "axial_speed_abs_mps": initial_velocity["axial_speed_abs_mps"],
+        "braking_reference_error_mps": float(
+            initial_braking.get("reference_error_mps", 0.0)
+        ),
+        "braking_envelope_violation_ratio": float(
+            initial_braking.get("envelope_violation_ratio", 0.0)
+        ),
+        "normalized_ax": 0.0,
+        "normalized_ay": 0.0,
+        "normalized_alpha": 0.0,
+    }
 
     classification_counts = Counter()
     violated_counts = Counter()
@@ -286,16 +438,111 @@ def evaluate_rollout(
     maximum_cone_warning_depth = 0.0
     maximum_cone_lateral_excess = 0.0
     maximum_cone_axial_excess = 0.0
+    maximum_port_speed = initial_velocity["port_speed_mps"]
+    maximum_axial_speed_abs = initial_velocity["axial_speed_abs_mps"]
+    action_counts = Counter()
+    maximum_abs_normalized_action = np.zeros(3, dtype=np.float64)
+    maximum_abs_orbital_action = np.zeros(3, dtype=np.float64)
+    terminal_action = {
+        "normalized_ax": 0.0,
+        "normalized_ay": 0.0,
+        "normalized_alpha": 0.0,
+        "orbital_ax_mps2": 0.0,
+        "orbital_ay_mps2": 0.0,
+        "orbital_alpha_rads2": 0.0,
+    }
+    terminal_velocity = initial_velocity
+    braking_available = bool(initial_braking.get("available", False))
+    braking_outside_steps = 0
+    braking_reference_error_abs_total = 0.0
+    braking_violation_ratio_total = 0.0
+    maximum_braking_reference_error_abs = float(
+        abs(initial_braking.get("reference_error_mps", 0.0))
+    )
+    maximum_braking_violation_ratio = float(
+        initial_braking.get("envelope_violation_ratio", 0.0)
+    )
+    terminal_braking = initial_braking
     steps = 0
     terminal_info = {}
 
     while True:
         normalized_observation = normalize_observation(vecnormalize, observation)
         action, _ = model.predict(normalized_observation, deterministic=True)
+        pre_step_psi = float(env.core_env.state[4])
         observation, reward, terminated, truncated, info = env.step(action)
         steps += 1
         episode_return += float(reward)
         terminal_info = info
+
+        velocity_diagnostic = velocity_limit_diagnostics(env.core_env, info)
+        terminal_velocity = velocity_diagnostic
+        maximum_port_speed = max(
+            maximum_port_speed,
+            velocity_diagnostic["port_speed_mps"],
+        )
+        maximum_axial_speed_abs = max(
+            maximum_axial_speed_abs,
+            velocity_diagnostic["axial_speed_abs_mps"],
+        )
+
+        action_diagnostic = action_command_diagnostics(
+            core_env=env.core_env,
+            normalized_action=info.get("normalized_action", action),
+            physical_action=info["physical_action"],
+            pre_step_psi=pre_step_psi,
+        )
+        terminal_action = action_diagnostic
+        for name in (
+            "body_ax_saturated",
+            "body_ay_saturated",
+            "body_alpha_saturated",
+        ):
+            if action_diagnostic[name]:
+                action_counts[name] += 1
+        normalized_action_values = np.asarray(
+            [
+                action_diagnostic["normalized_ax"],
+                action_diagnostic["normalized_ay"],
+                action_diagnostic["normalized_alpha"],
+            ],
+            dtype=np.float64,
+        )
+        orbital_action_values = np.asarray(
+            [
+                action_diagnostic["orbital_ax_mps2"],
+                action_diagnostic["orbital_ay_mps2"],
+                action_diagnostic["orbital_alpha_rads2"],
+            ],
+            dtype=np.float64,
+        )
+        maximum_abs_normalized_action = np.maximum(
+            maximum_abs_normalized_action,
+            np.abs(normalized_action_values),
+        )
+        maximum_abs_orbital_action = np.maximum(
+            maximum_abs_orbital_action,
+            np.abs(orbital_action_values),
+        )
+
+        braking = braking_envelope_diagnostics(env)
+        terminal_braking = braking
+        if braking.get("available", False):
+            braking_available = True
+            reference_error_abs = abs(braking["reference_error_mps"])
+            violation_ratio = braking["envelope_violation_ratio"]
+            braking_reference_error_abs_total += reference_error_abs
+            braking_violation_ratio_total += violation_ratio
+            maximum_braking_reference_error_abs = max(
+                maximum_braking_reference_error_abs,
+                reference_error_abs,
+            )
+            maximum_braking_violation_ratio = max(
+                maximum_braking_violation_ratio,
+                violation_ratio,
+            )
+            if violation_ratio > 0.0:
+                braking_outside_steps += 1
 
         for name in ("safe", "warning", "unsafe"):
             if bool(info.get(name, False)):
@@ -342,16 +589,42 @@ def evaluate_rollout(
         components = info.get("reward_components", {})
         failure_penalty_total += float(components.get("reward_failure", 0.0))
         error, _ = p3_errors(env.core_env)
-        minimum_position_error = min(
-            minimum_position_error,
-            float(np.linalg.norm(error[:2])),
-        )
+        position_error = float(np.linalg.norm(error[:2]))
+        if position_error < minimum_position_error:
+            minimum_position_error = position_error
+            closest_approach = {
+                "lateral_error_m": float(abs(error[1])),
+                "velocity_error_mps": float(np.linalg.norm(error[2:4])),
+                "attitude_error_deg": float(np.rad2deg(abs(error[4]))),
+                "rate_error_degs": float(np.rad2deg(abs(error[5]))),
+                "port_speed_mps": velocity_diagnostic["port_speed_mps"],
+                "axial_speed_abs_mps": velocity_diagnostic[
+                    "axial_speed_abs_mps"
+                ],
+                "braking_reference_error_mps": float(
+                    braking.get("reference_error_mps", 0.0)
+                ),
+                "braking_envelope_violation_ratio": float(
+                    braking.get("envelope_violation_ratio", 0.0)
+                ),
+                "normalized_ax": action_diagnostic["normalized_ax"],
+                "normalized_ay": action_diagnostic["normalized_ay"],
+                "normalized_alpha": action_diagnostic[
+                    "normalized_alpha"
+                ],
+            }
 
         if terminated or truncated:
             break
 
     final_error, final_ratios = p3_errors(env.core_env)
     denominator = max(steps, 1)
+    termination_reason = terminal_info.get("termination_reason")
+    safety_failure = termination_reason == "safety_violation"
+    numerical_failure = bool(
+        terminal_info.get("failure", False)
+        and terminal_info.get("failure_reason") == "non_finite_state"
+    )
     result = {
         "seed": int(seed),
         "steps": int(steps),
@@ -361,8 +634,9 @@ def evaluate_rollout(
         "failed_approach_reset": int(
             bool(terminal_info.get("failed_approach_reset", False))
         ),
-        "numerical_failure": int(bool(terminal_info.get("failure", False))),
-        "termination_reason": terminal_info.get("termination_reason"),
+        "safety_failure": int(safety_failure),
+        "numerical_failure": int(numerical_failure),
+        "termination_reason": termination_reason,
         "success_after_safety_violation": int(
             bool(terminal_info.get("success", False))
             and classification_counts["unsafe"] > 0
@@ -376,6 +650,87 @@ def evaluate_rollout(
         "geometry_unsafe_steps": int(classification_counts["geometry_unsafe"]),
         "velocity_unsafe_steps": int(classification_counts["velocity_unsafe"]),
         "alignment_unsafe_steps": int(classification_counts["alignment_unsafe"]),
+        "velocity_failure_trigger": terminal_velocity[
+            "velocity_failure_trigger"
+        ],
+        "terminal_port_speed_unsafe": int(
+            terminal_velocity["port_speed_unsafe"]
+        ),
+        "terminal_axial_speed_unsafe": int(
+            terminal_velocity["axial_speed_unsafe"]
+        ),
+        "port_speed_unsafe_threshold_mps": terminal_velocity[
+            "port_speed_unsafe_threshold_mps"
+        ],
+        "axial_speed_unsafe_threshold_mps": terminal_velocity[
+            "axial_speed_unsafe_threshold_mps"
+        ],
+        "terminal_port_speed_mps": terminal_velocity["port_speed_mps"],
+        "max_port_speed_mps": float(maximum_port_speed),
+        "terminal_axial_speed_abs_mps": terminal_velocity[
+            "axial_speed_abs_mps"
+        ],
+        "max_axial_speed_abs_mps": float(maximum_axial_speed_abs),
+        "action_saturation_threshold": ACTION_SATURATION_THRESHOLD,
+        "body_ax_saturation_fraction": (
+            action_counts["body_ax_saturated"] / denominator
+        ),
+        "body_ay_saturation_fraction": (
+            action_counts["body_ay_saturated"] / denominator
+        ),
+        "body_alpha_saturation_fraction": (
+            action_counts["body_alpha_saturated"] / denominator
+        ),
+        "max_abs_normalized_ax": float(maximum_abs_normalized_action[0]),
+        "max_abs_normalized_ay": float(maximum_abs_normalized_action[1]),
+        "max_abs_normalized_alpha": float(maximum_abs_normalized_action[2]),
+        "max_abs_orbital_ax_mps2": float(maximum_abs_orbital_action[0]),
+        "max_abs_orbital_ay_mps2": float(maximum_abs_orbital_action[1]),
+        "max_abs_orbital_alpha_rads2": float(
+            maximum_abs_orbital_action[2]
+        ),
+        "terminal_normalized_ax": terminal_action["normalized_ax"],
+        "terminal_normalized_ay": terminal_action["normalized_ay"],
+        "terminal_normalized_alpha": terminal_action["normalized_alpha"],
+        "terminal_orbital_ax_mps2": terminal_action["orbital_ax_mps2"],
+        "terminal_orbital_ay_mps2": terminal_action["orbital_ay_mps2"],
+        "terminal_orbital_alpha_rads2": terminal_action[
+            "orbital_alpha_rads2"
+        ],
+        "braking_diagnostics_available": int(braking_available),
+        "braking_outside_envelope_fraction": (
+            braking_outside_steps / denominator
+        ),
+        "mean_braking_reference_error_abs_mps": (
+            braking_reference_error_abs_total / denominator
+        ),
+        "max_braking_reference_error_abs_mps": float(
+            maximum_braking_reference_error_abs
+        ),
+        "terminal_braking_reference_velocity_mps": float(
+            terminal_braking.get("reference_velocity_mps", 0.0)
+        ),
+        "terminal_braking_reference_error_mps": float(
+            terminal_braking.get("reference_error_mps", 0.0)
+        ),
+        "terminal_braking_envelope_half_width_mps": float(
+            terminal_braking.get("envelope_half_width_mps", 0.0)
+        ),
+        "terminal_braking_envelope_margin_mps": float(
+            terminal_braking.get("envelope_margin_mps", 0.0)
+        ),
+        "mean_braking_envelope_violation_ratio": (
+            braking_violation_ratio_total / denominator
+        ),
+        "max_braking_envelope_violation_ratio": float(
+            maximum_braking_violation_ratio
+        ),
+        "terminal_braking_envelope_violation_ratio": float(
+            terminal_braking.get("envelope_violation_ratio", 0.0)
+        ),
+        "terminal_braking_blend": float(
+            terminal_braking.get("blend", 0.0)
+        ),
         "cone_exit_ever": int(cone_counts["cone_exit"] > 0),
         "cone_exit_steps": int(cone_counts["cone_exit"]),
         "cone_exit_fraction": cone_counts["cone_exit"] / denominator,
@@ -400,6 +755,29 @@ def evaluate_rollout(
         ),
         "initial_position_error_m": initial_position_error,
         "minimum_position_error_m": float(minimum_position_error),
+        "closest_lateral_error_m": closest_approach["lateral_error_m"],
+        "closest_velocity_error_mps": closest_approach[
+            "velocity_error_mps"
+        ],
+        "closest_attitude_error_deg": closest_approach[
+            "attitude_error_deg"
+        ],
+        "closest_rate_error_degs": closest_approach["rate_error_degs"],
+        "closest_port_speed_mps": closest_approach["port_speed_mps"],
+        "closest_axial_speed_abs_mps": closest_approach[
+            "axial_speed_abs_mps"
+        ],
+        "closest_braking_reference_error_mps": closest_approach[
+            "braking_reference_error_mps"
+        ],
+        "closest_braking_envelope_violation_ratio": closest_approach[
+            "braking_envelope_violation_ratio"
+        ],
+        "closest_normalized_ax": closest_approach["normalized_ax"],
+        "closest_normalized_ay": closest_approach["normalized_ay"],
+        "closest_normalized_alpha": closest_approach[
+            "normalized_alpha"
+        ],
         "final_position_error_m": float(np.linalg.norm(final_error[:2])),
         "final_lateral_error_m": float(abs(final_error[1])),
         "final_velocity_error_mps": float(np.linalg.norm(final_error[2:4])),
@@ -424,6 +802,7 @@ def summarize_rollouts(results):
         "success_after_violation_rate": mean("success_after_safety_violation"),
         "timeout_rate": mean("timeout"),
         "failed_approach_reset_rate": mean("failed_approach_reset"),
+        "safety_failure_rate": mean("safety_failure"),
         "numerical_failure_rate": mean("numerical_failure"),
         "unsafe_episode_rate": mean("unsafe_ever"),
         "mean_unsafe_fraction": mean("unsafe_fraction"),
@@ -431,6 +810,58 @@ def summarize_rollouts(results):
         "mean_velocity_unsafe_steps": mean("velocity_unsafe_steps"),
         "mean_geometry_unsafe_steps": mean("geometry_unsafe_steps"),
         "mean_alignment_unsafe_steps": mean("alignment_unsafe_steps"),
+        "terminal_port_speed_violation_rate": mean(
+            "terminal_port_speed_unsafe"
+        ),
+        "terminal_axial_speed_violation_rate": mean(
+            "terminal_axial_speed_unsafe"
+        ),
+        "mean_terminal_port_speed_mps": mean("terminal_port_speed_mps"),
+        "mean_max_port_speed_mps": mean("max_port_speed_mps"),
+        "mean_terminal_axial_speed_abs_mps": mean(
+            "terminal_axial_speed_abs_mps"
+        ),
+        "mean_max_axial_speed_abs_mps": mean(
+            "max_axial_speed_abs_mps"
+        ),
+        "mean_body_ax_saturation_fraction": mean(
+            "body_ax_saturation_fraction"
+        ),
+        "mean_body_ay_saturation_fraction": mean(
+            "body_ay_saturation_fraction"
+        ),
+        "mean_body_alpha_saturation_fraction": mean(
+            "body_alpha_saturation_fraction"
+        ),
+        "mean_max_abs_normalized_ax": mean("max_abs_normalized_ax"),
+        "mean_max_abs_normalized_ay": mean("max_abs_normalized_ay"),
+        "mean_max_abs_normalized_alpha": mean(
+            "max_abs_normalized_alpha"
+        ),
+        "braking_diagnostics_availability_rate": mean(
+            "braking_diagnostics_available"
+        ),
+        "mean_braking_outside_envelope_fraction": mean(
+            "braking_outside_envelope_fraction"
+        ),
+        "mean_braking_reference_error_abs_mps": mean(
+            "mean_braking_reference_error_abs_mps"
+        ),
+        "mean_max_braking_reference_error_abs_mps": mean(
+            "max_braking_reference_error_abs_mps"
+        ),
+        "mean_terminal_braking_reference_error_mps": mean(
+            "terminal_braking_reference_error_mps"
+        ),
+        "mean_braking_envelope_violation_ratio": mean(
+            "mean_braking_envelope_violation_ratio"
+        ),
+        "mean_max_braking_envelope_violation_ratio": mean(
+            "max_braking_envelope_violation_ratio"
+        ),
+        "mean_terminal_braking_envelope_violation_ratio": mean(
+            "terminal_braking_envelope_violation_ratio"
+        ),
         "cone_exit_episode_rate": mean("cone_exit_ever"),
         "mean_cone_exit_fraction": mean("cone_exit_fraction"),
         "mean_cone_warning_fraction": mean("cone_warning_fraction"),
@@ -446,6 +877,24 @@ def summarize_rollouts(results):
         "mean_return": mean("episode_return"),
         "mean_steps": mean("steps"),
         "mean_minimum_position_error_m": mean("minimum_position_error_m"),
+        "mean_closest_lateral_error_m": mean("closest_lateral_error_m"),
+        "mean_closest_velocity_error_mps": mean(
+            "closest_velocity_error_mps"
+        ),
+        "mean_closest_attitude_error_deg": mean(
+            "closest_attitude_error_deg"
+        ),
+        "mean_closest_rate_error_degs": mean("closest_rate_error_degs"),
+        "mean_closest_port_speed_mps": mean("closest_port_speed_mps"),
+        "mean_closest_axial_speed_abs_mps": mean(
+            "closest_axial_speed_abs_mps"
+        ),
+        "mean_closest_braking_reference_error_mps": mean(
+            "closest_braking_reference_error_mps"
+        ),
+        "mean_closest_braking_envelope_violation_ratio": mean(
+            "closest_braking_envelope_violation_ratio"
+        ),
         "mean_final_position_error_m": mean("final_position_error_m"),
         "mean_final_lateral_error_m": mean("final_lateral_error_m"),
         "mean_final_velocity_error_mps": mean("final_velocity_error_mps"),
@@ -476,6 +925,7 @@ class TrainingSafetyDiagnosticsCallback(BaseCallback):
         checkpoint_steps,
         moving_average_window=10,
         plot_every_episodes=5,
+        plot_subtitle="P3-reaching reward with non-terminal safety exploration",
     ):
         super().__init__()
         self.output_path = output_path
@@ -483,6 +933,7 @@ class TrainingSafetyDiagnosticsCallback(BaseCallback):
         self.checkpoint_steps = list(checkpoint_steps)
         self.moving_average_window = int(moving_average_window)
         self.plot_every_episodes = int(plot_every_episodes)
+        self.plot_subtitle = str(plot_subtitle)
         self.rows = []
         self.counts = Counter()
         self.violated = Counter()
@@ -594,8 +1045,7 @@ class TrainingSafetyDiagnosticsCallback(BaseCallback):
         axis.set_xlabel("Completed training episode")
         axis.set_ylabel("Raw cumulative reward")
         axis.set_title(
-            "Closing SAC learning curve\n"
-            "P3-reaching reward with non-terminal safety exploration"
+            f"Closing SAC learning curve\n{self.plot_subtitle}"
         )
         axis.grid(True, alpha=0.3)
         axis.legend()
@@ -616,6 +1066,8 @@ class ExperimentCheckpointCallback(BaseCallback):
         result_dir,
         evaluate_initial=True,
         env_class=ClosingSafetyExplorationGymEnv,
+        rank_function=checkpoint_rank,
+        selection_order=None,
     ):
         super().__init__()
         self.checkpoint_steps = list(checkpoint_steps)
@@ -625,6 +1077,14 @@ class ExperimentCheckpointCallback(BaseCallback):
         self.result_dir = result_dir
         self.evaluate_initial = bool(evaluate_initial)
         self.env_class = env_class
+        self.rank_function = rank_function
+        self.selection_order = selection_order or [
+            "highest success rate",
+            "lowest mean final max target ratio",
+            "lowest mean final position error",
+            "lowest mean unsafe fraction",
+            "highest mean return",
+        ]
         self.next_checkpoint = 0
         self.summary_rows = []
         self.rollout_rows = []
@@ -678,7 +1138,7 @@ class ExperimentCheckpointCallback(BaseCallback):
             self.rollout_rows,
         )
 
-        rank = checkpoint_rank(summary)
+        rank = self.rank_function(summary)
         if self.best_rank is None or rank > self.best_rank:
             self.best_rank = rank
             self.best_step = int(step)
@@ -688,13 +1148,7 @@ class ExperimentCheckpointCallback(BaseCallback):
                 os.path.join(self.result_dir, "best_checkpoint.json"),
                 {
                     "additional_timestep": self.best_step,
-                    "selection_order": [
-                        "highest success rate",
-                        "lowest mean final max target ratio",
-                        "lowest mean final position error",
-                        "lowest mean unsafe fraction",
-                        "highest mean return",
-                    ],
+                    "selection_order": self.selection_order,
                     "summary": summary,
                 },
             )

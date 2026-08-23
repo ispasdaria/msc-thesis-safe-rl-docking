@@ -1,0 +1,25 @@
+{
+  "checkpoint": 0,
+  "selection": "success, safety, best simultaneous target ratio, 2x dwell, final target ratio, return",
+  "summary": {
+    "failure_rate": 1.0,
+    "mean_best_max_target_ratio": 71.44288575437267,
+    "mean_final_attitude_error_deg": 49.92364408130692,
+    "mean_final_lateral_error": 43.73302645995231,
+    "mean_final_max_target_ratio": 99.84728816261384,
+    "mean_final_position_error": 1430.4568497378712,
+    "mean_final_rate_error_degs": 3.2873160614550025,
+    "mean_final_velocity_error": 0.14388332757786065,
+    "mean_longest_target_2x_dwell_steps": 0.0,
+    "mean_minimum_position_error": 1429.857614250647,
+    "mean_return": -47.003919917345044,
+    "mean_steps": 51.7,
+    "mean_target_2x_steps": 0.0,
+    "n_episodes": 10,
+    "n_failure": 10,
+    "n_success": 0,
+    "n_timeout": 0,
+    "success_rate": 0.0,
+    "time_limit_rate": 0.0
+  }
+}

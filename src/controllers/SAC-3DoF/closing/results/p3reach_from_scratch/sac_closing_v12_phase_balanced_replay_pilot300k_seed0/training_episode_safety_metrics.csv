@@ -1,0 +1,9 @@
+episode,additional_timestep,episode_length,episode_return,termination_reason,success,timeout,unsafe_steps,unsafe_fraction,warning_steps,geometry_unsafe_steps,velocity_unsafe_steps,alignment_unsafe_steps,violated_constraint_counts
+1,3653,3653,-1028.274375,failed_approach_reset,0,0,3118,0.8535450314809745,516,0,3118,3628,"{""velocity"": 3118}"
+2,15653,12000,-3122.031152,timeout,0,1,7942,0.6618333333333334,3364,3388,7942,11975,"{""geometry"": 3388, ""velocity"": 7942}"
+3,27653,12000,-3899.416873,timeout,0,1,11876,0.9896666666666667,52,11482,11876,11773,"{""geometry"": 11482, ""velocity"": 11876}"
+4,28853,1200,-298.947761,failed_approach_reset,0,0,1121,0.9341666666666667,38,50,1121,929,"{""geometry"": 50, ""velocity"": 1121}"
+5,30055,1202,-302.066722,failed_approach_reset,0,0,1032,0.8585690515806988,72,0,1032,1012,"{""velocity"": 1032}"
+6,42055,12000,-3641.022785,timeout,0,1,11889,0.99075,40,10916,11617,11843,"{""geometry"": 10916, ""velocity"": 11617}"
+7,54055,12000,-3737.333678,timeout,0,1,11888,0.9906666666666667,18,11578,11888,11228,"{""geometry"": 11578, ""velocity"": 11888}"
+8,66055,12000,-3796.561646,timeout,0,1,11912,0.9926666666666667,20,11633,11912,11615,"{""geometry"": 11633, ""velocity"": 11912}"

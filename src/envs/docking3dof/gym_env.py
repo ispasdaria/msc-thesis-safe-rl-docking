@@ -315,10 +315,12 @@ class Docking3DoFGymEnv(gym.Env):
             self.core_env.rng = np.random.default_rng(seed)
 
         initial_state = None
+        p3_target = None
         mode = self.mode
 
         if options is not None:
             initial_state = options.get("initial_state", None)
+            p3_target = options.get("p3_target", None)
             mode = options.get("mode", self.mode)
 
             if mode not in ["nominal", "testing", "training"]:
@@ -329,6 +331,7 @@ class Docking3DoFGymEnv(gym.Env):
         self.core_env.reset(
             initial_state=initial_state,
             mode=mode,
+            p3_target=p3_target,
         )
 
         q = self.core_env.get_derived_quantities(self.core_env.state)

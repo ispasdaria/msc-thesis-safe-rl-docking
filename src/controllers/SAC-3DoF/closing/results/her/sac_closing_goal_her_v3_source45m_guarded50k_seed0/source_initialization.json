@@ -1,0 +1,46 @@
+{
+  "behavior_distillation": {
+    "action_mae": 0.008282441173369686,
+    "action_mae_alpha": 0.007174578867852688,
+    "action_mae_ax": 0.00944170559446017,
+    "action_mae_ay": 0.008231039057796201,
+    "action_mse": 0.0007441692346732856,
+    "best_validation_action_mse": 0.0007441692346732856,
+    "training_episode_ids": [
+      1,
+      3,
+      0,
+      4
+    ],
+    "training_transition_count": 48000,
+    "validation_episode_ids": [
+      2
+    ],
+    "validation_transition_count": 12000
+  },
+  "distilled_validation": {
+    "failure_rate": 0.1,
+    "mean_best_max_target_ratio": 59.89097515789416,
+    "mean_final_attitude_error_deg": 9.244774631556334,
+    "mean_final_lateral_error": 259.6055371831914,
+    "mean_final_max_target_ratio": 137.2912709162479,
+    "mean_final_position_error": 988.9643423430647,
+    "mean_final_rate_error_degs": 0.019360206374471278,
+    "mean_final_velocity_error": 0.082427037224414,
+    "mean_longest_target_2x_dwell_steps": 0.0,
+    "mean_minimum_position_error": 895.9319485461795,
+    "mean_return": -10725.533548160549,
+    "mean_steps": 11022.3,
+    "mean_target_2x_steps": 0.0,
+    "n_episodes": 10,
+    "n_failure": 1,
+    "n_success": 0,
+    "n_timeout": 9,
+    "success_rate": 0.0,
+    "time_limit_rate": 0.9
+  },
+  "prefill_episode_count": 5,
+  "prefill_transition_count": 60000,
+  "replay_buffer_full_after_prefill": false,
+  "replay_buffer_position_after_prefill": 60000
+}

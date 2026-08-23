@@ -1,0 +1,43 @@
+{
+  "purpose": "illustrative controller-development comparison",
+  "controlled_difference": {
+    "fixed": "vx_ref equals the sampled P3 axial velocity",
+    "scheduled": "implemented distance-dependent axial-velocity reference"
+  },
+  "mode": "nominal",
+  "seed": 0,
+  "dt_s": 1.0,
+  "max_time_s": 12000.0,
+  "integrator": "rk4",
+  "velocity_plot_moving_average_window_s": 60.0,
+  "initial_state": [
+    1700.0,
+    0.0,
+    -0.1,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "p3_target": [
+    300.0,
+    0.0,
+    -0.03,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "fixed": {
+    "success": false,
+    "termination_reason": "timeout",
+    "elapsed_time_s": 12000.0,
+    "final_axial_distance_m": 301.986241343502,
+    "saturation_fraction": 0.9992500624947921
+  },
+  "scheduled": {
+    "success": true,
+    "termination_reason": "success_P3_target",
+    "elapsed_time_s": 10968.0,
+    "final_axial_distance_m": 19.941373661943544,
+    "saturation_fraction": 0.9999088339866897
+  }
+}

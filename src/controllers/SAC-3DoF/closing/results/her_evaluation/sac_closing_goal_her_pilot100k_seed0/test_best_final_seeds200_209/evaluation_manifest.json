@@ -1,0 +1,20 @@
+{
+  "experiment_name": "sac_closing_goal_her_pilot100k_seed0",
+  "max_eval_steps": 12000,
+  "model_types": [
+    "best",
+    "final"
+  ],
+  "test_seeds": [
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209
+  ]
+}

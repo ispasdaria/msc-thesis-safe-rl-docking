@@ -16,6 +16,7 @@ semantics.
 """
 
 import numpy as np
+from gymnasium import spaces
 
 from envs.docking3dof.core import Docking3DoFEnv
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
@@ -2980,6 +2981,739 @@ class ClosingSafetyExplorationV18GymEnv(ClosingSafetyExplorationV12GymEnv):
                 ),
                 "reward_axial_capture_progress": (
                     reward_axial_capture_progress
+                ),
+                "reward_total": reward,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyExplorationV19GymEnv(ClosingSafetyExplorationV18GymEnv):
+    """V18 with an LQR-inspired axial braking envelope.
+
+    The successful closing LQR approaches at ``-0.08 m/s`` while it is at
+    least 100 m from P3, then blends linearly to the sampled P3 axial velocity
+    between 100 m and 10 m.  V19 exposes that same reference construction to
+    SAC and rewards bounded improvement toward it.  A bounded soft penalty is
+    applied only outside a velocity funnel whose half-width narrows from the
+    LQR axial-velocity design scale (0.02 m/s) to the exact P3 tolerance
+    (0.01 m/s).
+
+    Unlike the original LQR reference, the schedule is mirrored after an
+    overshoot so that it always points back toward the episode-specific P3
+    target.  This keeps the shaping useful for recovery without adding a
+    one-sided overshoot occupancy penalty.  V18's P3 objective, vanilla SAC
+    interface, initial-state distribution, and non-terminal safety treatment
+    are otherwise unchanged.
+    """
+
+    reward_scheme = "p3_reach_v19"
+    braking_envelope_enabled = True
+    prescribed_velocity_profile_enabled = True
+
+    # Values copied from the successful closing LQR design.
+    lqr_fast_axial_velocity_mps = -0.08
+    lqr_fast_distance_m = 100.0
+    lqr_slow_distance_m = 10.0
+    lqr_axial_position_design_scale_m = 100.0
+    lqr_axial_velocity_design_scale_mps = 0.02
+
+    braking_progress_clip = 0.1
+    braking_envelope_violation_ratio_clip = 1.0
+    reward_weights = {
+        **ClosingSafetyExplorationV18GymEnv.reward_weights,
+        "braking_progress": 1.0,
+        # The maximum penalty is 0.1, equal to V18's unsafe-step penalty.
+        "braking_envelope": 0.1,
+    }
+    closing_observation_labels = (
+        *ClosingSafetyExplorationV18GymEnv.closing_observation_labels,
+        "braking_vx_reference_error_ratio",
+        "braking_envelope_margin_ratio",
+        "braking_blend",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.observation_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(len(self.closing_observation_labels),),
+            dtype=np.float32,
+        )
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        braking = self._v19_braking_state(self.core_env.state)
+        self._previous_braking_tracking_cost = braking["tracking_cost"]
+        info.update(
+            {
+                "reward_scheme": self.reward_scheme,
+                "braking_envelope_enabled": True,
+                "prescribed_velocity_profile_enabled": True,
+                "braking_reference_source": "closing LQR design",
+            }
+        )
+        return observation, info
+
+    def _v19_braking_state(self, state):
+        if self.core_env.p3_target is None:
+            raise RuntimeError("The closing P3 target is not initialized.")
+
+        state = np.asarray(state, dtype=np.float64)
+        target = np.asarray(self.core_env.p3_target, dtype=np.float64)
+        axial_error_m = float(state[0] - target[0])
+        axial_distance_m = abs(axial_error_m)
+        blend = float(
+            np.clip(
+                (axial_distance_m - self.lqr_slow_distance_m)
+                / (self.lqr_fast_distance_m - self.lqr_slow_distance_m),
+                0.0,
+                1.0,
+            )
+        )
+
+        # Match the LQR schedule on a normal approach (positive axial error),
+        # but mirror the P3-relative fast velocity after an overshoot.
+        direction_to_target = -float(np.sign(axial_error_m))
+        fast_relative_speed_mps = abs(
+            self.lqr_fast_axial_velocity_mps - float(target[2])
+        )
+        reference_relative_velocity_mps = float(
+            direction_to_target * blend * fast_relative_speed_mps
+        )
+        reference_velocity_mps = float(
+            target[2] + reference_relative_velocity_mps
+        )
+        reference_error_mps = float(state[2] - reference_velocity_mps)
+
+        terminal_tolerance_mps = max(
+            float(self.core_env.p3_target_tolerance[2]),
+            1e-12,
+        )
+        envelope_half_width_mps = float(
+            terminal_tolerance_mps
+            + blend
+            * (
+                self.lqr_axial_velocity_design_scale_mps
+                - terminal_tolerance_mps
+            )
+        )
+        envelope_margin_mps = float(
+            envelope_half_width_mps - abs(reference_error_mps)
+        )
+        envelope_violation_ratio = float(
+            max(0.0, -envelope_margin_mps)
+            / self.lqr_axial_velocity_design_scale_mps
+        )
+        tracking_error_ratio = float(
+            reference_error_mps / self.lqr_axial_velocity_design_scale_mps
+        )
+        tracking_cost = float(np.log1p(abs(tracking_error_ratio)))
+
+        return {
+            "axial_error_m": axial_error_m,
+            "axial_distance_m": axial_distance_m,
+            "blend": blend,
+            "reference_velocity_mps": reference_velocity_mps,
+            "reference_relative_velocity_mps": (
+                reference_relative_velocity_mps
+            ),
+            "reference_error_mps": reference_error_mps,
+            "tracking_error_ratio": tracking_error_ratio,
+            "tracking_cost": tracking_cost,
+            "envelope_half_width_mps": envelope_half_width_mps,
+            "envelope_margin_mps": envelope_margin_mps,
+            "envelope_margin_ratio": float(
+                envelope_margin_mps
+                / self.lqr_axial_velocity_design_scale_mps
+            ),
+            "envelope_violation_ratio": envelope_violation_ratio,
+        }
+
+    def _get_obs(self):
+        observation = super()._get_obs()
+        braking = self._v19_braking_state(self.core_env.state)
+        braking_observation = np.asarray(
+            [
+                braking["tracking_error_ratio"],
+                braking["envelope_margin_ratio"],
+                braking["blend"],
+            ],
+            dtype=np.float32,
+        )
+        return np.concatenate((observation, braking_observation)).astype(
+            np.float32
+        )
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        braking = self._v19_braking_state(state)
+        braking_progress_raw = float(
+            self._previous_braking_tracking_cost
+            - braking["tracking_cost"]
+        )
+        braking_progress_clipped = float(
+            np.clip(
+                braking_progress_raw,
+                -self.braking_progress_clip,
+                self.braking_progress_clip,
+            )
+        )
+        self._previous_braking_tracking_cost = braking["tracking_cost"]
+        violation_ratio_clipped = float(
+            min(
+                braking["envelope_violation_ratio"],
+                self.braking_envelope_violation_ratio_clip,
+            )
+        )
+        reward_braking_progress = float(
+            self.reward_weights["braking_progress"]
+            * braking_progress_clipped
+        )
+        reward_braking_envelope = float(
+            -self.reward_weights["braking_envelope"]
+            * violation_ratio_clipped
+        )
+        reward = float(
+            reward + reward_braking_progress + reward_braking_envelope
+        )
+        components.update(
+            {
+                "braking_envelope_enabled": True,
+                "braking_reference_source": "closing LQR design",
+                "braking_reference_symmetric_after_overshoot": True,
+                "braking_axial_error_m": braking["axial_error_m"],
+                "braking_axial_distance_m": braking["axial_distance_m"],
+                "braking_blend": braking["blend"],
+                "braking_reference_velocity_mps": (
+                    braking["reference_velocity_mps"]
+                ),
+                "braking_reference_relative_velocity_mps": (
+                    braking["reference_relative_velocity_mps"]
+                ),
+                "braking_reference_error_mps": (
+                    braking["reference_error_mps"]
+                ),
+                "braking_tracking_error_ratio": (
+                    braking["tracking_error_ratio"]
+                ),
+                "braking_tracking_cost": braking["tracking_cost"],
+                "braking_progress_raw": braking_progress_raw,
+                "braking_progress_clipped": braking_progress_clipped,
+                "braking_progress_clip": float(self.braking_progress_clip),
+                "braking_envelope_half_width_mps": (
+                    braking["envelope_half_width_mps"]
+                ),
+                "braking_envelope_margin_mps": (
+                    braking["envelope_margin_mps"]
+                ),
+                "braking_envelope_margin_ratio": (
+                    braking["envelope_margin_ratio"]
+                ),
+                "braking_envelope_violation_ratio": (
+                    braking["envelope_violation_ratio"]
+                ),
+                "braking_envelope_violation_ratio_clipped": (
+                    violation_ratio_clipped
+                ),
+                "reward_braking_progress": reward_braking_progress,
+                "reward_braking_envelope": reward_braking_envelope,
+                "reward_total": reward,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyTerminalV19GymEnv(ClosingSafetyExplorationV19GymEnv):
+    """V19 braking-envelope reward with ordinary safety termination.
+
+    This variant changes only episode semantics: the standard closing core
+    terminates immediately when a hard geometry, velocity, or alignment
+    constraint is violated.  The CBF filter remains absent during training.
+    """
+
+    reward_scheme = "p3_reach_v19_safety_terminal"
+    safety_violation_termination_enabled = True
+
+    def __init__(
+        self,
+        phase="closing",
+        mode="training",
+        dt=1.0,
+        max_time=None,
+        integrator="rk4",
+        normalize_action=True,
+        seed=None,
+        closing_reward_version="v15",
+    ):
+        super().__init__(
+            phase=phase,
+            mode=mode,
+            dt=dt,
+            max_time=max_time,
+            integrator=integrator,
+            normalize_action=normalize_action,
+            seed=seed,
+            closing_reward_version=closing_reward_version,
+        )
+        # The parent deliberately installs the non-terminal exploration core.
+        # Replace it only for this isolated safety-terminal experiment.
+        self.core_env = Docking3DoFEnv(
+            dt=dt,
+            max_time=self.max_time,
+            integrator=integrator,
+            phase="closing",
+            seed=seed,
+        )
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        info["safety_termination_disabled"] = False
+        info["safety_violation_termination_enabled"] = True
+        return observation, info
+
+    def step(self, action):
+        observation, reward, terminated, truncated, info = super().step(action)
+        safety_failure = bool(
+            info.get("failure_reason") == "safety_violation"
+            or info.get("termination_reason") == "safety_violation"
+        )
+        info["safety_termination_disabled"] = False
+        info["safety_violation_termination_enabled"] = True
+        info["safety_violation_observed"] = safety_failure
+        return observation, reward, terminated, truncated, info
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        safety_failure = bool(
+            info.get("failure_reason") == "safety_violation"
+            or info.get("termination_reason") == "safety_violation"
+        )
+        reward_info = {
+            **info,
+            "safety_violation_observed": safety_failure,
+        }
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=reward_info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        components.update(
+            {
+                "reward_scheme": self.reward_scheme,
+                "safety_termination_disabled": False,
+                "safety_violation_termination_enabled": True,
+                "safety_violation_observed": safety_failure,
+                "unsafe_occupancy_penalty_active": False,
+                "terminal_safety_penalty_active": safety_failure,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyTerminalV20GymEnv(ClosingSafetyTerminalV19GymEnv):
+    """Safety-terminal V19 with return-consistent terminal calibration.
+
+    V19 reused a 0.1 unsafe *occupancy* cost as a terminal failure penalty.
+    That made an early violation cheaper than accumulating its persistent
+    goal-state and time costs over a long approach.  V20 removes those two
+    persistent costs and makes a hard safety termination worth -100, matching
+    the magnitude of the +100 P3 success bonus.  The global goal progress,
+    bounded near-target capture progress, bounded axial-position progress,
+    braking progress, and braking-envelope guidance are retained unchanged.
+    """
+
+    reward_scheme = "p3_reach_v20_safety_terminal"
+    terminal_safety_penalty = 100.0
+    persistent_goal_state_cost_enabled = False
+    persistent_time_cost_enabled = False
+    checkpoint_position_first_until_success = True
+    reward_weights = {
+        **ClosingSafetyTerminalV19GymEnv.reward_weights,
+        "goal_state": 0.0,
+        "time": 0.0,
+        "unsafe_step": terminal_safety_penalty,
+    }
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        info.update(
+            {
+                "reward_scheme": self.reward_scheme,
+                "terminal_safety_penalty": self.terminal_safety_penalty,
+                "persistent_goal_state_cost_enabled": False,
+                "persistent_time_cost_enabled": False,
+            }
+        )
+        return observation, info
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        components.update(
+            {
+                "reward_scheme": self.reward_scheme,
+                "terminal_safety_penalty": self.terminal_safety_penalty,
+                "persistent_goal_state_cost_enabled": False,
+                "persistent_time_cost_enabled": False,
+            }
+        )
+        return reward, components
+
+
+class ClosingSafetyTerminalV21GymEnv(ClosingSafetyTerminalV20GymEnv):
+    """V20 with a coupled docking-port velocity and alignment envelope.
+
+    The V20 diagnostics showed that its scalar CoM axial envelope was outside
+    its allowed band for most of each rollout, while most terminal violations
+    were caused by total docking-port speed rather than axial speed alone.
+    V21 therefore replaces the scalar braking reward with a worst-component
+    port-level envelope over axial/lateral port velocity, attitude, and rate.
+
+    Velocity and alignment normalization use the tuned closing-LQR design
+    scales: 0.02 m/s, 0.01 m/s, 2 deg, and 0.05 deg/s.  A separate bounded
+    quadratic warning cost acts only between the closing safe and unsafe
+    port/axial speed thresholds.  V12's 0.4/0.4/0.2 position/alignment/velocity
+    balance is restored.  V20's terminal calibration and absence of persistent
+    goal-state/time costs remain unchanged.
+    """
+
+    reward_scheme = "p3_reach_v21_port_lqr_safety_terminal"
+    position_group_weight = 0.40
+    attitude_group_weight = 0.40
+    velocity_group_weight = 0.20
+    lqr_lateral_velocity_design_scale_mps = 0.01
+    lqr_attitude_design_scale_rad = float(np.deg2rad(2.0))
+    lqr_rate_design_scale_rads = float(np.deg2rad(0.05))
+    port_lqr_progress_clip = 0.1
+    port_lqr_envelope_violation_ratio_clip = 1.0
+    velocity_warning_depth_clip = 1.0
+    reward_weights = {
+        **ClosingSafetyTerminalV20GymEnv.reward_weights,
+        # Disable V19's scalar CoM-vx terms; V21 replaces them below.
+        "braking_progress": 0.0,
+        "braking_envelope": 0.0,
+        "port_lqr_progress": 1.0,
+        "port_lqr_envelope": 0.1,
+        "closing_velocity_warning": 0.1,
+    }
+    closing_observation_labels = (
+        *Docking3DoFGymEnv.closing_observation_labels,
+        "port_lqr_vx_error_ratio",
+        "port_lqr_vy_error_ratio",
+        "port_lqr_attitude_error_ratio",
+        "port_lqr_rate_error_ratio",
+        "port_speed_warning_depth",
+        "axial_speed_warning_depth",
+        "port_lqr_braking_blend",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.observation_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(len(self.closing_observation_labels),),
+            dtype=np.float32,
+        )
+
+    def reset(self, seed=None, options=None):
+        observation, info = super().reset(seed=seed, options=options)
+        port_lqr = self._v21_port_lqr_state(self.core_env.state)
+        self._previous_port_lqr_tracking_cost = port_lqr["tracking_cost"]
+        info.update(
+            {
+                "reward_scheme": self.reward_scheme,
+                "scalar_axial_braking_reward_enabled": False,
+                "port_lqr_envelope_enabled": True,
+                "closing_velocity_warning_reward_enabled": True,
+                "position_group_weight": self.position_group_weight,
+                "attitude_group_weight": self.attitude_group_weight,
+                "velocity_group_weight": self.velocity_group_weight,
+            }
+        )
+        return observation, info
+
+    def _v21_port_lqr_state(self, state):
+        if self.core_env.p3_target is None:
+            raise RuntimeError("The closing P3 target is not initialized.")
+
+        state = np.asarray(state, dtype=np.float64)
+        target = np.asarray(self.core_env.p3_target, dtype=np.float64)
+        current_q = self.core_env.get_derived_quantities(state)
+        target_q = self.core_env.get_derived_quantities(target)
+        braking = self._v19_braking_state(state)
+
+        desired_port_velocity = np.asarray(
+            target_q["v_p"], dtype=np.float64
+        ).copy()
+        desired_port_velocity[0] += braking[
+            "reference_relative_velocity_mps"
+        ]
+        port_velocity_error = np.asarray(
+            current_q["v_p"], dtype=np.float64
+        ) - desired_port_velocity
+        attitude_error = float(
+            self.core_env.wrap_to_pi(state[4] - target[4])
+        )
+        rate_error = float(state[5] - target[5])
+
+        scales = np.asarray(
+            [
+                self.lqr_axial_velocity_design_scale_mps,
+                self.lqr_lateral_velocity_design_scale_mps,
+                self.lqr_attitude_design_scale_rad,
+                self.lqr_rate_design_scale_rads,
+            ],
+            dtype=np.float64,
+        )
+        errors = np.asarray(
+            [
+                port_velocity_error[0],
+                port_velocity_error[1],
+                attitude_error,
+                rate_error,
+            ],
+            dtype=np.float64,
+        )
+        signed_ratios = errors / scales
+        tracking_ratios = np.abs(signed_ratios)
+        worst_tracking_ratio = float(np.max(tracking_ratios))
+        tracking_cost = float(np.log1p(worst_tracking_ratio))
+
+        blend = braking["blend"]
+        attitude_terminal_tolerance = max(
+            float(self.core_env.p3_target_tolerance[4]),
+            1e-12,
+        )
+        half_widths = np.asarray(
+            [
+                braking["envelope_half_width_mps"],
+                self.lqr_lateral_velocity_design_scale_mps,
+                attitude_terminal_tolerance
+                + blend
+                * (
+                    self.lqr_attitude_design_scale_rad
+                    - attitude_terminal_tolerance
+                ),
+                self.lqr_rate_design_scale_rads,
+            ],
+            dtype=np.float64,
+        )
+        violation_ratios = np.maximum(0.0, np.abs(errors) - half_widths) / scales
+        worst_violation_ratio = float(np.max(violation_ratios))
+
+        port_speed = float(current_q["port_speed"])
+        axial_speed_abs = float(abs(current_q["s_dot"]))
+        port_warning_depth = float(
+            np.clip(
+                (port_speed - self.core_env.vp_safe_close)
+                / (
+                    self.core_env.vp_unsafe_close
+                    - self.core_env.vp_safe_close
+                ),
+                0.0,
+                self.velocity_warning_depth_clip,
+            )
+        )
+        axial_warning_depth = float(
+            np.clip(
+                (axial_speed_abs - self.core_env.sdot_safe_close)
+                / (
+                    self.core_env.sdot_unsafe_close
+                    - self.core_env.sdot_safe_close
+                ),
+                0.0,
+                self.velocity_warning_depth_clip,
+            )
+        )
+        worst_velocity_warning_depth = max(
+            port_warning_depth,
+            axial_warning_depth,
+        )
+
+        return {
+            "desired_port_velocity_mps": desired_port_velocity,
+            "port_velocity_error_mps": port_velocity_error,
+            "attitude_error_rad": attitude_error,
+            "rate_error_rads": rate_error,
+            "signed_tracking_ratios": signed_ratios,
+            "tracking_ratios": tracking_ratios,
+            "worst_tracking_ratio": worst_tracking_ratio,
+            "tracking_cost": tracking_cost,
+            "envelope_half_widths": half_widths,
+            "envelope_violation_ratios": violation_ratios,
+            "worst_envelope_violation_ratio": worst_violation_ratio,
+            "braking_blend": blend,
+            "port_speed_mps": port_speed,
+            "axial_speed_abs_mps": axial_speed_abs,
+            "port_speed_warning_depth": port_warning_depth,
+            "axial_speed_warning_depth": axial_warning_depth,
+            "worst_velocity_warning_depth": (
+                worst_velocity_warning_depth
+            ),
+        }
+
+    def _get_obs(self):
+        observation = Docking3DoFGymEnv._get_obs(self)
+        port_lqr = self._v21_port_lqr_state(self.core_env.state)
+        envelope_observation = np.asarray(
+            [
+                *port_lqr["signed_tracking_ratios"],
+                port_lqr["port_speed_warning_depth"],
+                port_lqr["axial_speed_warning_depth"],
+                port_lqr["braking_blend"],
+            ],
+            dtype=np.float32,
+        )
+        return np.concatenate((observation, envelope_observation)).astype(
+            np.float32
+        )
+
+    def _compute_sac_reward(
+        self,
+        state,
+        normalized_action,
+        physical_action,
+        info,
+        terminated,
+        truncated,
+    ):
+        reward, components = super()._compute_sac_reward(
+            state=state,
+            normalized_action=normalized_action,
+            physical_action=physical_action,
+            info=info,
+            terminated=terminated,
+            truncated=truncated,
+        )
+        port_lqr = self._v21_port_lqr_state(state)
+        progress_raw = float(
+            self._previous_port_lqr_tracking_cost
+            - port_lqr["tracking_cost"]
+        )
+        progress_clipped = float(
+            np.clip(
+                progress_raw,
+                -self.port_lqr_progress_clip,
+                self.port_lqr_progress_clip,
+            )
+        )
+        self._previous_port_lqr_tracking_cost = port_lqr["tracking_cost"]
+        violation_ratio_clipped = float(
+            min(
+                port_lqr["worst_envelope_violation_ratio"],
+                self.port_lqr_envelope_violation_ratio_clip,
+            )
+        )
+        warning_cost = float(
+            port_lqr["worst_velocity_warning_depth"] ** 2
+        )
+        reward_port_lqr_progress = float(
+            self.reward_weights["port_lqr_progress"] * progress_clipped
+        )
+        reward_port_lqr_envelope = float(
+            -self.reward_weights["port_lqr_envelope"]
+            * violation_ratio_clipped
+        )
+        reward_closing_velocity_warning = float(
+            -self.reward_weights["closing_velocity_warning"] * warning_cost
+        )
+        reward = float(
+            reward
+            + reward_port_lqr_progress
+            + reward_port_lqr_envelope
+            + reward_closing_velocity_warning
+        )
+        components.update(
+            {
+                "scalar_axial_braking_reward_enabled": False,
+                "port_lqr_envelope_enabled": True,
+                "port_lqr_desired_vpx_mps": float(
+                    port_lqr["desired_port_velocity_mps"][0]
+                ),
+                "port_lqr_desired_vpy_mps": float(
+                    port_lqr["desired_port_velocity_mps"][1]
+                ),
+                "port_lqr_vpx_error_mps": float(
+                    port_lqr["port_velocity_error_mps"][0]
+                ),
+                "port_lqr_vpy_error_mps": float(
+                    port_lqr["port_velocity_error_mps"][1]
+                ),
+                "port_lqr_attitude_error_rad": port_lqr[
+                    "attitude_error_rad"
+                ],
+                "port_lqr_rate_error_rads": port_lqr["rate_error_rads"],
+                "port_lqr_worst_tracking_ratio": port_lqr[
+                    "worst_tracking_ratio"
+                ],
+                "port_lqr_tracking_cost": port_lqr["tracking_cost"],
+                "port_lqr_progress_raw": progress_raw,
+                "port_lqr_progress_clipped": progress_clipped,
+                "port_lqr_progress_clip": float(
+                    self.port_lqr_progress_clip
+                ),
+                "port_lqr_worst_envelope_violation_ratio": port_lqr[
+                    "worst_envelope_violation_ratio"
+                ],
+                "port_lqr_envelope_violation_ratio_clipped": (
+                    violation_ratio_clipped
+                ),
+                "port_speed_warning_depth": port_lqr[
+                    "port_speed_warning_depth"
+                ],
+                "axial_speed_warning_depth": port_lqr[
+                    "axial_speed_warning_depth"
+                ],
+                "worst_velocity_warning_depth": port_lqr[
+                    "worst_velocity_warning_depth"
+                ],
+                "closing_velocity_warning_cost": warning_cost,
+                "reward_port_lqr_progress": reward_port_lqr_progress,
+                "reward_port_lqr_envelope": reward_port_lqr_envelope,
+                "reward_closing_velocity_warning": (
+                    reward_closing_velocity_warning
                 ),
                 "reward_total": reward,
             }

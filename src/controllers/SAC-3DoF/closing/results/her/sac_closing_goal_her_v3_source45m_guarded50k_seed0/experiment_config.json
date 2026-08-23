@@ -1,0 +1,79 @@
+{
+  "actor_initialization": "behavior distillation from safe V15 actions",
+  "bc": {
+    "batch_size": 512,
+    "epochs": 10,
+    "learning_rate": 0.001,
+    "log_std_target": -3.0,
+    "log_std_weight": 0.01,
+    "maximum_validation_failure_rate": 0.1,
+    "maximum_validation_min_position_error": 250.0,
+    "validation_fraction": 0.2
+  },
+  "cbf_filter_used_during_training": false,
+  "checkpoint_steps": [
+    0,
+    10000,
+    25000,
+    50000
+  ],
+  "curriculum_used": false,
+  "experiment_name": "sac_closing_goal_her_v3_source45m_guarded50k_seed0",
+  "goal_success_termination_during_training": false,
+  "her": {
+    "copy_info_dict": true,
+    "goal_selection_strategy": "future",
+    "n_sampled_goal": 4
+  },
+  "max_eval_steps": 12000,
+  "max_time": 12000.0,
+  "method": "safe V15 behavior initialized goal-conditioned SAC+HER",
+  "near_p3_resets_used": false,
+  "replay_initialization": "complete non-failure V15 trajectories",
+  "reward_parameters": {
+    "alignment_warning_penalty": 1.0,
+    "geometry_warning_penalty": 1.0,
+    "goal_cost_weight": 0.01,
+    "goal_log_reference_ratio": 100.0,
+    "goal_ratio_clip": null,
+    "safety_failure_penalty": 1000.0,
+    "success_bonus": 100.0,
+    "timeout_penalty": 100.0,
+    "velocity_warning_penalty": 1.0
+  },
+  "reward_scheme": "goal_conditioned_p3_v3_source_initialized",
+  "reward_version": "v3",
+  "sac": {
+    "batch_size": 512,
+    "buffer_size": 300000,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.999,
+    "gradient_steps": 1,
+    "learning_rate": 2.5e-05,
+    "learning_starts": 0,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "source_behavior_reference": "V15 Optuna trial16 400k; approximately 44-45 m final P3 error",
+  "source_max_episodes": 12,
+  "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+  "source_model_sha256": "2fed2a5924488bf88837bec6b1f74c94a9e35b02245783d50629222b4c61fe3f",
+  "source_seed_start": 0,
+  "source_transition_count_requested": 60000,
+  "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+  "source_vecnormalize_sha256": "97db792aa9e729cc6b95b6d0d4a50eb393bef8d471d3ba0ced6937467ba2619c",
+  "total_timesteps": 50000,
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ]
+}

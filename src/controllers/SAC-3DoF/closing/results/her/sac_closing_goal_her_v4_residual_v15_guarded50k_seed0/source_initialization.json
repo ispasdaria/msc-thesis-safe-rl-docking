@@ -1,0 +1,27 @@
+{
+  "prefill_episode_count": 5,
+  "prefill_transition_count": 60000,
+  "replay_buffer_full_after_prefill": false,
+  "replay_buffer_position_after_prefill": 60000,
+  "zero_residual_validation": {
+    "failure_rate": 0.0,
+    "mean_best_max_target_ratio": 11.223251759763645,
+    "mean_final_attitude_error_deg": 10.343315514508928,
+    "mean_final_lateral_error": 19.276351413065566,
+    "mean_final_max_target_ratio": 21.277255673386055,
+    "mean_final_position_error": 44.14872468732992,
+    "mean_final_rate_error_degs": 0.01709373178350624,
+    "mean_final_velocity_error": 0.025286108637107025,
+    "mean_longest_target_2x_dwell_steps": 0.0,
+    "mean_minimum_position_error": 25.06570318812586,
+    "mean_return": -7162.594280246692,
+    "mean_steps": 12000.0,
+    "mean_target_2x_steps": 0.0,
+    "n_episodes": 10,
+    "n_failure": 0,
+    "n_success": 0,
+    "n_timeout": 10,
+    "success_rate": 0.0,
+    "time_limit_rate": 1.0
+  }
+}

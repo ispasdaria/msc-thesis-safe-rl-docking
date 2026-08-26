@@ -1,0 +1,100 @@
+{
+  "capture_reset_distance_m": 150.0,
+  "checkpoint_frequency": 25000,
+  "curriculum_learning": false,
+  "device": "auto",
+  "experiment_name": "systematic_capture_h150_seed0",
+  "failed_approach_termination": {
+    "consecutive_steps": 60,
+    "moving_away_rate_mps": 0.01,
+    "position_growth_from_best_m": 50.0
+  },
+  "handover_contract": {
+    "angle_units": "radians in arrays",
+    "approach_velocity_offset_mps": 0.08,
+    "handover_distance_m": 150.0,
+    "handover_tolerance": [
+      20.0,
+      5.0,
+      0.015,
+      0.01,
+      0.017453292519943295,
+      0.0008726646259971648
+    ],
+    "state_order": [
+      "rx",
+      "ry",
+      "vx",
+      "vy",
+      "psi",
+      "omega"
+    ],
+    "validated_p3_lower": [
+      280.0,
+      -3.0,
+      -0.05,
+      -0.01,
+      -0.017453292519943295,
+      -0.0008726646259971648
+    ],
+    "validated_p3_upper": [
+      320.0,
+      3.0,
+      -0.01,
+      0.01,
+      0.017453292519943295,
+      0.0008726646259971648
+    ]
+  },
+  "hard_safety_termination": {
+    "alignment": true,
+    "angular_rate_unsafe_degs": 0.2,
+    "angular_rate_warning_degs": 0.15,
+    "attitude_unsafe_deg": 4.0,
+    "attitude_warning_deg": 3.0,
+    "geometry": true,
+    "velocity": true
+  },
+  "isolated_systematic_trial": true,
+  "max_time_s": 2000.0,
+  "reset_distribution": "synthetic full-six-state X_H pairs",
+  "reward": {
+    "action_weights": [
+      0.005,
+      0.005,
+      0.02
+    ],
+    "failed_approach_penalty": 200.0,
+    "progress_clip": [
+      -0.5,
+      0.05
+    ],
+    "progress_scale": 100.0,
+    "safety_failure_penalty": 1500.0,
+    "scheme": "systematic_capture_validated_p3_v2",
+    "state_cost_weight": 0.25,
+    "success_bonus": 1000.0,
+    "timeout_penalty": 100.0,
+    "warning_weight": 0.25
+  },
+  "sac": {
+    "batch_size": 512,
+    "buffer_size": 500000,
+    "ent_coef": 0.01,
+    "gamma": 0.999,
+    "gradient_steps": 8,
+    "learning_rate": 0.0001,
+    "learning_starts": 5000,
+    "tau": 0.005,
+    "train_freq": 16
+  },
+  "success": "direct membership in the validated final-controller P3 testing box",
+  "task": "X_H_to_validated_X_P3_testing",
+  "total_timesteps": 400000,
+  "training_seed": 0,
+  "vecnormalize": {
+    "clip_obs": 10.0,
+    "norm_obs": true,
+    "norm_reward": false
+  }
+}

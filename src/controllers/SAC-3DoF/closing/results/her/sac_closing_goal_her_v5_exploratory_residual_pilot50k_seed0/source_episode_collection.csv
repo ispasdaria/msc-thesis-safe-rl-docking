@@ -1,0 +1,6 @@
+attempt,seed,steps,accepted,zero_residual_episode,failure,residual_rms_ax,residual_rms_ay,residual_rms_alpha,residual_max_ax,residual_max_ay,residual_max_alpha,termination_reason,violated_constraints
+1,0,12000,1,1,0,0.0,0.0,0.0,0.0,0.0,0.0,timeout,[]
+2,1,12000,1,0,0,0.34422792106441674,0.33573397776167896,0.33567680432961167,0.75,0.75,0.75,timeout,[]
+3,2,12000,1,0,0,0.3353358998295847,0.34025191778474956,0.3434998935387375,0.75,0.75,0.75,timeout,[]
+4,3,12000,1,1,0,0.0,0.0,0.0,0.0,0.0,0.0,timeout,[]
+5,4,12000,1,0,0,0.337013610545275,0.34190870660073197,0.32905832402613927,0.75,0.75,0.75,timeout,[]

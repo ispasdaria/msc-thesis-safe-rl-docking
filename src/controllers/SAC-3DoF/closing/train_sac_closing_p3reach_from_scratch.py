@@ -59,6 +59,7 @@ CHECKPOINT_SELECTION_ORDER = [
 EXPERIMENT_REPLAY_BUFFER_CLASS = None
 EXPERIMENT_REPLAY_BUFFER_KWARGS = {}
 EXPERIMENT_NAME_EXTRA_TAG = ""
+DEFAULT_ACTION_HOLD_SECONDS = 1
 
 # V18 retains the stable vanilla-SAC settings used by V12 so this experiment
 # isolates task-weight redistribution and bounded axial capture progress.
@@ -99,6 +100,15 @@ def parse_args():
         default=list(range(100, 110)),
     )
     parser.add_argument("--max-time", type=float, default=12_000.0)
+    parser.add_argument(
+        "--action-hold-seconds",
+        type=int,
+        default=DEFAULT_ACTION_HOLD_SECONDS,
+        help=(
+            "Seconds each selected action remains constant. The simulator "
+            "continues to integrate and check termination every second."
+        ),
+    )
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument("--experiment-name", default=None)
     parser.add_argument("--progress-bar", action="store_true")
@@ -120,6 +130,8 @@ def validate_args(args):
         raise ValueError("--total-timesteps must be positive.")
     if args.max_time <= 0.0:
         raise ValueError("--max-time must be positive.")
+    if args.action_hold_seconds <= 0:
+        raise ValueError("--action-hold-seconds must be a positive integer.")
     if not args.validation_seeds:
         raise ValueError("At least one validation seed is required.")
     if len(set(args.validation_seeds)) != len(args.validation_seeds):
@@ -278,6 +290,9 @@ def build_config(args, checkpoints, experiment_name):
         "offline_demonstrations_used": False,
         "lqr_transitions_used": False,
     }
+    sac_parameters = dict(SAC_PARAMETERS)
+    base_one_second_gamma = float(sac_parameters["gamma"])
+    sac_parameters["gamma"] = base_one_second_gamma ** args.action_hold_seconds
     return {
         "experiment_name": experiment_name,
         "purpose": "closing SAC P3-reaching training from scratch",
@@ -446,16 +461,29 @@ def build_config(args, checkpoints, experiment_name):
         "total_timesteps": args.total_timesteps,
         "checkpoint_steps": checkpoints,
         "max_time": args.max_time,
+        "time_discretization": {
+            "integration_step_seconds": 1.0,
+            "action_hold_seconds": args.action_hold_seconds,
+            "control_interval_seconds": float(args.action_hold_seconds),
+            "control_frequency_hz": 1.0 / args.action_hold_seconds,
+            "policy_timestep_unit": "one control decision",
+            "maximum_simulated_seconds_from_training_decisions": (
+                args.total_timesteps * args.action_hold_seconds
+            ),
+            "reward_aggregation_within_hold": "undiscounted sum",
+            "terminal_check_interval_seconds": 1.0,
+        },
         "device": args.device,
-        "sac_parameters": SAC_PARAMETERS,
+        "sac_parameters": sac_parameters,
         "replay_buffer": replay_buffer_config,
-        "gamma": SAC_PARAMETERS["gamma"],
+        "base_one_second_gamma": base_one_second_gamma,
+        "gamma": sac_parameters["gamma"],
         "vecnormalize": {
             "norm_obs": True,
             "norm_reward": False,
             "clip_obs": 10.0,
             "clip_reward": 10.0,
-            "gamma": SAC_PARAMETERS["gamma"],
+            "gamma": sac_parameters["gamma"],
         },
         "checkpoint_selection": CHECKPOINT_SELECTION_ORDER,
         "regression_early_stop": {
@@ -484,6 +512,11 @@ def main():
     checkpoints = resolve_checkpoint_steps(args)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     reward_tag = EXPERIMENT_REWARD_SCHEME.replace("_", "")
+    hold_tag = (
+        f"action_hold_{args.action_hold_seconds}s_"
+        if args.action_hold_seconds > 1
+        else ""
+    )
     termination_tag = (
         "safety_termination"
         if getattr(
@@ -497,6 +530,7 @@ def main():
         f"sac_closing_{reward_tag}_gamma0999_from_scratch_"
         f"{termination_tag}_"
         f"{EXPERIMENT_NAME_EXTRA_TAG}"
+        f"{hold_tag}"
         f"{args.total_timesteps // 1000}k_seed{args.training_seed}_{timestamp}"
     )
     config = build_config(args, checkpoints, experiment_name)
@@ -525,6 +559,7 @@ def main():
                     mode="training",
                     max_time=args.max_time,
                     env_class=EXPERIMENT_ENV_CLASS,
+                    action_hold_steps=args.action_hold_seconds,
                 )
             )
         ]
@@ -535,7 +570,7 @@ def main():
         norm_reward=False,
         clip_obs=10.0,
         clip_reward=10.0,
-        gamma=SAC_PARAMETERS["gamma"],
+        gamma=config["gamma"],
     )
 
     replay_buffer_options = {}
@@ -553,7 +588,7 @@ def main():
         learning_starts=SAC_PARAMETERS["learning_starts"],
         batch_size=SAC_PARAMETERS["batch_size"],
         tau=SAC_PARAMETERS["tau"],
-        gamma=SAC_PARAMETERS["gamma"],
+        gamma=config["gamma"],
         train_freq=SAC_PARAMETERS["train_freq"],
         gradient_steps=SAC_PARAMETERS["gradient_steps"],
         ent_coef=SAC_PARAMETERS["ent_coef"],
@@ -593,6 +628,7 @@ def main():
         result_dir=result_dir,
         evaluate_initial=False,
         env_class=EXPERIMENT_ENV_CLASS,
+        action_hold_steps=args.action_hold_seconds,
         rank_function=CHECKPOINT_RANK_FUNCTION,
         selection_order=CHECKPOINT_SELECTION_ORDER,
         enabled=not args.disable_regression_early_stop,
@@ -623,6 +659,12 @@ def main():
     else:
         print("Safety violations:   occupancy-penalized, but non-terminal")
     print(f"Training steps:      {args.total_timesteps:,}")
+    print(
+        "Control interval:    "
+        f"{args.action_hold_seconds} s "
+        "(1 s RK4 integration and terminal checks)"
+    )
+    print(f"SAC gamma/decision:  {config['gamma']:.9f}")
     print(f"Checkpoints:         {checkpoints}")
     print(f"Validation seeds:    {args.validation_seeds}")
     print(

@@ -14,6 +14,10 @@ from envs.docking3dof.goal_conditioned_closing_env import (
     GoalConditionedClosingV3Env,
 )
 from her_residual_env import ResidualV15GoalConditionedClosingEnv
+from lqr_residual_env import ResidualLQRGoalConditionedClosingEnv
+from lqr_reference_residual_env import (
+    ReferenceResidualLQRGoalConditionedClosingEnv,
+)
 
 
 HER_ENV_CLASSES = {
@@ -21,7 +25,11 @@ HER_ENV_CLASSES = {
     "v2": GoalConditionedClosingV2Env,
     "v3": GoalConditionedClosingV3Env,
     "v4": ResidualV15GoalConditionedClosingEnv,
+    "lqr_residual": ResidualLQRGoalConditionedClosingEnv,
+    "lqr_reference_residual": ReferenceResidualLQRGoalConditionedClosingEnv,
 }
+
+GOAL_COMPONENTS = ("axial", "lateral", "vx", "vy", "attitude", "rate")
 
 
 def make_her_env(
@@ -59,14 +67,39 @@ def physical_goal_metrics(env):
         dtype=np.float64,
     )
     ratios = np.abs(error) / np.maximum(tolerance, 1e-12)
-    return {
+    metrics = {
         "position_error": float(np.linalg.norm(error[:2])),
+        "axial_error": float(abs(error[0])),
         "lateral_error": float(abs(error[1])),
+        "vx_error": float(abs(error[2])),
+        "vy_error": float(abs(error[3])),
         "velocity_error": float(np.linalg.norm(error[2:4])),
         "attitude_error_deg": float(np.rad2deg(abs(error[4]))),
         "rate_error_degs": float(np.rad2deg(abs(error[5]))),
         "max_target_ratio": float(np.max(ratios)),
+        "limiting_component": GOAL_COMPONENTS[int(np.argmax(ratios))],
     }
+    metrics.update(
+        {
+            f"{component}_ratio": float(ratio)
+            for component, ratio in zip(GOAL_COMPONENTS, ratios)
+        }
+    )
+    return metrics
+
+
+def _snapshot_fields(prefix, metrics):
+    fields = {
+        f"{prefix}_limiting_component": metrics["limiting_component"],
+        f"{prefix}_position_error": metrics["position_error"],
+    }
+    fields.update(
+        {
+            f"{prefix}_{component}_ratio": metrics[f"{component}_ratio"]
+            for component in GOAL_COMPONENTS
+        }
+    )
+    return fields
 
 
 def evaluate_model(
@@ -90,7 +123,9 @@ def evaluate_model(
         observation, _ = env.reset(seed=int(seed))
         initial = physical_goal_metrics(env)
         best_ratio = initial["max_target_ratio"]
+        best_joint = dict(initial)
         minimum_position_error = initial["position_error"]
+        closest_position = dict(initial)
         target_2x_steps = 0
         longest_target_2x_dwell_steps = 0
         current_target_2x_dwell_steps = 0
@@ -105,11 +140,12 @@ def evaluate_model(
             )
             total_reward += float(reward)
             metrics = physical_goal_metrics(env)
-            best_ratio = min(best_ratio, metrics["max_target_ratio"])
-            minimum_position_error = min(
-                minimum_position_error,
-                metrics["position_error"],
-            )
+            if metrics["max_target_ratio"] < best_ratio:
+                best_ratio = metrics["max_target_ratio"]
+                best_joint = dict(metrics)
+            if metrics["position_error"] < minimum_position_error:
+                minimum_position_error = metrics["position_error"]
+                closest_position = dict(metrics)
             if metrics["max_target_ratio"] <= 2.0:
                 target_2x_steps += 1
                 current_target_2x_dwell_steps += 1
@@ -129,8 +165,7 @@ def evaluate_model(
             final_info.get("time_limit", False)
             or (steps >= int(max_steps) and not success and not failure)
         )
-        rows.append(
-            {
+        row = {
                 "evaluation_seed": int(seed),
                 "success": int(success),
                 "failure": int(failure),
@@ -151,7 +186,10 @@ def evaluate_model(
                 "final_rate_error_degs": final["rate_error_degs"],
                 "final_max_target_ratio": final["max_target_ratio"],
             }
-        )
+        row.update(_snapshot_fields("best_joint", best_joint))
+        row.update(_snapshot_fields("closest", closest_position))
+        row.update(_snapshot_fields("final", final))
+        rows.append(row)
         env.close()
     return rows
 
@@ -163,7 +201,7 @@ def summarize_rollouts(rows):
     def mean(field):
         return float(np.mean([float(row[field]) for row in rows]))
 
-    return {
+    summary = {
         "n_episodes": len(rows),
         "n_success": int(sum(row["success"] for row in rows)),
         "n_failure": int(sum(row["failure"] for row in rows)),
@@ -186,6 +224,22 @@ def summarize_rollouts(rows):
         "mean_final_rate_error_degs": mean("final_rate_error_degs"),
         "mean_final_max_target_ratio": mean("final_max_target_ratio"),
     }
+    for prefix in ("best_joint", "closest", "final"):
+        for component in GOAL_COMPONENTS:
+            field = f"{prefix}_{component}_ratio"
+            if field in rows[0]:
+                summary[f"mean_{field}"] = mean(field)
+    if "best_joint_limiting_component" in rows[0]:
+        for component in GOAL_COMPONENTS:
+            summary[f"best_joint_limiting_{component}_fraction"] = float(
+                np.mean(
+                    [
+                        row["best_joint_limiting_component"] == component
+                        for row in rows
+                    ]
+                )
+            )
+    return summary
 
 
 def checkpoint_rank(summary):

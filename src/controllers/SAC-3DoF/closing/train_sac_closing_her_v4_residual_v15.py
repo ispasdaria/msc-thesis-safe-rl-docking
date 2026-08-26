@@ -77,15 +77,36 @@ def _compact_info(info, truncated):
     return compact
 
 
-def collect_zero_residual_source_trajectories(
+def collect_residual_source_trajectories(
     *,
     minimum_transitions,
     seed_start,
     max_episodes,
     max_steps,
     residual_scale,
+    residual_std=0.0,
+    residual_clip=1.0,
+    residual_hold_steps=20,
+    zero_episode_fraction=1.0,
+    random_seed=5_000,
+    retain_failure_episodes=False,
 ):
-    """Collect exact frozen-source behavior as zero-residual episodes."""
+    """Collect complete frozen-source episodes with optional residual probes.
+
+    Failed exploratory episodes are useful boundary data and may be retained;
+    the core closing environment still terminates immediately at a hard safety
+    violation.  Setting ``residual_std=0`` and not retaining failures exactly
+    recovers the V4 zero-residual collection behavior.
+    """
+    if residual_std < 0.0:
+        raise ValueError("residual_std must be non-negative.")
+    if not 0.0 < residual_clip <= 1.0:
+        raise ValueError("residual_clip must lie in (0, 1].")
+    if residual_hold_steps <= 0:
+        raise ValueError("residual_hold_steps must be positive.")
+    if not 0.0 <= zero_episode_fraction <= 1.0:
+        raise ValueError("zero_episode_fraction must lie in [0, 1].")
+    rng = np.random.default_rng(random_seed)
     env = make_her_env(
         seed=seed_start,
         mode="training",
@@ -104,8 +125,19 @@ def collect_zero_residual_source_trajectories(
             observation, _ = env.reset(seed=seed)
             episode = []
             final_info = {}
-            for _ in range(int(max_steps)):
-                residual_action = np.zeros(3, dtype=np.float32)
+            zero_episode = bool(
+                residual_std == 0.0 or rng.random() < zero_episode_fraction
+            )
+            residual_action = np.zeros(3, dtype=np.float32)
+            action_square_sum = np.zeros(3, dtype=np.float64)
+            action_abs_max = np.zeros(3, dtype=np.float64)
+            for step in range(int(max_steps)):
+                if not zero_episode and step % residual_hold_steps == 0:
+                    residual_action = np.clip(
+                        rng.normal(0.0, residual_std, size=3),
+                        -residual_clip,
+                        residual_clip,
+                    ).astype(np.float32)
                 next_observation, reward, terminated, truncated, final_info = (
                     env.step(residual_action)
                 )
@@ -121,17 +153,31 @@ def collect_zero_residual_source_trajectories(
                         "episode_id": accepted_episode_id,
                     }
                 )
+                action_square_sum += np.square(residual_action)
+                action_abs_max = np.maximum(
+                    action_abs_max,
+                    np.abs(residual_action),
+                )
                 observation = next_observation
                 if done:
                     break
             failure = bool(final_info.get("failure", False))
+            retain_episode = bool(not failure or retain_failure_episodes)
+            action_rms = np.sqrt(action_square_sum / max(len(episode), 1))
             summaries.append(
                 {
                     "attempt": attempt + 1,
                     "seed": seed,
                     "steps": len(episode),
-                    "accepted": int(not failure),
+                    "accepted": int(retain_episode),
+                    "zero_residual_episode": int(zero_episode),
                     "failure": int(failure),
+                    "residual_rms_ax": float(action_rms[0]),
+                    "residual_rms_ay": float(action_rms[1]),
+                    "residual_rms_alpha": float(action_rms[2]),
+                    "residual_max_ax": float(action_abs_max[0]),
+                    "residual_max_ay": float(action_abs_max[1]),
+                    "residual_max_alpha": float(action_abs_max[2]),
                     "termination_reason": final_info.get(
                         "termination_reason",
                         "",
@@ -141,17 +187,22 @@ def collect_zero_residual_source_trajectories(
                     ),
                 }
             )
-            if not failure:
+            if retain_episode:
                 transitions.extend(episode)
                 accepted_episode_id += 1
     finally:
         env.close()
     if len(transitions) < minimum_transitions:
         raise RuntimeError(
-            f"Collected only {len(transitions):,} safe zero-residual "
+            f"Collected only {len(transitions):,} retained residual "
             f"transitions; requested {minimum_transitions:,}."
         )
     return transitions, summaries
+
+
+def collect_zero_residual_source_trajectories(**kwargs):
+    """Backward-compatible V4 collector."""
+    return collect_residual_source_trajectories(**kwargs)
 
 
 def initialize_zero_residual_actor(model, log_std=-4.0):
@@ -215,6 +266,20 @@ def build_parser():
     parser.add_argument("--max-eval-steps", type=int, default=12_000)
     parser.add_argument("--residual-scale", type=float, default=0.05)
     parser.add_argument("--initial-log-std", type=float, default=-4.0)
+    parser.add_argument("--prefill-residual-std", type=float, default=0.0)
+    parser.add_argument("--prefill-residual-clip", type=float, default=1.0)
+    parser.add_argument(
+        "--prefill-residual-hold-steps",
+        type=int,
+        default=20,
+    )
+    parser.add_argument(
+        "--prefill-zero-episode-fraction",
+        type=float,
+        default=1.0,
+    )
+    parser.add_argument("--prefill-random-seed", type=int, default=5_000)
+    parser.add_argument("--retain-failure-prefill", action="store_true")
     parser.add_argument("--maximum-gate-failure-rate", type=float, default=0.0)
     parser.add_argument(
         "--maximum-online-validation-failure-rate",
@@ -248,6 +313,14 @@ def main(argv=None):
         parser.error("Frozen V15 source artifacts are missing.")
     if not 0.0 < args.residual_scale <= 1.0:
         parser.error("--residual-scale must lie in (0, 1].")
+    if args.prefill_residual_std < 0.0:
+        parser.error("--prefill-residual-std must be non-negative.")
+    if not 0.0 < args.prefill_residual_clip <= 1.0:
+        parser.error("--prefill-residual-clip must lie in (0, 1].")
+    if args.prefill_residual_hold_steps <= 0:
+        parser.error("--prefill-residual-hold-steps must be positive.")
+    if not 0.0 <= args.prefill_zero_episode_fraction <= 1.0:
+        parser.error("--prefill-zero-episode-fraction must lie in [0, 1].")
     checkpoints = sorted(
         {step for step in args.checkpoint_steps if 0 < step <= args.total_timesteps}
     )
@@ -257,7 +330,11 @@ def main(argv=None):
     reward_class = ResidualV15GoalConditionedClosingEnv
     config = {
         "experiment_name": args.experiment_name,
-        "method": "residual goal-conditioned SAC+HER around frozen V15",
+        "method": (
+            "exploratory residual goal-conditioned SAC+HER around frozen V15"
+            if args.prefill_residual_std > 0.0
+            else "residual goal-conditioned SAC+HER around frozen V15"
+        ),
         "reward_version": "v4",
         "reward_scheme": reward_class.reward_scheme,
         "source_model": str(DEFAULT_SOURCE_MODEL.resolve()),
@@ -269,6 +346,15 @@ def main(argv=None):
         "source_transition_count_requested": args.source_transition_count,
         "source_seed_start": args.source_seed_start,
         "source_max_episodes": args.source_max_episodes,
+        "prefill_exploration": {
+            "residual_std": args.prefill_residual_std,
+            "residual_clip": args.prefill_residual_clip,
+            "residual_hold_steps": args.prefill_residual_hold_steps,
+            "zero_episode_fraction": args.prefill_zero_episode_fraction,
+            "random_seed": args.prefill_random_seed,
+            "retain_failure_episodes": args.retain_failure_prefill,
+            "hard_safety_termination": True,
+        },
         "training_seed": args.training_seed,
         "validation_seeds": args.validation_seeds,
         "total_timesteps": args.total_timesteps,
@@ -318,12 +404,18 @@ def main(argv=None):
         path.mkdir(parents=True)
     write_json(result_dir / "experiment_config.json", config)
 
-    transitions, episode_rows = collect_zero_residual_source_trajectories(
+    transitions, episode_rows = collect_residual_source_trajectories(
         minimum_transitions=args.source_transition_count,
         seed_start=args.source_seed_start,
         max_episodes=args.source_max_episodes,
         max_steps=args.max_time,
         residual_scale=args.residual_scale,
+        residual_std=args.prefill_residual_std,
+        residual_clip=args.prefill_residual_clip,
+        residual_hold_steps=args.prefill_residual_hold_steps,
+        zero_episode_fraction=args.prefill_zero_episode_fraction,
+        random_seed=args.prefill_random_seed,
+        retain_failure_episodes=args.retain_failure_prefill,
     )
     write_csv(result_dir / "source_episode_collection.csv", episode_rows)
 
@@ -408,6 +500,7 @@ def main(argv=None):
         initial_summary=initial_summary,
         initial_rows=initial_rows,
         reward_version="v4",
+        env_kwargs={"residual_scale": args.residual_scale},
     )
     callback._save_tables()
     print(f"Experiment:       {args.experiment_name}")

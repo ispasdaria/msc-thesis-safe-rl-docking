@@ -1,0 +1,205 @@
+{
+  "capture_reset_distance_m": 150.0,
+  "checkpoint_frequency": 50000,
+  "curriculum_learning": false,
+  "device": "auto",
+  "experiment_name": "systematic_capture_v7_h150_pilot_seed0",
+  "failed_approach_termination": {
+    "consecutive_steps": 60,
+    "inward_below_validated_p3_box": true,
+    "inward_boundary_rx_m": 280.0,
+    "lateral_divergence": true,
+    "maximum_lateral_error_m": 50.0,
+    "maximum_lateral_velocity_error_mps": 0.15,
+    "moving_away_rate_mps": 0.01,
+    "position_growth_from_best_m": 50.0
+  },
+  "handover_contract": {
+    "angle_units": "radians in arrays",
+    "approach_velocity_offset_mps": 0.08,
+    "handover_distance_m": 150.0,
+    "handover_tolerance": [
+      20.0,
+      5.0,
+      0.015,
+      0.01,
+      0.017453292519943295,
+      0.0008726646259971648
+    ],
+    "state_order": [
+      "rx",
+      "ry",
+      "vx",
+      "vy",
+      "psi",
+      "omega"
+    ],
+    "validated_p3_lower": [
+      280.0,
+      -3.0,
+      -0.05,
+      -0.01,
+      -0.017453292519943295,
+      -0.0008726646259971648
+    ],
+    "validated_p3_upper": [
+      320.0,
+      3.0,
+      -0.01,
+      0.01,
+      0.017453292519943295,
+      0.0008726646259971648
+    ]
+  },
+  "hard_safety_termination": {
+    "alignment": true,
+    "angular_rate_unsafe_degs": 0.2,
+    "angular_rate_warning_degs": 0.15,
+    "attitude_unsafe_deg": 4.0,
+    "attitude_warning_deg": 3.0,
+    "geometry": true,
+    "velocity": true
+  },
+  "isolated_systematic_trial": true,
+  "max_time_s": 2000.0,
+  "observation_scaling": {
+    "clip": 10.0,
+    "labels": [
+      "port_rx",
+      "port_ry",
+      "port_vx",
+      "port_vy",
+      "attitude",
+      "angular_rate",
+      "error_rx",
+      "error_ry",
+      "error_vx",
+      "error_vy",
+      "error_attitude",
+      "error_angular_rate"
+    ],
+    "scales": [
+      500.0,
+      50.0,
+      0.15,
+      0.15,
+      0.06981317007977318,
+      0.003490658503988659,
+      150.0,
+      10.0,
+      0.08,
+      0.03,
+      0.05235987755982989,
+      0.002617993877991494
+    ],
+    "type": "fixed_physical_component_scaling"
+  },
+  "reset_distribution": "synthetic full-six-state X_H pairs",
+  "reward": {
+    "action_weights": [
+      0.001,
+      0.001,
+      0.004
+    ],
+    "axial_progress_clip_m": [
+      -1.0,
+      0.25
+    ],
+    "axial_progress_scale": 1.0,
+    "axial_velocity_tracking_target": "sampled_p3_target_vx",
+    "box_state_cost_weight": 0.05,
+    "continuous_geometry_warning_depth": true,
+    "distance_dependent_vx_reference": false,
+    "distance_dependent_vx_weight": true,
+    "failed_approach_penalty": 1500.0,
+    "lateral_position_progress": {
+      "negative_clip_m": 1.0,
+      "positive_clip_m": 0.5,
+      "scale": 0.2
+    },
+    "lateral_velocity_progress": {
+      "negative_clip_mps": 0.01,
+      "positive_clip_mps": 0.005,
+      "scale": 10.0
+    },
+    "missed_handover_penalty": 1500.0,
+    "passed_p3_warning_boundary_rx_m": 280.0,
+    "positive_axial_progress_gate_components": [
+      "ry",
+      "vy",
+      "attitude"
+    ],
+    "progress_gate_error_bounds": [
+      10.0,
+      0.03,
+      0.05235987755982989
+    ],
+    "progress_gate_floor": 0.05,
+    "safety_failure_penalty": 1500.0,
+    "scheme": "systematic_capture_local_terminal_sync_v7",
+    "success_bonus": 1000.0,
+    "terminal_box_progress": {
+      "active_only_in_terminal_sync_zone": true,
+      "negative_clip": 0.25,
+      "positive_clip": 0.25,
+      "scale": 2.0,
+      "success_box": "global_validated_p3_box"
+    },
+    "terminal_readiness": {
+      "inward_speed_scale_mps": 0.1,
+      "penalty_weight": 0.2,
+      "zone_outside_upper_p3_face_m": 30.0
+    },
+    "timeout_penalty": 500.0,
+    "tracking_cost": "distance_weighted_pseudo_huber_with_linear_tail",
+    "tracking_scales": [
+      0.015,
+      3.0,
+      0.01,
+      0.017453292519943295,
+      0.0008726646259971648
+    ],
+    "tracking_weights_far": [
+      0.0,
+      0.02,
+      0.02,
+      0.02,
+      0.01
+    ],
+    "tracking_weights_near": [
+      0.0,
+      0.02,
+      0.02,
+      0.02,
+      0.01
+    ],
+    "vx_full_weight_axial_gap_m": 30.0,
+    "vx_tracking_weight_far": 0.003,
+    "vx_tracking_weight_near": 0.1,
+    "warning_weights": {
+      "alignment": 0.5,
+      "geometry": 1.0,
+      "velocity": 0.25
+    }
+  },
+  "sac": {
+    "batch_size": 512,
+    "buffer_size": 150000,
+    "ent_coef": 0.01,
+    "gamma": 0.999,
+    "gradient_steps": 8,
+    "learning_rate": 0.0001,
+    "learning_starts": 5000,
+    "tau": 0.005,
+    "train_freq": 16
+  },
+  "success": "direct membership in the validated final-controller P3 testing box",
+  "task": "X_H_to_validated_X_P3_testing",
+  "total_timesteps": 150000,
+  "training_seed": 0,
+  "vecnormalize": {
+    "clip_obs": 10.0,
+    "norm_obs": false,
+    "norm_reward": false
+  }
+}

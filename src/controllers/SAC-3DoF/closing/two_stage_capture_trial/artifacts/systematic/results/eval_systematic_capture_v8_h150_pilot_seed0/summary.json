@@ -1,0 +1,22 @@
+{
+  "by_distance": [
+    {
+      "distance_m": 150.0,
+      "episodes": 100,
+      "mean_steps_to_success": null,
+      "success_rate": 0.0,
+      "successes": 0,
+      "termination_reasons": {
+        "failed_capture_missed_p3": 36,
+        "safety_violation": 19,
+        "timeout": 45
+      }
+    }
+  ],
+  "deterministic": true,
+  "fixed_observation_scaling": true,
+  "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\two_stage_capture_trial\\artifacts\\systematic\\models\\systematic_capture_v8_h150_pilot_seed0\\final_model.zip",
+  "schema": "systematic_capture_evaluation_v2_terminal_state_safe",
+  "success_set": "validated_X_P3_testing",
+  "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\two_stage_capture_trial\\artifacts\\systematic\\models\\systematic_capture_v8_h150_pilot_seed0\\final_vecnormalize.pkl"
+}

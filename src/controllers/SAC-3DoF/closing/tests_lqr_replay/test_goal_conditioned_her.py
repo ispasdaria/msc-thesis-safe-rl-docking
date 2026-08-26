@@ -29,7 +29,13 @@ from her_source_warmstart import (
     prefill_her_replay_buffer,
 )
 from her_residual_env import ResidualV15GoalConditionedClosingEnv
+from her_closing_utils import (
+    evaluate_model,
+    physical_goal_metrics,
+    summarize_rollouts,
+)
 from train_sac_closing_her_v4_residual_v15 import (
+    collect_residual_source_trajectories,
     initialize_zero_residual_actor,
 )
 
@@ -460,3 +466,85 @@ def test_zero_residual_actor_initialization_is_exact():
     action, _ = model.predict(observation, deterministic=True)
     np.testing.assert_allclose(action, np.zeros((1, 3)), atol=1e-7)
     vec_env.close()
+
+
+def test_physical_goal_metrics_identify_limiting_component():
+    env = GoalConditionedClosingV3Env(
+        mode="testing",
+        seed=402,
+        max_time=3.0,
+    )
+    env.reset(seed=402)
+    env.core_env.state = np.asarray(env.core_env.p3_target).copy()
+    env.core_env.state[1] += 3.0 * env.core_env.p3_target_tolerance[1]
+    env.core_env.state[4] += 2.0 * env.core_env.p3_target_tolerance[4]
+
+    metrics = physical_goal_metrics(env)
+
+    assert metrics["limiting_component"] == "lateral"
+    assert np.isclose(metrics["lateral_ratio"], 3.0)
+    assert np.isclose(metrics["attitude_ratio"], 2.0)
+    env.close()
+
+
+def test_exploratory_residual_collection_retains_action_diversity():
+    transitions, summaries = collect_residual_source_trajectories(
+        minimum_transitions=4,
+        seed_start=403,
+        max_episodes=4,
+        max_steps=2,
+        residual_scale=0.10,
+        residual_std=0.35,
+        residual_clip=0.75,
+        residual_hold_steps=1,
+        zero_episode_fraction=0.0,
+        random_seed=403,
+        retain_failure_episodes=True,
+    )
+    actions = np.stack([row["action"] for row in transitions])
+
+    assert len(transitions) >= 4
+    assert np.any(np.abs(actions) > 0.0)
+    assert all(row["accepted"] == 1 for row in summaries)
+    assert all(row["zero_residual_episode"] == 0 for row in summaries)
+
+
+def test_evaluator_records_component_snapshots_and_summary():
+    class ZeroPolicy:
+        @staticmethod
+        def predict(observation, deterministic=True):
+            return np.zeros(3, dtype=np.float32), None
+
+    rows = evaluate_model(
+        ZeroPolicy(),
+        seeds=[404],
+        max_steps=2,
+        reward_version="v3",
+    )
+    summary = summarize_rollouts(rows)
+
+    assert rows[0]["best_joint_limiting_component"] in {
+        "axial",
+        "lateral",
+        "vx",
+        "vy",
+        "attitude",
+        "rate",
+    }
+    assert "closest_attitude_ratio" in rows[0]
+    assert "final_lateral_ratio" in rows[0]
+    assert "mean_best_joint_attitude_ratio" in summary
+    assert np.isclose(
+        sum(
+            summary[f"best_joint_limiting_{component}_fraction"]
+            for component in (
+                "axial",
+                "lateral",
+                "vx",
+                "vy",
+                "attitude",
+                "rate",
+            )
+        ),
+        1.0,
+    )

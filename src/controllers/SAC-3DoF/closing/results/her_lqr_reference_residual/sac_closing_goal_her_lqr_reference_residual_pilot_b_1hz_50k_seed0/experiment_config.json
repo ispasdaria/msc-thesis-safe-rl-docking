@@ -1,0 +1,94 @@
+{
+  "actor_learning_rate_scale": 0.25,
+  "actual_timesteps": 50000,
+  "best_checkpoint": 0,
+  "cbf_filter_used_during_training": false,
+  "cbf_signal_in_observation_or_reward": false,
+  "checkpoint_steps": [
+    0,
+    10000,
+    25000,
+    50000
+  ],
+  "critic_warmup_steps": 10000,
+  "distance_gate_used": false,
+  "experiment_name": "sac_closing_goal_her_lqr_reference_residual_pilot_b_1hz_50k_seed0",
+  "her": {
+    "copy_info_dict": true,
+    "goal_selection_strategy": "future",
+    "n_sampled_goal": 4
+  },
+  "lqr_update_interval_seconds": 1.0,
+  "max_eval_steps": 12000,
+  "max_time": 12000.0,
+  "method": "1 Hz SAC reference residual around closing LQR",
+  "prefill_exploration": {
+    "decision_interval_seconds": 1.0,
+    "random_seed": 7000,
+    "residual_clip": 0.75,
+    "residual_std": 0.25,
+    "retain_failure_episodes": false,
+    "zero_episode_fraction": 0.5
+  },
+  "reference_residual_bounds": {
+    "attitude_deg": 1.0,
+    "vx_mps": 0.02,
+    "vy_mps": 0.01
+  },
+  "reference_residual_components": [
+    "vx",
+    "vy",
+    "attitude"
+  ],
+  "residual_hold_steps": 1,
+  "reward": {
+    "failure_penalty": 1000.0,
+    "magnitude_weight": 0.01,
+    "progress_form": "J(previous) - gamma * J(next)",
+    "progress_weight": 100.0,
+    "smoothness_weight": 0.01,
+    "success_bonus": 100.0,
+    "timeout_penalty": 100.0
+  },
+  "reward_scheme": "goal_conditioned_p3_reference_residual_lqr_v1",
+  "reward_version": "lqr_reference_residual",
+  "sac": {
+    "batch_size": 256,
+    "buffer_size": 300000,
+    "ent_coef": "auto_0.01",
+    "gamma": 0.9999,
+    "gradient_steps": 1,
+    "learning_rate": 0.0001,
+    "learning_starts": 0,
+    "target_entropy": -3.0,
+    "tau": 0.005,
+    "train_freq": 4,
+    "update_to_data_ratio": 0.25
+  },
+  "sac_decision_interval_seconds": 1.0,
+  "source_max_episodes": 12,
+  "source_prefill": {
+    "prefill_episode_count": 5,
+    "prefill_transition_count": 60000,
+    "replay_buffer_full_after_prefill": false,
+    "replay_buffer_position_after_prefill": 60000
+  },
+  "source_seed_start": 0,
+  "source_transition_count_requested": 60000,
+  "total_timesteps": 50000,
+  "training_seed": 0,
+  "unfiltered_simulator_hard_failure_termination": true,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "zero_residual_actor_weight": 1.0
+}

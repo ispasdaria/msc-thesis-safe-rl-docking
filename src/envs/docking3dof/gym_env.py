@@ -1,5 +1,7 @@
-import numpy as np
+from numbers import Integral
+
 import gymnasium as gym
+import numpy as np
 from gymnasium import spaces
 
 from envs.docking3dof.core import Docking3DoFEnv
@@ -117,6 +119,8 @@ class Docking3DoFGymEnv(gym.Env):
         normalize_action=True,
         seed=None,
         closing_reward_version="v15",
+        action_hold_steps=1,
+        adaptive_action_hold_distance_m=None,
     ):
         super().__init__()
 
@@ -132,6 +136,25 @@ class Docking3DoFGymEnv(gym.Env):
                 f"{', '.join(self.closing_reward_versions)}."
             )
 
+        if (
+            not isinstance(action_hold_steps, Integral)
+            or isinstance(action_hold_steps, (bool, np.bool_))
+            or action_hold_steps <= 0
+        ):
+            raise ValueError("action_hold_steps must be a positive integer.")
+        if adaptive_action_hold_distance_m is not None:
+            if phase != "closing":
+                raise ValueError(
+                    "adaptive action hold is supported only for closing."
+                )
+            if (
+                not np.isfinite(adaptive_action_hold_distance_m)
+                or adaptive_action_hold_distance_m <= 0.0
+            ):
+                raise ValueError(
+                    "adaptive_action_hold_distance_m must be positive."
+                )
+
         if max_time is None:
             if phase == "closing":
                 max_time = 12000.0
@@ -143,6 +166,12 @@ class Docking3DoFGymEnv(gym.Env):
         self.normalize_action = normalize_action
         self.max_time = max_time
         self.closing_reward_version = closing_reward_version
+        self.action_hold_steps = int(action_hold_steps)
+        self.adaptive_action_hold_distance_m = (
+            None
+            if adaptive_action_hold_distance_m is None
+            else float(adaptive_action_hold_distance_m)
+        )
 
         self.core_env = Docking3DoFEnv(
             dt=dt,
@@ -299,6 +328,17 @@ class Docking3DoFGymEnv(gym.Env):
             "psi_e": q["psi_e"],
             "omega": q["omega"],
             "observation_labels": self._get_observation_labels(),
+            "integration_step_seconds": float(self.core_env.dt),
+            "action_hold_steps": self.action_hold_steps,
+            "control_interval_seconds": float(
+                self.action_hold_steps * self.core_env.dt
+            ),
+            "adaptive_action_hold": (
+                self.adaptive_action_hold_distance_m is not None
+            ),
+            "adaptive_action_hold_distance_m": (
+                self.adaptive_action_hold_distance_m
+            ),
         }
 
     def reset(self, seed=None, options=None):
@@ -385,14 +425,45 @@ class Docking3DoFGymEnv(gym.Env):
             "cost": float(cost),
         }
 
-    def step(self, action):
-        """
-        Gymnasium step API.
+    @staticmethod
+    def _aggregate_reward_components(component_sets, total_reward):
+        """Keep final diagnostics and sum additive reward terms over a hold."""
+        aggregated = dict(component_sets[-1])
+        reward_keys = {
+            key
+            for components in component_sets
+            for key, value in components.items()
+            if key.startswith("reward_")
+            and isinstance(value, (int, float, np.integer, np.floating))
+            and not isinstance(value, (bool, np.bool_))
+        }
+        for key in reward_keys:
+            aggregated[key] = float(
+                sum(float(components.get(key, 0.0)) for components in component_sets)
+            )
+        aggregated["reward_total"] = float(total_reward)
+        return aggregated
 
-        Returns:
-            obs, reward, terminated, truncated, info
-        """
+    @staticmethod
+    def _action_hold_classification_counts(infos):
+        """Count safety classifications at the simulator integration cadence."""
+        counts = {}
+        for info in infos:
+            for level in ("safe", "warning", "unsafe"):
+                counts[level] = counts.get(level, 0) + int(
+                    bool(info.get(level, False))
+                )
+            for name in ("geometry", "velocity", "alignment"):
+                classification = info.get(name, {})
+                for level in ("safe", "warn", "unsafe"):
+                    key = f"{name}_{level}"
+                    counts[key] = counts.get(key, 0) + int(
+                        bool(classification.get(level, False))
+                    )
+        return counts
 
+    def _step_once(self, action):
+        """Advance one simulator integration step for the supplied action."""
         physical_action = self._scale_action(action)
 
         _, done, info = self.core_env.step(physical_action)
@@ -419,6 +490,103 @@ class Docking3DoFGymEnv(gym.Env):
         info["reward_components"] = reward_components
 
         return obs, float(reward), terminated, truncated, info
+
+    def _p3_position_error_m(self):
+        if self.phase != "closing" or self.core_env.p3_target is None:
+            return np.inf
+        error = self.core_env.state[0:2] - self.core_env.p3_target[0:2]
+        return float(np.linalg.norm(error))
+
+    def _resolve_action_hold(self):
+        """Return this decision's hold length and the cadence reason."""
+        distance = self._p3_position_error_m()
+        if self.adaptive_action_hold_distance_m is None:
+            return self.action_hold_steps, "fixed", distance
+
+        monitor = self.core_env.monitor_safety(self.core_env.state)
+        if monitor["warning"]:
+            return 1, "safety_warning", distance
+        if distance <= self.adaptive_action_hold_distance_m:
+            return 1, "near_p3", distance
+        return self.action_hold_steps, "far_from_p3", distance
+
+    def step(self, action):
+        """
+        Gymnasium step API.
+
+        Returns:
+            obs, reward, terminated, truncated, info
+        """
+
+        rewards = []
+        infos = []
+        requested_steps, cadence_reason, start_distance = (
+            self._resolve_action_hold()
+        )
+        break_reason = None
+
+        for substep_index in range(requested_steps):
+            obs, reward, terminated, truncated, info = self._step_once(action)
+            rewards.append(float(reward))
+            infos.append(info)
+            if terminated or truncated:
+                break
+            if (
+                self.adaptive_action_hold_distance_m is not None
+                and substep_index + 1 < requested_steps
+            ):
+                if info.get("warning", False):
+                    break_reason = "entered_safety_warning"
+                    break
+                if (
+                    self._p3_position_error_m()
+                    <= self.adaptive_action_hold_distance_m
+                ):
+                    break_reason = "entered_near_p3_region"
+                    break
+
+        total_reward = float(sum(rewards))
+        info = dict(infos[-1])
+        info["reward_components"] = self._aggregate_reward_components(
+            [item["reward_components"] for item in infos],
+            total_reward,
+        )
+        info["integration_step_seconds"] = float(self.core_env.dt)
+        info["action_hold_steps"] = self.action_hold_steps
+        info["action_hold_steps_requested"] = requested_steps
+        info["action_hold_steps_executed"] = len(infos)
+        info["action_hold_seconds_executed"] = float(
+            len(infos) * self.core_env.dt
+        )
+        info["control_interval_seconds"] = float(
+            requested_steps * self.core_env.dt
+        )
+        info["action_hold_seconds_requested"] = float(
+            requested_steps * self.core_env.dt
+        )
+        info["adaptive_action_hold"] = (
+            self.adaptive_action_hold_distance_m is not None
+        )
+        info["adaptive_action_hold_distance_m"] = (
+            self.adaptive_action_hold_distance_m
+        )
+        info["action_hold_cadence_reason"] = cadence_reason
+        info["action_hold_break_reason"] = break_reason
+        info["p3_position_error_at_decision_m"] = start_distance
+        info["p3_position_error_m"] = self._p3_position_error_m()
+        info["action_hold_reward_aggregation"] = "undiscounted_sum"
+        info["action_hold_classification_counts"] = (
+            self._action_hold_classification_counts(infos)
+        )
+
+        violated_counts = {}
+        for substep_info in infos:
+            for constraint in substep_info.get("violated_constraints", []):
+                constraint = str(constraint)
+                violated_counts[constraint] = violated_counts.get(constraint, 0) + 1
+        info["action_hold_violated_constraint_counts"] = violated_counts
+
+        return obs, total_reward, terminated, truncated, info
 
     def _compute_sac_reward(
         self,

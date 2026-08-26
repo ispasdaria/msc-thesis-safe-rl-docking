@@ -1,0 +1,46 @@
+{
+  "action_hold_steps": 2,
+  "buffer_size": 300000,
+  "checkpoint_steps": [
+    100000,
+    200000,
+    300000,
+    400000
+  ],
+  "control_interval_seconds": 2.0,
+  "device": "auto",
+  "discount_interpretation": "Trial-16 gamma is retained per policy decision so action hold is the only deliberate experiment change.",
+  "experiment_name": "sac_closing_rewardv15_trial16_multiseed_action_hold_2s_400ksteps",
+  "integration_step_seconds": 1.0,
+  "max_eval_steps": 12000,
+  "maximum_simulator_steps": 800000,
+  "reward_aggregation": "sum",
+  "reward_version": "v15",
+  "total_timesteps": 400000,
+  "training_budget_unit": "policy_decisions",
+  "training_seeds": [
+    0
+  ],
+  "trial_16_params": {
+    "batch_size": 512,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.99,
+    "gradient_steps": 8,
+    "learning_rate": 0.00026276728418436003,
+    "learning_starts": 10000,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ]
+}

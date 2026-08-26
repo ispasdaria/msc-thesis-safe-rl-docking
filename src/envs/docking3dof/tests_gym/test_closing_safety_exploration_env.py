@@ -1910,3 +1910,43 @@ def test_v21_velocity_warning_penalty_is_bounded_to_point_one():
         components["reward_closing_velocity_warning"], -0.1
     )
     assert abs(components["reward_port_lqr_envelope"]) <= 0.1
+
+
+def test_v21_two_second_hold_matches_two_one_second_steps():
+    held_env = ClosingSafetyTerminalV21GymEnv(
+        mode="testing",
+        action_hold_steps=2,
+        seed=389,
+    )
+    reference_env = ClosingSafetyTerminalV21GymEnv(
+        mode="testing",
+        action_hold_steps=1,
+        seed=389,
+    )
+    held_env.reset(seed=389)
+    reference_env.reset(seed=389)
+    action = np.zeros(3, dtype=np.float32)
+
+    held_obs, held_reward, terminated, truncated, info = held_env.step(action)
+    reference_reward = 0.0
+    for _ in range(2):
+        reference_obs, reward, ref_terminated, ref_truncated, _ = (
+            reference_env.step(action)
+        )
+        reference_reward += reward
+        if ref_terminated or ref_truncated:
+            break
+
+    np.testing.assert_allclose(held_env.core_env.state, reference_env.core_env.state)
+    np.testing.assert_allclose(held_obs, reference_obs)
+    np.testing.assert_allclose(held_reward, reference_reward)
+    assert terminated == ref_terminated
+    assert truncated == ref_truncated
+    assert info["action_hold_steps_executed"] == 2
+    assert info["reward_components"]["reward_scheme"] == (
+        "p3_reach_v21_port_lqr_safety_terminal"
+    )
+    np.testing.assert_allclose(
+        info["reward_components"]["reward_total"],
+        held_reward,
+    )

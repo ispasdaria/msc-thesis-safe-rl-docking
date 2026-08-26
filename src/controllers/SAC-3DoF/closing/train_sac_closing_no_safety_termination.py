@@ -186,12 +186,14 @@ def make_env(
     mode,
     max_time,
     env_class=ClosingSafetyExplorationGymEnv,
+    action_hold_steps=1,
 ):
     return env_class(
         phase="closing",
         mode=mode,
         max_time=max_time,
         seed=seed,
+        action_hold_steps=action_hold_steps,
         # Required by the parent constructor only. The experiment subclass
         # replaces reward computation and never invokes this shared version.
         closing_reward_version=SOURCE_REWARD_VERSION,
@@ -394,12 +396,14 @@ def evaluate_rollout(
     seed,
     max_time,
     env_class=ClosingSafetyExplorationGymEnv,
+    action_hold_steps=1,
 ):
     env = make_env(
         seed=seed,
         mode="testing",
         max_time=max_time,
         env_class=env_class,
+        action_hold_steps=action_hold_steps,
     )
     observation, reset_info = env.reset(seed=seed)
     initial_error, _ = p3_errors(env.core_env)
@@ -464,6 +468,7 @@ def evaluate_rollout(
     )
     terminal_braking = initial_braking
     steps = 0
+    simulator_steps = 0
     terminal_info = {}
 
     while True:
@@ -472,6 +477,7 @@ def evaluate_rollout(
         pre_step_psi = float(env.core_env.state[4])
         observation, reward, terminated, truncated, info = env.step(action)
         steps += 1
+        simulator_steps += int(info.get("action_hold_steps_executed", 1))
         episode_return += float(reward)
         terminal_info = info
 
@@ -544,16 +550,25 @@ def evaluate_rollout(
             if violation_ratio > 0.0:
                 braking_outside_steps += 1
 
-        for name in ("safe", "warning", "unsafe"):
-            if bool(info.get(name, False)):
-                classification_counts[name] += 1
-        for name in ("geometry", "velocity", "alignment"):
-            classification = info.get(name, {})
-            for level in ("safe", "warn", "unsafe"):
-                if bool(classification.get(level, False)):
-                    classification_counts[f"{name}_{level}"] += 1
-        for constraint in info.get("violated_constraints", []):
-            violated_counts[str(constraint)] += 1
+        hold_counts = info.get("action_hold_classification_counts")
+        if hold_counts is None:
+            for name in ("safe", "warning", "unsafe"):
+                if bool(info.get(name, False)):
+                    classification_counts[name] += 1
+            for name in ("geometry", "velocity", "alignment"):
+                classification = info.get(name, {})
+                for level in ("safe", "warn", "unsafe"):
+                    if bool(classification.get(level, False)):
+                        classification_counts[f"{name}_{level}"] += 1
+        else:
+            classification_counts.update(hold_counts)
+
+        hold_violations = info.get("action_hold_violated_constraint_counts")
+        if hold_violations is None:
+            for constraint in info.get("violated_constraints", []):
+                violated_counts[str(constraint)] += 1
+        else:
+            violated_counts.update(hold_violations)
 
         cone = cone_diagnostics(env.core_env, info)
         for name in (
@@ -619,6 +634,7 @@ def evaluate_rollout(
 
     final_error, final_ratios = p3_errors(env.core_env)
     denominator = max(steps, 1)
+    safety_denominator = max(simulator_steps, 1)
     termination_reason = terminal_info.get("termination_reason")
     safety_failure = termination_reason == "safety_violation"
     numerical_failure = bool(
@@ -628,6 +644,9 @@ def evaluate_rollout(
     result = {
         "seed": int(seed),
         "steps": int(steps),
+        "decision_steps": int(steps),
+        "simulator_steps": int(simulator_steps),
+        "elapsed_time_seconds": float(env.core_env.time),
         "episode_return": float(episode_return),
         "success": int(bool(terminal_info.get("success", False))),
         "timeout": int(bool(terminal_info.get("time_limit", False))),
@@ -643,9 +662,13 @@ def evaluate_rollout(
         ),
         "unsafe_ever": int(classification_counts["unsafe"] > 0),
         "unsafe_steps": int(classification_counts["unsafe"]),
-        "unsafe_fraction": classification_counts["unsafe"] / denominator,
+        "unsafe_fraction": (
+            classification_counts["unsafe"] / safety_denominator
+        ),
         "warning_steps": int(classification_counts["warning"]),
-        "warning_fraction": classification_counts["warning"] / denominator,
+        "warning_fraction": (
+            classification_counts["warning"] / safety_denominator
+        ),
         "safe_steps": int(classification_counts["safe"]),
         "geometry_unsafe_steps": int(classification_counts["geometry_unsafe"]),
         "velocity_unsafe_steps": int(classification_counts["velocity_unsafe"]),
@@ -937,19 +960,31 @@ class TrainingSafetyDiagnosticsCallback(BaseCallback):
         self.rows = []
         self.counts = Counter()
         self.violated = Counter()
+        self.simulator_steps = 0
 
     def _on_step(self):
         for info in self.locals.get("infos", []):
-            for level in ("safe", "warning", "unsafe"):
-                if bool(info.get(level, False)):
-                    self.counts[level] += 1
-            for name in ("geometry", "velocity", "alignment"):
-                classification = info.get(name, {})
-                for level in ("safe", "warn", "unsafe"):
-                    if bool(classification.get(level, False)):
-                        self.counts[f"{name}_{level}"] += 1
-            for constraint in info.get("violated_constraints", []):
-                self.violated[str(constraint)] += 1
+            executed_steps = int(info.get("action_hold_steps_executed", 1))
+            self.simulator_steps += executed_steps
+            hold_counts = info.get("action_hold_classification_counts")
+            if hold_counts is None:
+                for level in ("safe", "warning", "unsafe"):
+                    if bool(info.get(level, False)):
+                        self.counts[level] += 1
+                for name in ("geometry", "velocity", "alignment"):
+                    classification = info.get(name, {})
+                    for level in ("safe", "warn", "unsafe"):
+                        if bool(classification.get(level, False)):
+                            self.counts[f"{name}_{level}"] += 1
+            else:
+                self.counts.update(hold_counts)
+
+            hold_violations = info.get("action_hold_violated_constraint_counts")
+            if hold_violations is None:
+                for constraint in info.get("violated_constraints", []):
+                    self.violated[str(constraint)] += 1
+            else:
+                self.violated.update(hold_violations)
 
             episode = info.get("episode")
             if episode is None:
@@ -960,12 +995,16 @@ class TrainingSafetyDiagnosticsCallback(BaseCallback):
                     "episode": len(self.rows) + 1,
                     "additional_timestep": int(self.num_timesteps),
                     "episode_length": length,
+                    "simulator_steps": int(self.simulator_steps),
+                    "elapsed_time_seconds": float(self.simulator_steps),
                     "episode_return": float(episode["r"]),
                     "termination_reason": info.get("termination_reason"),
                     "success": int(bool(info.get("success", False))),
                     "timeout": int(bool(info.get("time_limit", False))),
                     "unsafe_steps": int(self.counts["unsafe"]),
-                    "unsafe_fraction": self.counts["unsafe"] / max(length, 1),
+                    "unsafe_fraction": (
+                        self.counts["unsafe"] / max(self.simulator_steps, 1)
+                    ),
                     "warning_steps": int(self.counts["warning"]),
                     "geometry_unsafe_steps": int(self.counts["geometry_unsafe"]),
                     "velocity_unsafe_steps": int(self.counts["velocity_unsafe"]),
@@ -977,6 +1016,7 @@ class TrainingSafetyDiagnosticsCallback(BaseCallback):
             )
             self.counts.clear()
             self.violated.clear()
+            self.simulator_steps = 0
             write_csv(self.output_path, self.rows)
             if len(self.rows) % self.plot_every_episodes == 0:
                 self._write_learning_curve()
@@ -1066,6 +1106,7 @@ class ExperimentCheckpointCallback(BaseCallback):
         result_dir,
         evaluate_initial=True,
         env_class=ClosingSafetyExplorationGymEnv,
+        action_hold_steps=1,
         rank_function=checkpoint_rank,
         selection_order=None,
     ):
@@ -1077,6 +1118,7 @@ class ExperimentCheckpointCallback(BaseCallback):
         self.result_dir = result_dir
         self.evaluate_initial = bool(evaluate_initial)
         self.env_class = env_class
+        self.action_hold_steps = int(action_hold_steps)
         self.rank_function = rank_function
         self.selection_order = selection_order or [
             "highest success rate",
@@ -1120,6 +1162,7 @@ class ExperimentCheckpointCallback(BaseCallback):
                 seed=seed,
                 max_time=self.max_time,
                 env_class=self.env_class,
+                action_hold_steps=self.action_hold_steps,
             )
             for seed in self.validation_seeds
         ]

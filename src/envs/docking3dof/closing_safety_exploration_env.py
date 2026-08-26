@@ -107,6 +107,7 @@ class ClosingSafetyExplorationGymEnv(Docking3DoFGymEnv):
         normalize_action=True,
         seed=None,
         closing_reward_version="v15",
+        action_hold_steps=1,
     ):
         if phase != "closing":
             raise ValueError(
@@ -122,6 +123,7 @@ class ClosingSafetyExplorationGymEnv(Docking3DoFGymEnv):
             normalize_action=normalize_action,
             seed=seed,
             closing_reward_version=closing_reward_version,
+            action_hold_steps=action_hold_steps,
         )
 
         # Replace only this wrapper's core.  The ordinary Gym environment still
@@ -3261,6 +3263,7 @@ class ClosingSafetyTerminalV19GymEnv(ClosingSafetyExplorationV19GymEnv):
         normalize_action=True,
         seed=None,
         closing_reward_version="v15",
+        action_hold_steps=1,
     ):
         super().__init__(
             phase=phase,
@@ -3271,6 +3274,7 @@ class ClosingSafetyTerminalV19GymEnv(ClosingSafetyExplorationV19GymEnv):
             normalize_action=normalize_action,
             seed=seed,
             closing_reward_version=closing_reward_version,
+            action_hold_steps=action_hold_steps,
         )
         # The parent deliberately installs the non-terminal exploration core.
         # Replace it only for this isolated safety-terminal experiment.

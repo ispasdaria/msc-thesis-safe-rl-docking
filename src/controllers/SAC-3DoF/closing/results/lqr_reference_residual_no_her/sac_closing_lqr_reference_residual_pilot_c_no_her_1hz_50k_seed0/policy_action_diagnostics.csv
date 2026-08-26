@@ -1,0 +1,5 @@
+checkpoint,sampled_seed,sample_interval_steps,n_states,mean_action_vx,mean_action_vy,mean_action_attitude,rms_action_vx,rms_action_vy,rms_action_attitude,max_abs_action_vx,max_abs_action_vy,max_abs_action_attitude,any_abs_action_above_0p9_fraction
+0,100,10,1137,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+10000,100,10,1137,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+25000,100,10,1137,-0.00116570,-0.00409858,0.00312563,0.00396985,0.00410363,0.00320905,0.00762010,0.00458431,0.00670397,0.0
+50000,100,10,1137,-0.00136096,-0.00452063,0.00351083,0.01047644,0.00503554,0.00413243,0.02268589,0.00907189,0.01928848,0.0

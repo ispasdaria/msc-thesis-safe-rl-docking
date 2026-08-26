@@ -66,7 +66,12 @@ os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 
-def make_training_env(seed=0, closing_reward_version="v15"):
+def make_training_env(
+    seed=0,
+    closing_reward_version="v15",
+    action_hold_steps=1,
+    adaptive_action_hold_distance_m=None,
+):
     env = Docking3DoFGymEnv(
         phase="closing",
         mode="training",
@@ -74,13 +79,20 @@ def make_training_env(seed=0, closing_reward_version="v15"):
         max_time=None,
         integrator="rk4",
         normalize_action=True,
+        action_hold_steps=action_hold_steps,
+        adaptive_action_hold_distance_m=adaptive_action_hold_distance_m,
         seed=seed,
         closing_reward_version=closing_reward_version,
     )
     return Monitor(env)
 
 
-def make_eval_env(seed=0, closing_reward_version="v15"):
+def make_eval_env(
+    seed=0,
+    closing_reward_version="v15",
+    action_hold_steps=1,
+    adaptive_action_hold_distance_m=None,
+):
     return Docking3DoFGymEnv(
         phase="closing",
         mode="testing",
@@ -88,6 +100,8 @@ def make_eval_env(seed=0, closing_reward_version="v15"):
         max_time=None,
         integrator="rk4",
         normalize_action=True,
+        action_hold_steps=action_hold_steps,
+        adaptive_action_hold_distance_m=adaptive_action_hold_distance_m,
         seed=seed,
         closing_reward_version=closing_reward_version,
     )
@@ -129,6 +143,9 @@ def evaluate_model(
     seeds,
     max_steps,
     closing_reward_version="v15",
+    action_hold_steps=1,
+    adaptive_action_hold_distance_m=None,
+    env_factory=None,
 ):
     results = []
 
@@ -139,9 +156,18 @@ def evaluate_model(
 
     try:
         for seed in seeds:
-            env = make_eval_env(
-                seed=seed,
-                closing_reward_version=closing_reward_version,
+            factory = make_eval_env if env_factory is None else env_factory
+            factory_kwargs = {
+                "seed": seed,
+                "closing_reward_version": closing_reward_version,
+                "action_hold_steps": action_hold_steps,
+            }
+            if adaptive_action_hold_distance_m is not None:
+                factory_kwargs["adaptive_action_hold_distance_m"] = (
+                    adaptive_action_hold_distance_m
+                )
+            env = factory(
+                **factory_kwargs
             )
 
             try:
@@ -166,7 +192,14 @@ def evaluate_model(
                 abs_psi_values = []
                 abs_omega_values = []
                 warning_steps = 0
+                one_second_decisions = 0
+                two_second_decisions = 0
+                cbf_intervention_steps = 0
+                cbf_qp_failure_steps = 0
+                cbf_intervention_penalty = 0.0
+                cbf_correction_norms = []
                 episode_return = 0.0
+                simulator_steps = 0
 
                 for step in range(max_steps):
                     norm_obs = normalize_observation(vecnorm, obs)
@@ -176,6 +209,14 @@ def evaluate_model(
                     )
                     final_info = info
                     episode_return += float(reward)
+                    simulator_steps += int(
+                        info.get("action_hold_steps_executed", 1)
+                    )
+                    executed_hold_steps = int(
+                        info.get("action_hold_steps_executed", 1)
+                    )
+                    one_second_decisions += int(executed_hold_steps == 1)
+                    two_second_decisions += int(executed_hold_steps == 2)
 
                     current_error = target_error(env)
                     current_metrics = target_error_metrics(
@@ -206,6 +247,23 @@ def evaluate_model(
                     abs_psi_values.append(abs(info.get("psi_e", np.nan)))
                     abs_omega_values.append(abs(info.get("omega", np.nan)))
                     warning_steps += int(bool(info.get("warning", False)))
+                    cbf_intervention_steps += int(
+                        info.get("cbf_intervention_count", 0)
+                    )
+                    cbf_qp_failure_steps += int(
+                        info.get("cbf_qp_failure_count", 0)
+                    )
+                    cbf_intervention_penalty += float(
+                        info.get("cbf_intervention_penalty_sum", 0.0)
+                    )
+                    cbf_correction_norms.append(
+                        float(
+                            info.get(
+                                "cbf_max_intervention_scaled_norm",
+                                0.0,
+                            )
+                        )
+                    )
 
                     if terminated or truncated:
                         break
@@ -221,6 +279,19 @@ def evaluate_model(
                     {
                         "seed": seed,
                         "steps": step + 1,
+                        "decision_steps": step + 1,
+                        "simulator_steps": simulator_steps,
+                        "elapsed_simulator_seconds": float(
+                            simulator_steps * env.core_env.dt
+                        ),
+                        "one_second_decisions": one_second_decisions,
+                        "two_second_decisions": two_second_decisions,
+                        "one_second_decision_fraction": (
+                            one_second_decisions / (step + 1)
+                        ),
+                        "two_second_decision_fraction": (
+                            two_second_decisions / (step + 1)
+                        ),
                         "episode_return": episode_return,
                         "success": bool(final_info.get("success", False)),
                         "failure": bool(final_info.get("failure", False)),
@@ -277,6 +348,25 @@ def evaluate_model(
                             np.rad2deg(np.nanmax(abs_omega_values))
                         ),
                         "warning_fraction": warning_steps / (step + 1),
+                        "cbf_filter_enabled": bool(
+                            final_info.get("cbf_filter_enabled", False)
+                        ),
+                        "cbf_intervention_steps": cbf_intervention_steps,
+                        "cbf_intervention_fraction": (
+                            cbf_intervention_steps / max(simulator_steps, 1)
+                        ),
+                        "cbf_qp_failure_steps": cbf_qp_failure_steps,
+                        "cbf_intervention_penalty": (
+                            cbf_intervention_penalty
+                        ),
+                        "cbf_mean_max_correction_norm": float(
+                            np.mean(cbf_correction_norms)
+                            if cbf_correction_norms
+                            else 0.0
+                        ),
+                        "cbf_max_correction_norm": float(
+                            max(cbf_correction_norms, default=0.0)
+                        ),
                     }
                 )
             finally:
@@ -297,6 +387,13 @@ def summarize_results(results):
         "failure_rate": mean("failure"),
         "time_limit_rate": mean("time_limit"),
         "mean_steps": mean("steps"),
+        "mean_simulator_steps": mean("simulator_steps"),
+        "mean_one_second_decision_fraction": mean(
+            "one_second_decision_fraction"
+        ),
+        "mean_two_second_decision_fraction": mean(
+            "two_second_decision_fraction"
+        ),
         "mean_initial_position_error": mean("initial_position_error"),
         "mean_final_position_error": mean("final_position_error"),
         "mean_min_position_error": mean("min_position_error"),
@@ -324,6 +421,16 @@ def summarize_results(results):
         "mean_max_abs_psi_deg": mean("max_abs_psi_deg"),
         "mean_max_abs_omega_degs": mean("max_abs_omega_degs"),
         "mean_warning_fraction": mean("warning_fraction"),
+        "mean_cbf_intervention_fraction": mean(
+            "cbf_intervention_fraction"
+        ),
+        "mean_cbf_qp_failure_steps": mean("cbf_qp_failure_steps"),
+        "mean_cbf_intervention_penalty": mean(
+            "cbf_intervention_penalty"
+        ),
+        "mean_cbf_max_correction_norm": mean(
+            "cbf_max_correction_norm"
+        ),
     }
 
 

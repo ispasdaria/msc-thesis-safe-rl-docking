@@ -1,0 +1,80 @@
+{
+  "actual_timesteps": 50000,
+  "best_checkpoint": 0,
+  "cbf_filter_used_during_training": false,
+  "checkpoint_steps": [
+    0,
+    10000,
+    25000,
+    50000
+  ],
+  "curriculum_used": false,
+  "experiment_name": "sac_closing_goal_her_v5_exploratory_residual_pilot50k_seed0",
+  "guard_reason": "",
+  "guard_triggered": false,
+  "her": {
+    "copy_info_dict": true,
+    "goal_selection_strategy": "future",
+    "n_sampled_goal": 4
+  },
+  "initial_gate": {
+    "maximum_failure_rate": 0.0,
+    "maximum_min_position_error": 100.0
+  },
+  "initial_residual_policy": "zero deterministic residual",
+  "max_eval_steps": 12000,
+  "max_time": 12000.0,
+  "method": "exploratory residual goal-conditioned SAC+HER around frozen V15",
+  "near_p3_resets_used": false,
+  "online_guard_maximum_failure_rate": 0.1,
+  "prefill_exploration": {
+    "hard_safety_termination": true,
+    "random_seed": 5000,
+    "residual_clip": 0.75,
+    "residual_hold_steps": 20,
+    "residual_std": 0.35,
+    "retain_failure_episodes": true,
+    "zero_episode_fraction": 0.25
+  },
+  "residual_scale": 0.1,
+  "reward_scheme": "goal_conditioned_p3_v4_residual_v15",
+  "reward_version": "v4",
+  "sac": {
+    "batch_size": 256,
+    "buffer_size": 300000,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.999,
+    "gradient_steps": 2,
+    "learning_rate": 2.5e-05,
+    "learning_starts": 0,
+    "tau": 0.01,
+    "train_freq": 4
+  },
+  "source_max_episodes": 20,
+  "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+  "source_model_sha256": "2fed2a5924488bf88837bec6b1f74c94a9e35b02245783d50629222b4c61fe3f",
+  "source_prefill": {
+    "prefill_episode_count": 5,
+    "prefill_transition_count": 60000,
+    "replay_buffer_full_after_prefill": false,
+    "replay_buffer_position_after_prefill": 60000
+  },
+  "source_seed_start": 0,
+  "source_transition_count_requested": 60000,
+  "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+  "source_vecnormalize_sha256": "97db792aa9e729cc6b95b6d0d4a50eb393bef8d471d3ba0ced6937467ba2619c",
+  "total_timesteps": 50000,
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ]
+}

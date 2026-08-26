@@ -64,6 +64,13 @@ from tune_sac_closing_optuna import (  # noqa: E402
 MODEL_ROOT = os.path.join(SCRIPT_DIR, "models", "multiseed")
 LOG_ROOT = os.path.join(SCRIPT_DIR, "logs", "multiseed")
 RESULTS_ROOT = os.path.join(SCRIPT_DIR, "results", "multiseed")
+DEFAULT_TRAINING_SEEDS = list(range(6))
+DEFAULT_TOTAL_TIMESTEPS = 500_000
+DEFAULT_REWARD_VERSION = "v18"
+DEFAULT_BUFFER_SIZE = 300_000
+DEFAULT_ACTION_HOLD_SECONDS = 1
+DEFAULT_ADAPTIVE_ACTION_HOLD_DISTANCE_M = None
+DEFAULT_CHECKPOINT_SELECTION = "mean_return"
 
 # Exact Optuna trial-16 configuration. Keep these values fixed during the
 # multi-seed experiment so it tests robustness rather than a new search.
@@ -102,6 +109,10 @@ AGGREGATE_METRICS = (
     "mean_final_alignment_ratio",
     "mean_final_max_target_ratio",
     "mean_warning_fraction",
+    "mean_cbf_intervention_fraction",
+    "mean_cbf_qp_failure_steps",
+    "mean_cbf_intervention_penalty",
+    "mean_cbf_max_correction_norm",
 )
 
 
@@ -116,19 +127,19 @@ def parse_args():
         "--seeds",
         type=int,
         nargs="+",
-        default=list(range(6)),
+        default=DEFAULT_TRAINING_SEEDS,
         help="Independent SAC training seeds (default: 0 1 2 3 4 5).",
     )
     parser.add_argument(
         "--total-timesteps",
         type=int,
-        default=500_000,
+        default=DEFAULT_TOTAL_TIMESTEPS,
         help="Training steps per seed (default: 500000).",
     )
     parser.add_argument(
         "--reward-version",
         choices=["v15", "v16", "v17", "v18"],
-        default="v18",
+        default=DEFAULT_REWARD_VERSION,
         help=(
             "Closing reward implementation to use. v18 uses v17's smooth "
             "tolerance-normalized P3 progress at scale 500 (default: v18)."
@@ -163,8 +174,36 @@ def parse_args():
     parser.add_argument(
         "--buffer-size",
         type=int,
-        default=300_000,
+        default=DEFAULT_BUFFER_SIZE,
         help="Replay-buffer capacity used by the Optuna study.",
+    )
+    parser.add_argument(
+        "--action-hold-seconds",
+        type=int,
+        default=DEFAULT_ACTION_HOLD_SECONDS,
+        help=(
+            "Hold each policy action for this many one-second simulator "
+            "steps (default: 1)."
+        ),
+    )
+    parser.add_argument(
+        "--adaptive-action-hold-distance-m",
+        type=float,
+        default=DEFAULT_ADAPTIVE_ACTION_HOLD_DISTANCE_M,
+        help=(
+            "When set, use one-second decisions at or below this P3 position "
+            "error and while in a safety warning; otherwise use the configured "
+            "action hold."
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-selection",
+        choices=("mean_return", "task_outcome"),
+        default=DEFAULT_CHECKPOINT_SELECTION,
+        help=(
+            "Choose best checkpoints by mean return or by task outcome and "
+            "safety first."
+        ),
     )
     parser.add_argument(
         "--device",
@@ -201,6 +240,15 @@ def validate_args(args):
         raise ValueError("--max-eval-steps must be positive.")
     if args.buffer_size <= 0:
         raise ValueError("--buffer-size must be positive.")
+    if args.action_hold_seconds <= 0:
+        raise ValueError("--action-hold-seconds must be positive.")
+    if (
+        args.adaptive_action_hold_distance_m is not None
+        and args.adaptive_action_hold_distance_m <= 0.0
+    ):
+        raise ValueError(
+            "--adaptive-action-hold-distance-m must be positive."
+        )
     if not args.seeds:
         raise ValueError("At least one training seed is required.")
     if len(set(args.seeds)) != len(args.seeds):
@@ -409,6 +457,18 @@ class TrainingReturnCallback(BaseCallback):
         plt.close()
 
 
+def task_outcome_checkpoint_rank(summary, mean_return, _score):
+    """Rank checkpoints by task completion and safety before shaping return."""
+    return (
+        float(summary["success_rate"]),
+        -float(summary["failure_rate"]),
+        -float(summary["time_limit_rate"]),
+        -float(summary["mean_final_max_target_ratio"]),
+        -float(summary["mean_final_position_error"]),
+        float(mean_return),
+    )
+
+
 class EvaluationCheckpointCallback(BaseCallback):
     """Evaluate exact-timestep checkpoints and retain the best mean return."""
 
@@ -424,6 +484,9 @@ class EvaluationCheckpointCallback(BaseCallback):
         model_name,
         rank_function=None,
         selection_metric="mean_return",
+        action_hold_steps=1,
+        adaptive_action_hold_distance_m=None,
+        evaluation_env_factory=None,
     ):
         super().__init__()
         self.training_seed = int(training_seed)
@@ -436,6 +499,11 @@ class EvaluationCheckpointCallback(BaseCallback):
         self.model_name = model_name
         self.rank_function = rank_function
         self.selection_metric = str(selection_metric)
+        self.action_hold_steps = int(action_hold_steps)
+        self.adaptive_action_hold_distance_m = (
+            adaptive_action_hold_distance_m
+        )
+        self.evaluation_env_factory = evaluation_env_factory
 
         self.next_checkpoint_index = 0
         self.completed_episodes = 0
@@ -510,6 +578,11 @@ class EvaluationCheckpointCallback(BaseCallback):
             seeds=self.validation_seeds,
             max_steps=self.max_eval_steps,
             closing_reward_version=self.closing_reward_version,
+            action_hold_steps=self.action_hold_steps,
+            adaptive_action_hold_distance_m=(
+                self.adaptive_action_hold_distance_m
+            ),
+            env_factory=self.evaluation_env_factory,
         )
         summary = summarize_results(results)
         score = score_summary(summary)
@@ -798,6 +871,10 @@ def train_one_seed(args, experiment_name, checkpoint_steps, seed):
                 lambda seed=seed: make_training_env(
                     seed=seed,
                     closing_reward_version=args.reward_version,
+                    action_hold_steps=args.action_hold_seconds,
+                    adaptive_action_hold_distance_m=(
+                        args.adaptive_action_hold_distance_m
+                    ),
                 )
             ]
         )
@@ -838,6 +915,16 @@ def train_one_seed(args, experiment_name, checkpoint_steps, seed):
             model_dir=model_dir,
             result_dir=result_dir,
             model_name=f"{experiment_name} - seed {seed}",
+            rank_function=(
+                task_outcome_checkpoint_rank
+                if args.checkpoint_selection == "task_outcome"
+                else None
+            ),
+            selection_metric=args.checkpoint_selection,
+            action_hold_steps=args.action_hold_seconds,
+            adaptive_action_hold_distance_m=(
+                args.adaptive_action_hold_distance_m
+            ),
         )
         training_return_callback = TrainingReturnCallback(
             training_seed=seed,
@@ -1225,8 +1312,20 @@ def main():
 
     if args.experiment_name is None:
         step_label = format_step_count(args.total_timesteps)
+        if args.adaptive_action_hold_distance_m is not None:
+            distance_label = f"{args.adaptive_action_hold_distance_m:g}"
+            hold_tag = (
+                f"adaptive_hold_{args.action_hold_seconds}s_far_"
+                f"1s_near{distance_label}m_"
+            )
+        else:
+            hold_tag = (
+                "" if args.action_hold_seconds == 1
+                else f"action_hold_{args.action_hold_seconds}s_"
+            )
         experiment_name = (
             f"sac_closing_reward{args.reward_version}_trial16_multiseed_"
+            f"{hold_tag}"
             f"{step_label}steps"
         )
     else:
@@ -1246,8 +1345,45 @@ def main():
         "checkpoint_steps": checkpoint_steps,
         "max_eval_steps": args.max_eval_steps,
         "buffer_size": args.buffer_size,
+        "integration_step_seconds": 1.0,
+        "action_hold_steps": args.action_hold_seconds,
+        "control_interval_seconds": float(args.action_hold_seconds),
+        "adaptive_action_hold_distance_m": (
+            args.adaptive_action_hold_distance_m
+        ),
+        "adaptive_action_hold_warning_override": (
+            args.adaptive_action_hold_distance_m is not None
+        ),
+        "adaptive_action_hold_transition_behavior": (
+            "return control after the first simulator step that enters the "
+            "near-P3 region or a safety warning"
+            if args.adaptive_action_hold_distance_m is not None
+            else None
+        ),
+        "reward_aggregation": "sum",
+        "training_budget_unit": "policy_decisions",
+        "maximum_simulator_steps": int(
+            args.total_timesteps * args.action_hold_seconds
+        ),
         "device": args.device,
         "trial_16_params": TRIAL_16_PARAMS,
+        "checkpoint_selection": args.checkpoint_selection,
+        "checkpoint_selection_order": (
+            [
+                "success_rate",
+                "negative_failure_rate",
+                "negative_time_limit_rate",
+                "negative_mean_final_max_target_ratio",
+                "negative_mean_final_position_error",
+                "mean_return",
+            ]
+            if args.checkpoint_selection == "task_outcome"
+            else ["mean_return"]
+        ),
+        "discount_interpretation": (
+            "Trial-16 gamma is retained per policy decision across fixed and "
+            "adaptive control cadences."
+        ),
     }
     write_json(os.path.join(result_root, "experiment_config.json"), config)
 
@@ -1261,6 +1397,13 @@ def main():
     print(f"Reward version:   {args.reward_version}")
     print(f"Checkpoints:      {checkpoint_steps}")
     print(f"Buffer size:      {args.buffer_size}")
+    print(f"Control cadence:  {args.action_hold_seconds} s per decision")
+    if args.adaptive_action_hold_distance_m is not None:
+        print(
+            "Cadence override:  1 s near P3 (<= "
+            f"{args.adaptive_action_hold_distance_m:g} m) or on warning"
+        )
+    print(f"Checkpoint rank:  {args.checkpoint_selection}")
     print(f"Device:           {args.device}")
     print(f"Parameters:       {TRIAL_16_PARAMS}")
     print("=" * 80)

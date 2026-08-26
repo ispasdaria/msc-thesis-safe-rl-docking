@@ -94,6 +94,180 @@ def test_closing_observation_wraps_attitude_error():
     env.close()
 
 
+def test_action_hold_repeats_action_without_coarsening_integration():
+    held_env = Docking3DoFGymEnv(
+        phase="final",
+        mode="testing",
+        dt=1.0,
+        action_hold_steps=2,
+        seed=19,
+    )
+    reference_env = Docking3DoFGymEnv(
+        phase="final",
+        mode="testing",
+        dt=1.0,
+        action_hold_steps=1,
+        seed=19,
+    )
+    held_env.reset(seed=19)
+    reference_env.reset(seed=19)
+    action = np.array([0.2, -0.1, 0.05], dtype=np.float32)
+
+    held_obs, held_reward, held_terminated, held_truncated, held_info = (
+        held_env.step(action)
+    )
+    reference_reward = 0.0
+    for _ in range(2):
+        (
+            reference_obs,
+            reward,
+            reference_terminated,
+            reference_truncated,
+            reference_info,
+        ) = reference_env.step(action)
+        reference_reward += reward
+        if reference_terminated or reference_truncated:
+            break
+
+    assert np.allclose(held_env.core_env.state, reference_env.core_env.state)
+    assert np.allclose(held_obs, reference_obs)
+    assert np.isclose(held_reward, reference_reward)
+    assert held_terminated == reference_terminated
+    assert held_truncated == reference_truncated
+    assert np.isclose(held_env.core_env.time, 2.0)
+    assert np.isclose(reference_env.core_env.time, 2.0)
+    assert held_info["integration_step_seconds"] == 1.0
+    assert held_info["action_hold_steps"] == 2
+    assert held_info["action_hold_steps_executed"] == 2
+    assert held_info["action_hold_seconds_executed"] == 2.0
+    assert held_info["control_interval_seconds"] == 2.0
+    assert held_info["action_hold_reward_aggregation"] == "undiscounted_sum"
+    assert np.isclose(
+        held_info["reward_components"]["reward_total"],
+        held_reward,
+    )
+    assert sum(
+        held_info["action_hold_classification_counts"][level]
+        for level in ("safe", "warning", "unsafe")
+    ) == 2
+
+    held_env.close()
+    reference_env.close()
+
+
+def test_action_hold_stops_at_first_terminal_substep():
+    env = Docking3DoFGymEnv(
+        phase="final",
+        mode="testing",
+        dt=1.0,
+        max_time=1.0,
+        action_hold_steps=2,
+        seed=23,
+    )
+    env.reset(seed=23)
+
+    _, _, terminated, truncated, info = env.step(np.zeros(3, dtype=np.float32))
+
+    assert not terminated
+    assert truncated
+    assert info["action_hold_steps_executed"] == 1
+    assert info["action_hold_seconds_executed"] == 1.0
+    assert env.core_env.time == 1.0
+    env.close()
+
+
+def test_action_hold_steps_must_be_a_positive_integer():
+    for invalid_value in (0, -1, 1.5, True):
+        try:
+            Docking3DoFGymEnv(action_hold_steps=invalid_value)
+        except ValueError as error:
+            assert "action_hold_steps" in str(error)
+        else:
+            raise AssertionError(f"Accepted invalid action hold: {invalid_value!r}")
+
+
+def test_adaptive_action_hold_uses_far_near_and_warning_cadences():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        action_hold_steps=2,
+        adaptive_action_hold_distance_m=400.0,
+        seed=17,
+    )
+    env.reset(seed=17)
+
+    requested, reason, distance = env._resolve_action_hold()
+    assert requested == 2
+    assert reason == "far_from_p3"
+    assert distance > 400.0
+
+    env.core_env.state = env.core_env.p3_target.copy()
+    env.core_env.state[0] += 300.0
+    requested, reason, distance = env._resolve_action_hold()
+    assert requested == 1
+    assert reason == "near_p3"
+    assert np.isclose(distance, 300.0)
+
+    env.reset(seed=17)
+    env.core_env.state[2] = env.core_env.p3_target[2] + 0.20
+    requested, reason, _ = env._resolve_action_hold()
+    assert env.core_env.monitor_safety(env.core_env.state)["warning"]
+    assert requested == 1
+    assert reason == "safety_warning"
+    env.close()
+
+
+def test_adaptive_action_hold_returns_control_on_crossing_near_boundary():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        action_hold_steps=2,
+        adaptive_action_hold_distance_m=400.0,
+        seed=17,
+    )
+    env.reset(seed=17)
+    env.core_env.state = env.core_env.p3_target.copy()
+    env.core_env.state[0] += 400.05
+    env.core_env.state[2] -= 0.10
+
+    _, _, terminated, truncated, info = env.step(
+        np.zeros(3, dtype=np.float32)
+    )
+
+    assert not terminated
+    assert not truncated
+    assert info["action_hold_steps_requested"] == 2
+    assert info["action_hold_steps_executed"] == 1
+    assert info["action_hold_break_reason"] == "entered_near_p3_region"
+    assert info["p3_position_error_m"] <= 400.0
+    env.close()
+
+
+def test_adaptive_action_hold_configuration_must_be_valid():
+    for invalid_distance in (0.0, -1.0, np.inf):
+        try:
+            Docking3DoFGymEnv(
+                phase="closing",
+                adaptive_action_hold_distance_m=invalid_distance,
+            )
+        except ValueError as error:
+            assert "adaptive_action_hold_distance_m" in str(error)
+        else:
+            raise AssertionError(
+                f"Accepted invalid adaptive distance: {invalid_distance!r}"
+            )
+
+    try:
+        Docking3DoFGymEnv(
+            phase="final",
+            adaptive_action_hold_distance_m=400.0,
+        )
+    except ValueError as error:
+        assert "adaptive action hold" in str(error)
+    else:
+        raise AssertionError("Accepted adaptive hold for final approach.")
+
+
 def test_closing_reward_v15_uses_symmetric_progress():
     env = Docking3DoFGymEnv(
         phase="closing",

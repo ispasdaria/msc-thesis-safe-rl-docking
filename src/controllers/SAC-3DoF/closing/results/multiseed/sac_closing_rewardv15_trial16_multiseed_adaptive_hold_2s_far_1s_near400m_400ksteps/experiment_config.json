@@ -1,0 +1,58 @@
+{
+  "action_hold_steps": 2,
+  "adaptive_action_hold_distance_m": 400.0,
+  "adaptive_action_hold_transition_behavior": "return control after the first simulator step that enters the near-P3 region or a safety warning",
+  "adaptive_action_hold_warning_override": true,
+  "buffer_size": 300000,
+  "checkpoint_selection": "task_outcome",
+  "checkpoint_selection_order": [
+    "success_rate",
+    "negative_failure_rate",
+    "negative_time_limit_rate",
+    "negative_mean_final_max_target_ratio",
+    "negative_mean_final_position_error",
+    "mean_return"
+  ],
+  "checkpoint_steps": [
+    100000,
+    200000,
+    300000,
+    400000
+  ],
+  "control_interval_seconds": 2.0,
+  "device": "auto",
+  "discount_interpretation": "Trial-16 gamma is retained per policy decision across fixed and adaptive control cadences.",
+  "experiment_name": "sac_closing_rewardv15_trial16_multiseed_adaptive_hold_2s_far_1s_near400m_400ksteps",
+  "integration_step_seconds": 1.0,
+  "max_eval_steps": 12000,
+  "maximum_simulator_steps": 800000,
+  "reward_aggregation": "sum",
+  "reward_version": "v15",
+  "total_timesteps": 400000,
+  "training_budget_unit": "policy_decisions",
+  "training_seeds": [
+    0
+  ],
+  "trial_16_params": {
+    "batch_size": 512,
+    "ent_coef": "auto_0.05",
+    "gamma": 0.99,
+    "gradient_steps": 8,
+    "learning_rate": 0.00026276728418436003,
+    "learning_starts": 10000,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ]
+}

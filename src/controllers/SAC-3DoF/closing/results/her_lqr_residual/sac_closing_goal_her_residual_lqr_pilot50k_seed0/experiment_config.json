@@ -1,0 +1,77 @@
+{
+  "action_hold_steps": 1,
+  "actual_timesteps": 50000,
+  "baseline_action_semantics": "clip physical LQR command, normalize, then add bounded residual",
+  "baseline_controller": "LQRClosingController",
+  "best_checkpoint": 0,
+  "cbf_filter_used_during_training": false,
+  "checkpoint_steps": [
+    0,
+    10000,
+    25000,
+    50000
+  ],
+  "experiment_name": "sac_closing_goal_her_residual_lqr_pilot50k_seed0",
+  "guard_reason": "",
+  "guard_triggered": false,
+  "her": {
+    "copy_info_dict": true,
+    "goal_selection_strategy": "future",
+    "n_sampled_goal": 4
+  },
+  "initial_gate": {
+    "maximum_failure_rate": 0.0,
+    "maximum_min_position_error": 100.0
+  },
+  "initial_residual_policy": "zero deterministic residual",
+  "max_eval_steps": 12000,
+  "max_time": 12000.0,
+  "method": "goal-conditioned residual SAC+HER around closing LQR",
+  "online_guard_maximum_failure_rate": 0.1,
+  "prefill_exploration": {
+    "hard_safety_termination": true,
+    "random_seed": 6000,
+    "residual_clip": 0.75,
+    "residual_hold_steps": 20,
+    "residual_std": 0.25,
+    "retain_failure_episodes": false,
+    "zero_episode_fraction": 0.5
+  },
+  "residual_scale": 0.05,
+  "reward_scheme": "goal_conditioned_p3_residual_lqr_v1",
+  "reward_version": "lqr_residual",
+  "sac": {
+    "batch_size": 512,
+    "buffer_size": 300000,
+    "ent_coef": "auto_0.01",
+    "gamma": 0.999,
+    "gradient_steps": 1,
+    "learning_rate": 2.5e-05,
+    "learning_starts": 0,
+    "tau": 0.01,
+    "train_freq": 16
+  },
+  "source_max_episodes": 12,
+  "source_prefill": {
+    "prefill_episode_count": 5,
+    "prefill_transition_count": 60000,
+    "replay_buffer_full_after_prefill": false,
+    "replay_buffer_position_after_prefill": 60000
+  },
+  "source_seed_start": 0,
+  "source_transition_count_requested": 60000,
+  "total_timesteps": 50000,
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ]
+}

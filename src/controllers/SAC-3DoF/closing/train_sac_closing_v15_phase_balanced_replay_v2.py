@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
+from functools import partial
 import json
 import os
 import sys
 
+import numpy as np
 import torch
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback
@@ -26,6 +29,11 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from envs.docking3dof.gym_env import Docking3DoFGymEnv  # noqa: E402
+from envs.docking3dof.closing_cbf_shield_env import (  # noqa: E402
+    CBF_TRAINING_VARIANTS,
+    ClosingCBFShieldedGymEnv,
+    build_closing_cbf_config,
+)
 from near_p3_reset_wrapper import FixedNearP3ResetWrapper  # noqa: E402
 from phase_balanced_replay_buffer_v2 import (  # noqa: E402
     SimultaneousTargetReplayBuffer,
@@ -134,6 +142,29 @@ def build_parser():
     )
     parser.add_argument("--continuation-learning-rate", type=float, default=2.5e-5)
     parser.add_argument("--continuation-gradient-steps", type=int, default=1)
+    parser.add_argument(
+        "--training-cbf-variant",
+        choices=["none", *CBF_TRAINING_VARIANTS],
+        default="none",
+        help=(
+            "CBF included in both training and checkpoint validation. "
+            "'all' protects cone and speed; 'full' also protects alignment."
+        ),
+    )
+    parser.add_argument(
+        "--cbf-intervention-penalty-weight",
+        type=float,
+        default=0.1,
+        help=(
+            "Weight on the squared action correction; used only when a "
+            "training CBF is enabled (default: 0.1)."
+        ),
+    )
+    parser.add_argument(
+        "--cbf-solver",
+        choices=["osqp", "scipy"],
+        default="osqp",
+    )
     parser.add_argument("--early-stop-after-steps", type=int, default=50_000)
     parser.add_argument("--early-stop-failure-evals", type=int, default=2)
     parser.add_argument("--early-stop-regression-evals", type=int, default=2)
@@ -209,6 +240,13 @@ def validate_args(args):
         raise ValueError("--early-stop-regression-fraction cannot be negative.")
     if args.continuation_learning_rate <= 0.0:
         raise ValueError("--continuation-learning-rate must be positive.")
+    if (
+        not np.isfinite(args.cbf_intervention_penalty_weight)
+        or args.cbf_intervention_penalty_weight < 0.0
+    ):
+        raise ValueError(
+            "--cbf-intervention-penalty-weight must be finite and nonnegative."
+        )
     if not args.validation_seeds:
         raise ValueError("At least one validation seed is required.")
     if len(set(args.validation_seeds)) != len(args.validation_seeds):
@@ -324,7 +362,24 @@ class GuardedV2CheckpointCallback(PhaseBalancedCheckpointCallback):
 
 
 def make_augmented_training_env(args):
-    env = Docking3DoFGymEnv(
+    env_class = (
+        Docking3DoFGymEnv
+        if args.training_cbf_variant == "none"
+        else ClosingCBFShieldedGymEnv
+    )
+    cbf_kwargs = {}
+    if args.training_cbf_variant != "none":
+        cbf_kwargs = {
+            "cbf_variant": args.training_cbf_variant,
+            "cbf_config": build_closing_cbf_config(
+                args.training_cbf_variant,
+                solver_backend=args.cbf_solver,
+            ),
+            "intervention_penalty_weight": (
+                args.cbf_intervention_penalty_weight
+            ),
+        }
+    env = env_class(
         phase="closing",
         mode="training",
         dt=1.0,
@@ -333,6 +388,7 @@ def make_augmented_training_env(args):
         normalize_action=True,
         seed=args.training_seed,
         closing_reward_version="v15",
+        **cbf_kwargs,
     )
     env = FixedNearP3ResetWrapper(
         env,
@@ -343,6 +399,45 @@ def make_augmented_training_env(args):
         deterministic_mixture=args.deterministic_reset_mixture,
     )
     return Monitor(env)
+
+
+def make_checkpoint_evaluation_env(
+    *,
+    args,
+    seed,
+    closing_reward_version,
+    action_hold_steps,
+):
+    """Create a validation environment matching the training shield."""
+    if args.training_cbf_variant == "none":
+        return Docking3DoFGymEnv(
+            phase="closing",
+            mode="testing",
+            dt=1.0,
+            max_time=None,
+            integrator="rk4",
+            normalize_action=True,
+            action_hold_steps=action_hold_steps,
+            seed=seed,
+            closing_reward_version=closing_reward_version,
+        )
+    return ClosingCBFShieldedGymEnv(
+        phase="closing",
+        mode="testing",
+        dt=1.0,
+        max_time=None,
+        integrator="rk4",
+        normalize_action=True,
+        action_hold_steps=action_hold_steps,
+        seed=seed,
+        closing_reward_version=closing_reward_version,
+        cbf_variant=args.training_cbf_variant,
+        cbf_config=build_closing_cbf_config(
+            args.training_cbf_variant,
+            solver_backend=args.cbf_solver,
+        ),
+        intervention_penalty_weight=args.cbf_intervention_penalty_weight,
+    )
 
 
 def find_reset_wrapper(vecnorm):
@@ -386,6 +481,15 @@ def make_replay_buffer(model, args):
 
 
 def build_config(args, checkpoints, source_num_timesteps):
+    cbf_enabled = args.training_cbf_variant != "none"
+    cbf_config = (
+        build_closing_cbf_config(
+            args.training_cbf_variant,
+            solver_backend=args.cbf_solver,
+        )
+        if cbf_enabled
+        else None
+    )
     return {
         "experiment_name": args.experiment_name,
         "method_version": args.method_version,
@@ -464,10 +568,29 @@ def build_config(args, checkpoints, source_num_timesteps):
             "train_freq": TRIAL_16_PARAMS["train_freq"],
         },
         "training_environment": (
-            "Docking3DoFGymEnv V15 with hard safety termination"
+            "ClosingCBFShieldedGymEnv V15 with hard safety termination"
+            if cbf_enabled
+            else "Docking3DoFGymEnv V15 with hard safety termination"
         ),
         "safety_violation_termination_enabled": True,
-        "cbf_filter_used_during_training": False,
+        "cbf_filter_used_during_training": cbf_enabled,
+        "checkpoint_validation_matches_training_filter": True,
+        "cbf_training": {
+            "enabled": cbf_enabled,
+            "variant": args.training_cbf_variant,
+            "intervention_penalty_weight": (
+                args.cbf_intervention_penalty_weight if cbf_enabled else 0.0
+            ),
+            "intervention_penalty_definition": (
+                "-weight * ||(u_filtered-u_nominal)/action_limits||_2^2"
+            ),
+            "replay_action": "nominal SAC action",
+            "simulator_action": (
+                "CBF-filtered action" if cbf_enabled else "nominal SAC action"
+            ),
+            "deployment_filter_required": cbf_enabled,
+            "filter_config": asdict(cbf_config) if cbf_config else None,
+        },
         "trial_16_params": TRIAL_16_PARAMS,
         "vecnormalize_statistics_frozen": True,
         "checkpoint_selection": [
@@ -560,6 +683,10 @@ def main(args=None):
         failure_evals=args.early_stop_failure_evals,
         regression_evals=args.early_stop_regression_evals,
         regression_fraction=args.early_stop_regression_fraction,
+        evaluation_env_factory=partial(
+            make_checkpoint_evaluation_env,
+            args=args,
+        ),
     )
     training_return_callback = TrainingReturnCallback(
         training_seed=args.training_seed,
@@ -587,7 +714,18 @@ def main(args=None):
         f"training {args.near_p3_reset_fraction:.0%} near-P3"
     )
     print(f"Target threshold: max component ratio <= {args.target_ratio_threshold:g}")
-    print("Safety:           hard violations terminate; no CBF during training")
+    if args.training_cbf_variant == "none":
+        print("Safety:           hard violations terminate; no CBF during training")
+    else:
+        print(
+            "Safety:           hard closing CBF "
+            f"'{args.training_cbf_variant}' in training and validation"
+        )
+        print(
+            "CBF penalty:      "
+            f"{args.cbf_intervention_penalty_weight:g} * squared scaled "
+            "correction"
+        )
     print(f"Checkpoints:      {[0, *checkpoints]}")
     print("=" * 80)
 

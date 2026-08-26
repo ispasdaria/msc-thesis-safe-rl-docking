@@ -47,6 +47,7 @@ class HerEvaluationCheckpointCallback(BaseCallback):
         initial_summary,
         initial_rows,
         reward_version,
+        env_kwargs=None,
     ):
         super().__init__(verbose=0)
         self.checkpoint_steps = list(checkpoint_steps)
@@ -62,6 +63,7 @@ class HerEvaluationCheckpointCallback(BaseCallback):
             {"checkpoint": 0, **row} for row in initial_rows
         ]
         self.reward_version = reward_version
+        self.env_kwargs = dict(env_kwargs or {})
 
     def _save_tables(self):
         write_csv(
@@ -80,6 +82,7 @@ class HerEvaluationCheckpointCallback(BaseCallback):
             self.validation_seeds,
             max_steps=self.max_eval_steps,
             reward_version=self.reward_version,
+            env_kwargs=self.env_kwargs,
         )
         summary = summarize_rollouts(rows)
         rank = checkpoint_rank(summary)

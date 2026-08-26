@@ -362,6 +362,8 @@ def load_model_and_vecnorm(
     vecnorm_path,
     device,
     closing_reward_version,
+    action_hold_steps,
+    adaptive_action_hold_distance_m,
 ):
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found: {model_path}")
@@ -376,6 +378,10 @@ def load_model_and_vecnorm(
                 make_eval_env(
                     seed=999_999,
                     closing_reward_version=closing_reward_version,
+                    action_hold_steps=action_hold_steps,
+                    adaptive_action_hold_distance_m=(
+                        adaptive_action_hold_distance_m
+                    ),
                 )
             )
         ]
@@ -394,6 +400,8 @@ def summarize_policy_results(
     model_path,
     vecnorm_path,
     results,
+    action_hold_steps,
+    adaptive_action_hold_distance_m,
 ):
     summary = summarize_results(results)
     returns = np.asarray(
@@ -407,6 +415,11 @@ def summarize_policy_results(
         "experiment_name": experiment_name,
         "variant": variant_name,
         "training_seed": int(training_seed),
+        "action_hold_steps": int(action_hold_steps),
+        "control_interval_seconds": float(action_hold_steps),
+        "adaptive_action_hold_distance_m": (
+            adaptive_action_hold_distance_m
+        ),
         "n_test_episodes": len(results),
         "n_success": n_success,
         "n_failure": n_failure,
@@ -428,6 +441,8 @@ def evaluate_one_policy(
     test_seeds,
     policy_output_dir,
     closing_reward_version,
+    action_hold_steps,
+    adaptive_action_hold_distance_m,
 ):
     summary_json = os.path.join(policy_output_dir, "summary.json")
     if args.skip_existing and os.path.exists(summary_json):
@@ -460,6 +475,10 @@ def evaluate_one_policy(
             vecnorm_path=vecnorm_path,
             device=args.device,
             closing_reward_version=closing_reward_version,
+            action_hold_steps=action_hold_steps,
+            adaptive_action_hold_distance_m=(
+                adaptive_action_hold_distance_m
+            ),
         )
         results = evaluate_model(
             model=model,
@@ -467,6 +486,10 @@ def evaluate_one_policy(
             seeds=test_seeds,
             max_steps=args.max_eval_steps,
             closing_reward_version=closing_reward_version,
+            action_hold_steps=action_hold_steps,
+            adaptive_action_hold_distance_m=(
+                adaptive_action_hold_distance_m
+            ),
         )
         summary = summarize_policy_results(
             experiment_name=experiment_name,
@@ -475,6 +498,10 @@ def evaluate_one_policy(
             model_path=model_path,
             vecnorm_path=vecnorm_path,
             results=results,
+            action_hold_steps=action_hold_steps,
+            adaptive_action_hold_distance_m=(
+                adaptive_action_hold_distance_m
+            ),
         )
 
         rollout_rows = [
@@ -567,6 +594,22 @@ def main():
     args = parse_args()
     experiment_config = load_experiment_config(args.experiment_name)
     closing_reward_version = experiment_config.get("reward_version", "v15")
+    action_hold_steps = int(experiment_config.get("action_hold_steps", 1))
+    if action_hold_steps <= 0:
+        raise ValueError(
+            "Experiment action_hold_steps must be a positive integer."
+        )
+    adaptive_action_hold_distance_m = experiment_config.get(
+        "adaptive_action_hold_distance_m"
+    )
+    if adaptive_action_hold_distance_m is not None:
+        adaptive_action_hold_distance_m = float(
+            adaptive_action_hold_distance_m
+        )
+        if adaptive_action_hold_distance_m <= 0.0:
+            raise ValueError(
+                "Experiment adaptive action-hold distance must be positive."
+            )
     (
         model_types,
         training_seeds,
@@ -595,6 +638,11 @@ def main():
         "max_eval_steps": args.max_eval_steps,
         "device": args.device,
         "reward_version": closing_reward_version,
+        "action_hold_steps": action_hold_steps,
+        "control_interval_seconds": float(action_hold_steps),
+        "adaptive_action_hold_distance_m": (
+            adaptive_action_hold_distance_m
+        ),
         "output_name": output_name,
         "training_experiment_config": experiment_config,
     }
@@ -607,6 +655,12 @@ def main():
     print(f"Variants:       {[v['variant'] for v in variants]}")
     print(f"Training seeds: {training_seeds}")
     print(f"Reward version: {closing_reward_version}")
+    print(f"Control cadence: {action_hold_steps} s per decision")
+    if adaptive_action_hold_distance_m is not None:
+        print(
+            "Cadence override: 1 s near P3 (<= "
+            f"{adaptive_action_hold_distance_m:g} m) or on warning"
+        )
     print(
         f"Testing seeds:  {test_seeds[0]} ... {test_seeds[-1]} "
         f"({len(test_seeds)} total)"
@@ -630,6 +684,10 @@ def main():
                 test_seeds=test_seeds,
                 policy_output_dir=policy_output_dir,
                 closing_reward_version=closing_reward_version,
+                action_hold_steps=action_hold_steps,
+                adaptive_action_hold_distance_m=(
+                    adaptive_action_hold_distance_m
+                ),
             )
             policy_summaries.append(summary)
             write_aggregate_outputs(run_dir, policy_summaries)

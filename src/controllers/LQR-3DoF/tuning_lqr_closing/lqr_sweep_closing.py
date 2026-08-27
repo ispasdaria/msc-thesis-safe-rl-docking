@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import os
 import sys
@@ -326,6 +327,19 @@ def save_rollout_history(
     return path
 
 
+def write_rollout_records_csv(records, output_path):
+    """Write one analysis-ready row per phase rollout."""
+    if not records:
+        return
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    fieldnames = list(records[0].keys())
+    with open(output_path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(records)
+
+
 def run_rollouts(
     controller,
     num_rollouts,
@@ -605,6 +619,12 @@ def main():
     parser.add_argument("--max-time", type=float, default=12000.0)
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--mode", type=str, default="testing", choices=["nominal", "testing", "training"])
+    parser.add_argument(
+        "--results-csv",
+        type=str,
+        default=None,
+        help="Write per-rollout records for a single candidate to this CSV.",
+    )
 
     parser.add_argument("--q-scales", type=str, default="1.0")
     parser.add_argument("--r-scales", type=str, default="1.0")
@@ -687,6 +707,14 @@ def main():
                 seed_start=args.seed_start,
                 mode=args.mode,
             )
+
+            if args.results_csv:
+                if len(q_scales) != 1 or len(r_scales) != 1:
+                    raise ValueError(
+                        "--results-csv requires exactly one q-scale and one r-scale."
+                    )
+                write_rollout_records_csv(rollout_records, args.results_csv)
+                print(f"rollout records written to: {args.results_csv}")
 
             print_result_row(q_scale, r_scale, result)
 

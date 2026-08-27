@@ -1,0 +1,12 @@
+{
+  "baseline_success_rate": 0.6,
+  "baseline_successes": 3,
+  "mean_baseline_best_ratio": 1.0483133500261184,
+  "mean_oracle_best_ratio": 1.0667115116519486,
+  "mean_oracle_nonzero_action_fraction": 0.4961804474857138,
+  "oracle_losses": 0,
+  "oracle_rescues": 1,
+  "oracle_success_rate": 0.8,
+  "oracle_successes": 4,
+  "state_count": 5
+}

@@ -109,7 +109,9 @@ def evaluate_model(
     mode="testing",
     reward_version="v1",
     env_kwargs=None,
+    progress_callback=None,
 ):
+    seeds = list(seeds)
     rows = []
     for seed in seeds:
         environment_options = dict(env_kwargs or {})
@@ -191,6 +193,8 @@ def evaluate_model(
         row.update(_snapshot_fields("final", final))
         rows.append(row)
         env.close()
+        if progress_callback is not None:
+            progress_callback(row, len(rows), len(seeds))
     return rows
 
 

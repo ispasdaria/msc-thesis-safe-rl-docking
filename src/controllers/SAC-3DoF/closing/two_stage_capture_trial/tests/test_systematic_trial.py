@@ -13,6 +13,7 @@ for path in (TRIAL_DIR, SRC_ROOT):
         sys.path.insert(0, str(path))
 
 from systematic_capture_env import SystematicCaptureEnv  # noqa: E402
+from systematic_capture_action import LowPassCaptureActionWrapper  # noqa: E402
 from systematic_capture_observation import (  # noqa: E402
     FixedCaptureObservationScale,
     MarkovCaptureObservationScale,
@@ -323,7 +324,7 @@ def test_v8_lateral_divergence_terminates_early_with_scaled_failure_penalty():
     env.close()
 
 
-def test_v9_couples_lateral_energy_and_penalizes_action_changes():
+def test_v10_couples_lateral_energy_and_penalizes_action_changes():
     env = SystematicCaptureEnv(max_time=2_000.0, seed=0)
     target = np.array([300.0, 0.0, -0.03, 0.0, 0.0, 0.0])
     state = np.array([450.0, 3.0, -0.09, 0.01, 0.0, 0.0])
@@ -343,7 +344,7 @@ def test_v9_couples_lateral_energy_and_penalizes_action_changes():
     env.close()
 
 
-def test_v9_attitude_margin_precedes_hard_warning():
+def test_v10_attitude_margin_precedes_hard_warning():
     env = SystematicCaptureEnv(max_time=2_000.0, seed=0)
     target = np.array([300.0, 0.0, -0.03, 0.0, 0.0, 0.0])
     state = np.array([450.0, 0.0, -0.09, 0.0, np.deg2rad(2.5), 0.0])
@@ -359,11 +360,12 @@ def test_v9_attitude_margin_precedes_hard_warning():
     env.close()
 
 
-def test_v9_markov_observation_contains_previous_normalized_action():
+def test_v10_filtered_action_is_the_previous_action_in_next_observation():
     base = SystematicCaptureResetWrapper(
         SystematicCaptureEnv(max_time=2_000.0, seed=0)
     )
-    env = MarkovCaptureObservationScale(base)
+    observed = MarkovCaptureObservationScale(base)
+    env = LowPassCaptureActionWrapper(observed, alpha=0.25)
     target = np.array([300.0, 0.0, -0.03, 0.0, 0.0, 0.0])
     state = np.array([450.0, 0.0, -0.09, 0.0, 0.0, 0.0])
     observation, _ = env.reset(
@@ -376,13 +378,32 @@ def test_v9_markov_observation_contains_previous_normalized_action():
     )
     assert observation.shape == (15,)
     np.testing.assert_allclose(observation[-3:], 0.0)
-    action = np.array([0.25, -0.50, 0.75], dtype=np.float32)
-    observation, _, _, _, _ = env.step(action)
-    np.testing.assert_allclose(observation[-3:], action)
+    action = np.array([1.0, -1.0, 0.5], dtype=np.float32)
+    observation, _, _, _, info = env.step(action)
+    expected_executed = 0.25 * action
+    np.testing.assert_allclose(observation[-3:], expected_executed)
+    np.testing.assert_allclose(info["commanded_normalized_action"], action)
+    np.testing.assert_allclose(
+        info["executed_normalized_action"], expected_executed
+    )
     env.close()
 
 
-def test_v9_training_config_uses_markov_smoothed_reward_and_fixed_scaling():
+def test_v10_outward_velocity_receives_dense_penalty():
+    env = SystematicCaptureEnv(max_time=2_000.0, seed=0)
+    target = np.array([300.0, 0.0, -0.03, 0.0, 0.0, 0.0])
+    state = np.array([400.0, 0.0, 0.02, 0.0, 0.0, 0.0])
+    env.reset(
+        options={"initial_state": state, "p3_target": target, "mode": "testing"}
+    )
+    _, _, _, _, info = env.step(np.zeros(3))
+    components = info["reward_components"]
+    assert components["outward_velocity_mps"] > 0.0
+    assert components["reward_outward_velocity"] < 0.0
+    env.close()
+
+
+def test_v10_training_config_uses_filtered_markov_reward_and_fixed_scaling():
     class Args:
         training_seed = 0
         max_time = 2_000.0
@@ -409,7 +430,7 @@ def test_v9_training_config_uses_markov_smoothed_reward_and_fixed_scaling():
     ]
     assert config["reward"]["terminal_readiness"]["penalty_weight"] > 0.0
     assert config["reward"]["terminal_readiness"]["penalty_weight"] == 0.20
-    assert config["reward"]["scheme"].endswith("_v9")
+    assert config["reward"]["scheme"].endswith("_v10")
     assert config["reward"]["coupled_lateral_energy"]["components"] == [
         "ry",
         "vy",
@@ -427,6 +448,9 @@ def test_v9_training_config_uses_markov_smoothed_reward_and_fixed_scaling():
     assert config["reward"]["terminal_readiness"][
         "lateral_position_weight"
     ] > 0.0
+    assert config["reward"]["outward_velocity"]["weight"] > 0.0
+    assert config["action_filter"]["alpha"] == 0.25
+    assert config["sac"]["gradient_steps"] == 4
     assert config["reward"]["passed_p3_warning_boundary_rx_m"] == 280.0
     assert config["failed_approach_termination"][
         "inward_below_validated_p3_box"

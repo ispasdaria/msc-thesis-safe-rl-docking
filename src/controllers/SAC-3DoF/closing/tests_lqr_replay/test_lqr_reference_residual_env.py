@@ -277,3 +277,50 @@ def test_fixed_goal_standard_replay_updates_without_her():
     assert model.critic_warmup_gradient_updates > 0
     assert model.constrained_actor_gradient_updates > 0
     vec_env.close()
+
+
+def test_zero_residual_actor_weight_anneals_and_survives_save_load(tmp_path):
+    vec_env = DummyVecEnv(
+        [
+            lambda: Monitor(
+                ReferenceResidualLQRGoalConditionedClosingEnv(
+                    mode="testing",
+                    seed=708,
+                    max_time=2.0,
+                    reference_residual_bounds=(
+                        0.02,
+                        0.01,
+                        np.deg2rad(1.0),
+                    ),
+                    progress_gamma=0.9999,
+                )
+            )
+        ]
+    )
+    model = ZeroResidualConstrainedSAC(
+        "MultiInputPolicy",
+        vec_env,
+        buffer_size=100,
+        batch_size=2,
+        critic_warmup_steps=10_000,
+        zero_residual_actor_weight=1.0,
+        zero_residual_actor_final_weight=0.1,
+        zero_residual_actor_anneal_end_step=30_000,
+        actor_learning_rate_scale=0.25,
+        policy_kwargs={"net_arch": [16, 16]},
+        verbose=0,
+        seed=708,
+    )
+
+    assert model.current_zero_residual_actor_weight(0) == 1.0
+    assert model.current_zero_residual_actor_weight(10_000) == 1.0
+    assert model.current_zero_residual_actor_weight(20_000) == 0.55
+    assert model.current_zero_residual_actor_weight(30_000) == 0.1
+    assert model.current_zero_residual_actor_weight(50_000) == 0.1
+
+    model_path = tmp_path / "annealed_actor_prior_model"
+    model.save(model_path)
+    loaded = ZeroResidualConstrainedSAC.load(model_path, env=vec_env)
+    assert loaded.current_zero_residual_actor_weight(20_000) == 0.55
+    assert loaded.current_zero_residual_actor_weight(50_000) == 0.1
+    vec_env.close()

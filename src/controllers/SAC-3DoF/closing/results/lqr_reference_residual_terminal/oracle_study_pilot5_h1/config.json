@@ -1,0 +1,15 @@
+{
+  "action_levels": [
+    -1.0,
+    0.0,
+    1.0
+  ],
+  "candidate_count": 27,
+  "dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_oracle_seeds400_449.npz",
+  "interpretation_limit": "Success demonstrates useful bounded residual action authority. Failure does not prove mathematical uncontrollability because the oracle uses a finite grid and constant-action lookahead.",
+  "lookahead_steps": 1,
+  "n_states": 5,
+  "nonsuccess_fraction_requested": 0.5,
+  "rollout_horizon": 1500,
+  "sample_seed": 91000
+}

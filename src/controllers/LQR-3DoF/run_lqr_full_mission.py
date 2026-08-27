@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import os
 import sys
@@ -259,6 +260,19 @@ def build_mission_record(result, runner):
     }
 
 
+def write_mission_records_csv(records, output_path):
+    """Write one reproducible, analysis-ready row per mission."""
+    if not records:
+        return
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    fieldnames = list(records[0].keys())
+    with open(output_path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(records)
+
+
 def select_representative_missions(records):
     """Select only representative missions. Duplicate seeds get combined labels."""
     selected_by_seed = {}
@@ -401,11 +415,13 @@ def save_full_mission_history(runner, result, record, label, output_dir, mode, c
 
 def run_many_missions(
     num_missions=100,
+    seed_start=0,
     mode="testing",
     closing_max_time=12000.0,
     final_max_time=5000.0,
     save_mission_histories=False,
     history_dir=os.path.join(LQR_ROOT, "results", "lqr_mission", "mission_histories"),
+    results_csv=None,
 ):
     mission_results = []
     records = []
@@ -414,7 +430,7 @@ def run_many_missions(
         os.makedirs(history_dir, exist_ok=True)
         print(f"selected mission histories will be saved to: {history_dir}")
 
-    for seed in range(num_missions):
+    for seed in range(seed_start, seed_start + num_missions):
         runner, result = run_full_mission(
             seed=seed,
             mode=mode,
@@ -437,6 +453,10 @@ def run_many_missions(
         )
 
     summary = summarize_missions(mission_results)
+
+    if results_csv:
+        write_mission_records_csv(records, results_csv)
+        print(f"mission records written to: {results_csv}")
 
     print("\nMISSION SUMMARY")
     print("=" * 60)
@@ -471,10 +491,16 @@ def run_many_missions(
     return mission_results, summary
 
 
-def run_runner_closing_only(num_episodes=100, mode="testing", closing_max_time=12000.0, final_max_time=5000.0):
+def run_runner_closing_only(
+    num_episodes=100,
+    seed_start=0,
+    mode="testing",
+    closing_max_time=12000.0,
+    final_max_time=5000.0,
+):
     results = []
 
-    for seed in range(num_episodes):
+    for seed in range(seed_start, seed_start + num_episodes):
         runner = create_runner(seed, closing_max_time, final_max_time)
         closing_controller = build_closing_controller(runner.closing_env)
         runner.set_controller("closing", closing_controller)
@@ -531,6 +557,7 @@ def inspect_final_failures(mission_results):
 def main():
     parser = argparse.ArgumentParser(description="Evaluate full LQR docking missions and optionally save selected histories.")
     parser.add_argument("--num-missions", type=int, default=300)
+    parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--mode", type=str, default="testing", choices=["nominal", "testing", "training"])
     parser.add_argument("--closing-max-time", type=float, default=12000.0)
     parser.add_argument("--final-max-time", type=float, default=5000.0)
@@ -542,11 +569,13 @@ def main():
         type=str,
         default=os.path.join(LQR_ROOT, "results", "lqr_mission", "mission_histories"),
     )
+    parser.add_argument("--results-csv", type=str, default=None)
     args = parser.parse_args()
 
     if not args.skip_closing_only:
         run_runner_closing_only(
             num_episodes=args.num_missions,
+            seed_start=args.seed_start,
             mode=args.mode,
             closing_max_time=args.closing_max_time,
             final_max_time=args.final_max_time,
@@ -554,7 +583,7 @@ def main():
 
     if not args.skip_one_mission:
         run_one_mission(
-            seed=0,
+            seed=args.seed_start,
             mode=args.mode,
             closing_max_time=args.closing_max_time,
             final_max_time=args.final_max_time,
@@ -562,11 +591,13 @@ def main():
 
     mission_results, summary = run_many_missions(
         num_missions=args.num_missions,
+        seed_start=args.seed_start,
         mode=args.mode,
         closing_max_time=args.closing_max_time,
         final_max_time=args.final_max_time,
         save_mission_histories=args.save_mission_histories,
         history_dir=args.history_dir,
+        results_csv=args.results_csv,
     )
     inspect_final_failures(mission_results)
 

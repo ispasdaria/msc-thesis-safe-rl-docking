@@ -35,6 +35,10 @@ STRATIFIED_EXPERIMENT = (
     "sac_closing_lqr_reference_residual_"
     "pilot_d_stratified_1hz_50k_seed0"
 )
+TERMINAL_EXPERIMENT = (
+    "sac_closing_lqr_reference_residual_"
+    "pilot_f_terminal_r2_h600_1hz_50k_seed0"
+)
 
 
 def build_parser():
@@ -46,9 +50,9 @@ def build_parser():
     )
     parser.add_argument(
         "--artifact-family",
-        choices=("no_her", "stratified"),
+        choices=("no_her", "stratified", "terminal"),
         default="no_her",
-        help="Use Pilot C or Pilot D model/result directories.",
+        help="Use Pilot C, Pilot D/E, or Pilot F model/result directories.",
     )
     parser.add_argument("--experiment-name", default=None)
     parser.add_argument(
@@ -145,7 +149,11 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     if args.n_seeds <= 0 or args.max_eval_steps <= 0:
         raise ValueError("Seed count and evaluation horizon must be positive.")
-    if args.artifact_family == "stratified":
+    if args.artifact_family == "terminal":
+        model_root = CLOSING_DIR / "models" / "lqr_reference_residual_terminal"
+        result_root = CLOSING_DIR / "results" / "lqr_reference_residual_terminal"
+        experiment_name = args.experiment_name or TERMINAL_EXPERIMENT
+    elif args.artifact_family == "stratified":
         model_root = CLOSING_DIR / "models" / "lqr_reference_residual_stratified"
         result_root = CLOSING_DIR / "results" / "lqr_reference_residual_stratified"
         experiment_name = args.experiment_name or STRATIFIED_EXPERIMENT
@@ -207,6 +215,13 @@ def main(argv=None):
             max_steps=args.max_eval_steps,
             reward_version=config["reward_version"],
             env_kwargs=kwargs,
+            progress_callback=lambda row, completed, total, label=label: print(
+                f"{label}: [{completed}/{total}] "
+                f"seed={row['evaluation_seed']} "
+                f"success={row['success']} failure={row['failure']} "
+                f"timeout={row['time_limit']}",
+                flush=True,
+            ),
         )
         summary = {
             "label": label,

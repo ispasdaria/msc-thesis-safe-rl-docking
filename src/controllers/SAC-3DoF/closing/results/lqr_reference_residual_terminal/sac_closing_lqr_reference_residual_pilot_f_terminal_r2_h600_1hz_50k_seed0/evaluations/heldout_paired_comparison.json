@@ -1,0 +1,14 @@
+{
+  "baseline_artifact": "heldout_seeds300_399_n100/lqr_zero_residual/rollout_metrics.csv",
+  "baseline_successes": 75,
+  "discordant_pairs": 5,
+  "heldout_seeds": "300-399",
+  "loss_seeds": [307, 356, 363, 364],
+  "losses": 4,
+  "n_seeds": 100,
+  "pilot_f_artifact": "heldout_seeds300_399_n100_best_single_thread/pilot_f_best/rollout_metrics.csv",
+  "pilot_f_successes": 72,
+  "rescue_seeds": [379],
+  "rescues": 1,
+  "two_sided_exact_p_value": 0.375
+}

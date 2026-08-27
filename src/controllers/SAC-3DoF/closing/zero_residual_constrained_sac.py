@@ -23,17 +23,77 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
         self,
         *args,
         zero_residual_actor_weight=20.0,
+        zero_residual_actor_final_weight=None,
+        zero_residual_actor_anneal_end_step=None,
         actor_learning_rate_scale=0.1,
         **kwargs,
     ):
         if float(zero_residual_actor_weight) < 0.0:
             raise ValueError("zero_residual_actor_weight must be non-negative.")
+        if (
+            zero_residual_actor_final_weight is not None
+            and float(zero_residual_actor_final_weight) < 0.0
+        ):
+            raise ValueError(
+                "zero_residual_actor_final_weight must be non-negative."
+            )
+        if (
+            zero_residual_actor_anneal_end_step is not None
+            and int(zero_residual_actor_anneal_end_step) < 0
+        ):
+            raise ValueError(
+                "zero_residual_actor_anneal_end_step must be non-negative."
+            )
         if float(actor_learning_rate_scale) < 0.0:
             raise ValueError("actor_learning_rate_scale must be non-negative.")
         self.zero_residual_actor_weight = float(zero_residual_actor_weight)
+        self.zero_residual_actor_final_weight = (
+            self.zero_residual_actor_weight
+            if zero_residual_actor_final_weight is None
+            else float(zero_residual_actor_final_weight)
+        )
+        self.zero_residual_actor_anneal_end_step = (
+            None
+            if zero_residual_actor_anneal_end_step is None
+            else int(zero_residual_actor_anneal_end_step)
+        )
         self.actor_learning_rate_scale = float(actor_learning_rate_scale)
         self.constrained_actor_gradient_updates = 0
         super().__init__(*args, **kwargs)
+        if (
+            self.zero_residual_actor_anneal_end_step is not None
+            and self.zero_residual_actor_anneal_end_step
+            <= self.critic_warmup_steps
+        ):
+            raise ValueError(
+                "zero_residual_actor_anneal_end_step must be greater than "
+                "critic_warmup_steps."
+            )
+
+    def current_zero_residual_actor_weight(self, timestep=None):
+        """Return the scheduled prior weight at an absolute interaction step."""
+        timestep = self.num_timesteps if timestep is None else int(timestep)
+        final_weight = getattr(
+            self,
+            "zero_residual_actor_final_weight",
+            self.zero_residual_actor_weight,
+        )
+        anneal_end = getattr(
+            self,
+            "zero_residual_actor_anneal_end_step",
+            None,
+        )
+        if anneal_end is None or timestep <= self.critic_warmup_steps:
+            return self.zero_residual_actor_weight
+        if timestep >= anneal_end:
+            return final_weight
+        fraction = (
+            (timestep - self.critic_warmup_steps)
+            / (anneal_end - self.critic_warmup_steps)
+        )
+        return self.zero_residual_actor_weight + fraction * (
+            final_weight - self.zero_residual_actor_weight
+        )
 
     def train(self, gradient_steps, batch_size=64):
         if self.num_timesteps <= self.critic_warmup_steps:
@@ -51,6 +111,7 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
             self.lr_schedule(self._current_progress_remaining)
             * self.actor_learning_rate_scale
         )
+        current_prior_weight = self.current_zero_residual_actor_weight()
         for parameter_group in self.actor.optimizer.param_groups:
             parameter_group["lr"] = actor_learning_rate
 
@@ -145,7 +206,7 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
                 th.sum(th.square(actions_pi), dim=1)
             )
             total_actor_loss = sac_actor_loss + (
-                self.zero_residual_actor_weight * residual_prior_loss
+                current_prior_weight * residual_prior_loss
             )
 
             sac_actor_losses.append(float(sac_actor_loss.item()))
@@ -179,7 +240,7 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
         )
         self.logger.record(
             "train/zero_residual_actor_weight",
-            self.zero_residual_actor_weight,
+            current_prior_weight,
         )
         self.logger.record("train/actor_learning_rate", actor_learning_rate)
         self.logger.record("train/critic_loss", np.mean(critic_losses))

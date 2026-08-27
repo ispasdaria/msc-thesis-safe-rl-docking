@@ -67,6 +67,17 @@ def build_parser():
     parser.add_argument("--inner-batch-fraction", type=float, default=0.25)
     parser.add_argument("--outer-ratio-limit", type=float, default=5.0)
     parser.add_argument("--inner-ratio-limit", type=float, default=2.0)
+    parser.add_argument("--pilot-label", choices=("D", "E"), default="D")
+    parser.add_argument(
+        "--zero-residual-actor-final-weight",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "--zero-residual-actor-anneal-end-step",
+        type=int,
+        default=None,
+    )
     return parser
 
 
@@ -88,6 +99,27 @@ def validate_args(parser, args):
             "Ratio limits must satisfy 0 < inner-ratio-limit < "
             "outer-ratio-limit."
         )
+    schedule_values = (
+        args.zero_residual_actor_final_weight,
+        args.zero_residual_actor_anneal_end_step,
+    )
+    if (schedule_values[0] is None) != (schedule_values[1] is None):
+        parser.error(
+            "Actor-prior final weight and anneal end step must be provided "
+            "together."
+        )
+    if args.zero_residual_actor_final_weight is not None:
+        if args.zero_residual_actor_final_weight < 0.0:
+            parser.error("Actor-prior final weight must be non-negative.")
+        if not (
+            args.critic_warmup_steps
+            < args.zero_residual_actor_anneal_end_step
+            <= args.total_timesteps
+        ):
+            parser.error(
+                "Actor-prior anneal end must be after critic warm-up and no "
+                "later than total timesteps."
+            )
 
 
 def write_model_readme(
@@ -108,6 +140,7 @@ def write_model_readme(
             )
         )
     replay = config["replay_distribution"]
+    actor_constraint = config["actor_constraint"]
     reward = config["reward"]
     sac = config["sac"]
     bounds = config["reference_residual_bounds"]
@@ -138,7 +171,29 @@ def write_model_readme(
             f"{statistics['realized_inner_sample_fraction']:.1%}."
         )
     )
-    content = f"""# Pilot D P3-stratified reference-residual SAC model card
+    if actor_constraint["schedule_used"]:
+        change_description = (
+            f"Pilot {config['pilot']} changes exactly one Pilot D setting: "
+            "the zero-residual actor penalty is annealed linearly from "
+            f"{actor_constraint['initial_weight']:.3g} at interaction "
+            f"{actor_constraint['anneal_start_step']:,} to "
+            f"{actor_constraint['final_weight']:.3g} at interaction "
+            f"{actor_constraint['anneal_end_step']:,}, then held constant. "
+            "The controller, reward, replay distribution, seeds, "
+            "initialization, and all other SAC settings are unchanged."
+        )
+        actor_weight_description = (
+            f"{actor_constraint['initial_weight']:.3g} at "
+            f"{actor_constraint['anneal_start_step']:,}; linear to "
+            f"{actor_constraint['final_weight']:.3g} at "
+            f"{actor_constraint['anneal_end_step']:,}"
+        )
+    else:
+        change_description = """Pilot D changes only Pilot C's replay sampling
+distribution. The controller, fixed P3 goal, reward, one-second SAC/LQR
+cadence, zero-residual actor prior, and no-HER setup are unchanged."""
+        actor_weight_description = f"{actor_constraint['initial_weight']:.3g}"
+    content = f"""# Pilot {config['pilot']} P3-stratified reference-residual SAC model card
 
 Run: `{config['experiment_name']}`  
 Status: **{status}**  
@@ -146,9 +201,9 @@ Selected best checkpoint: **{int(best_checkpoint):,} SAC decisions**
 
 ## What this experiment changes
 
-Pilot D changes only Pilot C's replay sampling distribution. The controller,
-fixed P3 goal, reward, one-second SAC/LQR cadence, zero-residual actor prior,
-and no-HER setup are unchanged. No CBF is used during training.
+{change_description}
+
+No CBF is used during training.
 
 Each batch is constructed from:
 
@@ -206,7 +261,7 @@ ratio from the actual next state and actual fixed P3 target.
 | Critic-only warm-up | {config['critic_warmup_steps']:,} interactions |
 | Learning rate | {sac['learning_rate']:.2g} |
 | Effective actor learning rate | {sac['learning_rate'] * config['actor_learning_rate_scale']:.2g} |
-| Actor zero-reference weight | {config['zero_residual_actor_weight']:.3g} |
+| Actor zero-reference weight | {actor_weight_description} |
 | Train frequency / gradient steps | {sac['train_freq']} / {sac['gradient_steps']} |
 | Batch size | {sac['batch_size']} |
 | Discount factor | {sac['gamma']:.4f} |
@@ -260,8 +315,12 @@ def main(argv=None):
     }
     config = {
         "experiment_name": args.experiment_name,
-        "pilot": "D",
-        "method": "Pilot C with P3-stratified fixed-goal replay",
+        "pilot": args.pilot_label,
+        "method": (
+            "Pilot D with annealed zero-residual actor constraint"
+            if args.zero_residual_actor_final_weight is not None
+            else "Pilot C with P3-stratified fixed-goal replay"
+        ),
         "reward_version": REWARD_VERSION,
         "reward_scheme": ReferenceResidualLQRGoalConditionedClosingEnv.reward_scheme,
         "reference_residual_components": ["vx", "vy", "attitude"],
@@ -324,6 +383,28 @@ def main(argv=None):
         },
         "critic_warmup_steps": args.critic_warmup_steps,
         "zero_residual_actor_weight": args.zero_residual_actor_weight,
+        "actor_constraint": {
+            "schedule_used": (
+                args.zero_residual_actor_final_weight is not None
+            ),
+            "initial_weight": args.zero_residual_actor_weight,
+            "final_weight": (
+                args.zero_residual_actor_weight
+                if args.zero_residual_actor_final_weight is None
+                else args.zero_residual_actor_final_weight
+            ),
+            "anneal_start_step": args.critic_warmup_steps,
+            "anneal_end_step": (
+                None
+                if args.zero_residual_actor_anneal_end_step is None
+                else args.zero_residual_actor_anneal_end_step
+            ),
+            "form": (
+                "constant"
+                if args.zero_residual_actor_final_weight is None
+                else "linear in absolute online interactions, then constant"
+            ),
+        },
         "actor_learning_rate_scale": args.actor_learning_rate_scale,
         "sac": {
             "learning_rate": args.learning_rate,
@@ -399,6 +480,12 @@ def main(argv=None):
         replay_buffer_kwargs=replay_kwargs,
         critic_warmup_steps=args.critic_warmup_steps,
         zero_residual_actor_weight=args.zero_residual_actor_weight,
+        zero_residual_actor_final_weight=(
+            args.zero_residual_actor_final_weight
+        ),
+        zero_residual_actor_anneal_end_step=(
+            args.zero_residual_actor_anneal_end_step
+        ),
         actor_learning_rate_scale=args.actor_learning_rate_scale,
         verbose=1,
         seed=args.training_seed,
@@ -469,6 +556,14 @@ def main(argv=None):
     print("CBF in training:  no")
     print("SAC/LQR cadence:  1 Hz / 1 Hz")
     print("Replay batches:   50% global / 25% ratio <=5 / 25% ratio <=2")
+    if args.zero_residual_actor_final_weight is not None:
+        print(
+            "Actor prior:      "
+            f"{args.zero_residual_actor_weight:g} at "
+            f"{args.critic_warmup_steps:,} -> "
+            f"{args.zero_residual_actor_final_weight:g} at "
+            f"{args.zero_residual_actor_anneal_end_step:,}"
+        )
     print(f"Online steps:     {args.total_timesteps:,}")
     model.learn(
         total_timesteps=args.total_timesteps,

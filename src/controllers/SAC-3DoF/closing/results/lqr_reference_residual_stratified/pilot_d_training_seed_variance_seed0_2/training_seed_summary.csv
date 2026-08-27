@@ -1,0 +1,4 @@
+training_seed,selected_checkpoint,validation_success,validation_episodes,heldout_200_219_success,heldout_300_399_success,combined_heldout_success,combined_heldout_episodes,hard_failures,mean_best_max_target_ratio_300_399,mean_final_max_target_ratio_300_399,mean_return_300_399
+0,25000,8,10,15,75,90,120,0,1.0453865684590467,1.1884559762084226,1.5470832596702875
+1,0,8,10,14,75,89,120,0,1.0463055355512485,1.1979109796535214,1.5569789046488622
+2,50000,9,10,14,68,82,120,0,1.0508587532023075,1.2235465561929673,1.381704507784339

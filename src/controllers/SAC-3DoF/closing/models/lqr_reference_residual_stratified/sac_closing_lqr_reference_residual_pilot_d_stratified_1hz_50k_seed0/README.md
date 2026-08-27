@@ -103,6 +103,19 @@ lose a seed on this set. This is a promising one-seed gain, not strong
 statistical evidence: there is only one discordant pair, so a larger held-out
 set is required before claiming reliable superiority to LQR.
 
+## Training-seed replication
+
+Pilot D was subsequently replicated with training seeds 1 and 2 while all
+other inputs were held fixed. Selected-policy combined held-out success was
+90/120 for seed 0, 89/120 for seed 1, and 82/120 for seed 2, versus 89/120 for
+LQR. Seed 1 selected checkpoint 0, and seed 2's validation-selected 50k model
+was significantly worse than LQR on seeds 300--399 (`68/100` versus `75/100`,
+paired `p = 0.015625`).
+
+Therefore, this seed-0 checkpoint remains the best observed Pilot D artifact,
+but it is not a reproducible improvement over LQR. See the aggregate report in
+`../../../results/lqr_reference_residual_stratified/pilot_d_training_seed_variance_seed0_2/`.
+
 ## Artifacts
 
 - `checkpoint_0_model.zip`: exact zero-residual LQR baseline;

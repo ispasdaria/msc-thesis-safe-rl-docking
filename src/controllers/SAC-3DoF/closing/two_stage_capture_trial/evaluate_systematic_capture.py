@@ -20,6 +20,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from systematic_capture_env import SystematicCaptureEnv  # noqa: E402
+from systematic_capture_action import LowPassCaptureActionWrapper  # noqa: E402
 from systematic_capture_observation import (  # noqa: E402
     FixedCaptureObservationScale,
     MarkovCaptureObservationScale,
@@ -38,6 +39,7 @@ def parse_args():
     parser.add_argument("--max-time", type=float, default=2_000.0)
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    parser.add_argument("--action-filter-alpha", type=float, default=None)
     return parser.parse_args()
 
 
@@ -51,7 +53,7 @@ def parse_distances(value):
     return distances
 
 
-def make_env(max_time, seed, observation_mode="raw"):
+def make_env(max_time, seed, observation_mode="raw", action_filter_alpha=None):
     env = SystematicCaptureResetWrapper(
         SystematicCaptureEnv(mode="testing", max_time=max_time, seed=seed),
         capture_distance_m=DEFAULT_CONTRACT.handover_distance_m,
@@ -63,7 +65,27 @@ def make_env(max_time, seed, observation_mode="raw"):
         env = MarkovCaptureObservationScale(env)
     elif observation_mode != "raw":
         raise ValueError(f"Unknown observation mode: {observation_mode}")
+    if action_filter_alpha is not None:
+        if observation_mode != "markov":
+            raise ValueError("Action filtering requires the Markov observation.")
+        env = LowPassCaptureActionWrapper(env, alpha=action_filter_alpha)
     return Monitor(env)
+
+
+def configured_action_filter_alpha(model_path):
+    config_path = (
+        TRIAL_DIR
+        / "artifacts"
+        / "systematic"
+        / "results"
+        / model_path.parent.name
+        / "run_config.json"
+    )
+    if not config_path.is_file():
+        return None
+    with config_path.open(encoding="utf-8") as handle:
+        config = json.load(handle)
+    return config.get("action_filter", {}).get("alpha")
 
 
 def main():
@@ -78,6 +100,9 @@ def main():
     )
     if not vecnormalize_path.is_file():
         raise FileNotFoundError(vecnormalize_path)
+    action_filter_alpha = args.action_filter_alpha
+    if action_filter_alpha is None:
+        action_filter_alpha = configured_action_filter_alpha(args.model)
 
     output_dir = args.output_dir or (
         TRIAL_DIR
@@ -95,7 +120,14 @@ def main():
     if observation_size == 15:
         observation_mode = "markov"
         raw_vec = DummyVecEnv(
-            [lambda: make_env(args.max_time, args.seed_start, observation_mode)]
+            [
+                lambda: make_env(
+                    args.max_time,
+                    args.seed_start,
+                    observation_mode,
+                    action_filter_alpha,
+                )
+            ]
         )
         vec_env = VecNormalize.load(str(vecnormalize_path), raw_vec)
     elif observation_size == 12:
@@ -236,6 +268,7 @@ def main():
             "success_set": "validated_X_P3_testing",
             "fixed_observation_scaling": observation_mode in {"fixed", "markov"},
             "observation_mode": observation_mode,
+            "action_filter_alpha": action_filter_alpha,
             "by_distance": summaries,
         },
     )

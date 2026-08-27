@@ -1,0 +1,40 @@
+{
+  "controllers": {
+    "lqr_zero_residual": {
+      "mean_action_rms": 0.0,
+      "mean_best_ratio": 1.351546419594523,
+      "mean_final_ratio": 1.423175835617713,
+      "n_failure": 0,
+      "n_states": 50,
+      "n_success": 18,
+      "n_timeout": 32,
+      "success_rate": 0.36
+    },
+    "pilot_f_best": {
+      "mean_action_rms": 0.022509926559116277,
+      "mean_best_ratio": 1.3494567020679051,
+      "mean_final_ratio": 1.4397538333194522,
+      "n_failure": 0,
+      "n_states": 50,
+      "n_success": 19,
+      "n_timeout": 31,
+      "success_rate": 0.38
+    }
+  },
+  "dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_oracle_seeds400_449.npz",
+  "horizon": 600,
+  "paired_comparison": {
+    "discordant_pairs": 3,
+    "loss_source_seeds": [
+      405
+    ],
+    "losses": 1,
+    "rescue_source_seeds": [
+      441,
+      446
+    ],
+    "rescues": 2,
+    "two_sided_exact_p_value": 1.0
+  },
+  "sample_seed": 92000
+}

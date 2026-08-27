@@ -27,6 +27,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from systematic_capture_env import SystematicCaptureEnv  # noqa: E402
+from systematic_capture_action import LowPassCaptureActionWrapper  # noqa: E402
 from systematic_capture_observation import (  # noqa: E402
     MarkovCaptureObservationScale,
 )
@@ -104,7 +105,9 @@ def make_capture_env(args):
         capture_distance_m=DEFAULT_CONTRACT.handover_distance_m,
         enable_lateral_divergence_termination=True,
     )
-    return Monitor(MarkovCaptureObservationScale(wrapped))
+    observed = MarkovCaptureObservationScale(wrapped)
+    filtered = LowPassCaptureActionWrapper(observed, alpha=0.25)
+    return Monitor(filtered)
 
 
 def build_config(args, experiment):
@@ -219,6 +222,11 @@ def build_config(args, experiment):
             "action_delta_weights": (
                 SystematicCaptureEnv.action_delta_weights.tolist()
             ),
+            "outward_velocity": {
+                "scale_mps": SystematicCaptureEnv.outward_velocity_scale_mps,
+                "depth_clip": SystematicCaptureEnv.outward_velocity_depth_clip,
+                "weight": SystematicCaptureEnv.outward_velocity_weight,
+            },
             "success_bonus": SystematicCaptureEnv.success_bonus,
             "safety_failure_penalty": SystematicCaptureEnv.safety_failure_penalty,
             "timeout_penalty": SystematicCaptureEnv.timeout_penalty,
@@ -237,6 +245,12 @@ def build_config(args, experiment):
             "attitude_unsafe_deg": 4.0,
             "angular_rate_warning_degs": 0.15,
             "angular_rate_unsafe_degs": 0.20,
+        },
+        "action_filter": {
+            "type": "first_order_low_pass",
+            "alpha": 0.25,
+            "initial_executed_action": [0.0, 0.0, 0.0],
+            "observation_contains_previous_executed_action": True,
         },
         "failed_approach_termination": {
             "inward_below_validated_p3_box": True,
@@ -260,7 +274,7 @@ def build_config(args, experiment):
             "tau": 0.005,
             "gamma": 0.999,
             "train_freq": 16,
-            "gradient_steps": 8,
+            "gradient_steps": 4,
             "ent_coef": 0.01,
         },
         "observation_scaling": MarkovCaptureObservationScale.as_dict(),
@@ -278,7 +292,7 @@ def main():
     validate_args(args)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     experiment = args.experiment_name or (
-        f"systematic_capture_v9_h150_seed{args.training_seed}_{timestamp}"
+        f"systematic_capture_v10_h150_seed{args.training_seed}_{timestamp}"
     )
     model_dir = SYSTEMATIC_ROOT / "models" / experiment
     result_dir = SYSTEMATIC_ROOT / "results" / experiment
@@ -312,7 +326,7 @@ def main():
         tau=0.005,
         gamma=0.999,
         train_freq=16,
-        gradient_steps=8,
+        gradient_steps=4,
         ent_coef=0.01,
         target_update_interval=1,
         tensorboard_log=str(log_dir),

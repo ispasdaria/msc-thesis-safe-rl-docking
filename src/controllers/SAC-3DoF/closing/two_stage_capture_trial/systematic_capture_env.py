@@ -29,12 +29,12 @@ class SystematicCaptureCoreEnv(CaptureSafetyTerminalCoreEnv):
 class SystematicCaptureEnv(CaptureSafetyTerminalEnv):
     """Systematic capture reward plus hard geometry/velocity/alignment safety."""
 
-    reward_scheme = "systematic_capture_markov_lateral_position_v9"
+    reward_scheme = "systematic_capture_filtered_axial_consistency_v10"
 
     # Axial progress is measured in metres toward the validated P3 rx box.
     axial_progress_negative_clip_m = 1.0
     axial_progress_positive_clip_m = 0.25
-    axial_progress_scale = 1.0
+    axial_progress_scale = 1.5
 
     # Pseudo-Huber costs retain a linear recovery gradient at large errors
     # without the hard plateau of v3 or the vanishing log gradient of v4.
@@ -47,7 +47,7 @@ class SystematicCaptureEnv(CaptureSafetyTerminalEnv):
     # receives stronger terminal-zone tracking in this controlled ablation.
     tracking_weights_near = np.array([0.0, 0.05, 0.02, 0.02, 0.01])
     vx_tracking_weight_far = 0.003
-    vx_tracking_weight_near = 0.100
+    vx_tracking_weight_near = 0.150
     vx_full_weight_axial_gap_m = 30.0
     box_state_cost_weight = 0.05
 
@@ -85,6 +85,13 @@ class SystematicCaptureEnv(CaptureSafetyTerminalEnv):
     # magnitude information beyond the first P3 half-width.
     terminal_lateral_unready_weight = 0.15
     terminal_lateral_unready_depth_clip = 4.0
+
+    # Penalize reversal immediately rather than waiting for the delayed
+    # flyaway terminal condition. This does not prescribe a distance-varying
+    # vx reference; it only rejects outward motion during capture.
+    outward_velocity_scale_mps = 0.05
+    outward_velocity_depth_clip = 3.0
+    outward_velocity_weight = 0.20
 
     geometry_warning_weight = 1.00
     velocity_warning_weight = 0.25
@@ -457,6 +464,17 @@ class SystematicCaptureEnv(CaptureSafetyTerminalEnv):
         reward_velocity_warning = -warnings["velocity_cost"]
         reward_alignment_warning = -warnings["alignment_cost"]
         reward_attitude_margin = -warnings["attitude_margin_cost"]
+        outward_velocity_mps = max(float(np.asarray(state)[2]), 0.0)
+        outward_velocity_depth = float(
+            np.clip(
+                outward_velocity_mps / self.outward_velocity_scale_mps,
+                0.0,
+                self.outward_velocity_depth_clip,
+            )
+        )
+        reward_outward_velocity = (
+            -self.outward_velocity_weight * outward_velocity_depth**2
+        )
         reward_action = -float(np.dot(self.action_weights, action**2))
         reward_action_delta = -float(
             np.dot(self.action_delta_weights, action_delta**2)
@@ -478,6 +496,7 @@ class SystematicCaptureEnv(CaptureSafetyTerminalEnv):
             + reward_velocity_warning
             + reward_alignment_warning
             + reward_attitude_margin
+            + reward_outward_velocity
             + reward_action
             + reward_action_delta
             + reward_success
@@ -536,6 +555,8 @@ class SystematicCaptureEnv(CaptureSafetyTerminalEnv):
             "velocity_warning_depth": warnings["velocity_depth"],
             "alignment_warning_depth": warnings["alignment_depth"],
             "attitude_margin_depth": warnings["attitude_margin_depth"],
+            "outward_velocity_mps": outward_velocity_mps,
+            "outward_velocity_depth": outward_velocity_depth,
             "action_delta_squared_norm": float(np.dot(action_delta, action_delta)),
             "reward_axial_progress": float(reward_axial_progress),
             "reward_tracking": float(reward_tracking),
@@ -554,6 +575,7 @@ class SystematicCaptureEnv(CaptureSafetyTerminalEnv):
             "reward_velocity_warning": float(reward_velocity_warning),
             "reward_alignment_warning": float(reward_alignment_warning),
             "reward_attitude_margin": float(reward_attitude_margin),
+            "reward_outward_velocity": float(reward_outward_velocity),
             "reward_action": float(reward_action),
             "reward_action_delta": float(reward_action_delta),
             "reward_success": float(reward_success),

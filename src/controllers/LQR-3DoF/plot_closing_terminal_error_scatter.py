@@ -212,7 +212,7 @@ def make_figure(
             "font.size": 10.5,
             "axes.labelsize": 11,
             "axes.titlesize": 11.5,
-            "legend.fontsize": 9.5,
+            "legend.fontsize": 11.5,
             "figure.dpi": 120,
             "savefig.dpi": 300,
             "pdf.fonttype": 42,

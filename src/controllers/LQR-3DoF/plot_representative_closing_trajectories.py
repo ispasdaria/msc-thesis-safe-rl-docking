@@ -228,7 +228,7 @@ def make_figure(
             "font.size": 10.5,
             "axes.labelsize": 11,
             "axes.titlesize": 11.5,
-            "legend.fontsize": 9.5,
+            "legend.fontsize": 11.5,
             "figure.dpi": 120,
             "savefig.dpi": 300,
             "pdf.fonttype": 42,
@@ -406,7 +406,7 @@ def make_xy_figure(
             target[1] + tolerance[1] - 0.25,
             label,
             color=color,
-            fontsize=7.5,
+            fontsize=9.5,
             fontweight="bold",
             ha="left",
             va="top",
@@ -416,10 +416,10 @@ def make_xy_figure(
     all_targets = np.vstack((success["target"][:2], timeout["target"][:2]))
     inset.set_xlim(np.min(all_targets[:, 0]) - 28.0, np.max(all_targets[:, 0]) + 32.0)
     inset.set_ylim(np.min(all_targets[:, 1]) - 5.0, np.max(all_targets[:, 1]) + 5.0)
-    inset.set_title("$P_3$ terminal region", fontsize=9, pad=3)
-    inset.set_xlabel("$x$ [m]", fontsize=8)
-    inset.set_ylabel("$y$ [m]", fontsize=8)
-    inset.tick_params(labelsize=8)
+    inset.set_title("$P_3$ terminal region", fontsize=10.5, pad=3)
+    inset.set_xlabel("$x$ [m]", fontsize=9)
+    inset.set_ylabel("$y$ [m]", fontsize=9)
+    inset.tick_params(labelsize=9)
     inset.grid(True, color="#D9D9D9", linewidth=0.55, alpha=0.8)
 
     start_handle = plt.Line2D(

@@ -160,6 +160,7 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
             "font.size": 10.5,
             "axes.labelsize": 11,
             "axes.titlesize": 12,
+            "legend.fontsize": 11.5,
             "figure.dpi": 120,
             "savefig.dpi": 300,
             "pdf.fonttype": 42,
@@ -286,7 +287,7 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
             f"(range {np.min(completion_minutes):.1f}–{np.max(completion_minutes):.1f} min)"
         ),
         transform=time_ax.transAxes,
-        fontsize=9.2,
+        fontsize=11,
         ha="left",
         va="bottom",
         bbox={"facecolor": "white", "edgecolor": "#BBBBBB", "alpha": 0.88, "pad": 4},

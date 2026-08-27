@@ -153,6 +153,7 @@ def make_figure(records: list[dict[str, object]]) -> plt.Figure:
             "font.size": 10,
             "axes.labelsize": 10.5,
             "axes.titlesize": 11.5,
+            "legend.fontsize": 11.5,
             "figure.dpi": 120,
             "savefig.dpi": 300,
             "pdf.fonttype": 42,
@@ -244,7 +245,7 @@ def make_figure(records: list[dict[str, object]]) -> plt.Figure:
                 else f"All-rollout mean: {np.mean(values[:, channel_index]):.2f}%"
             ),
             transform=ax.transAxes,
-            fontsize=8.5,
+            fontsize=10.5,
             ha="center",
             va="top",
             bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.82, "pad": 1.5},

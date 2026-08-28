@@ -230,7 +230,7 @@ def make_figure(
         position_tolerance,
         r"Axial error $|e_x|$ [m]",
         r"Lateral error $|e_y|$ [m]",
-        "(a) Position error",
+        r"(a) CoM position error relative to the $P_3$ target",
     )
     draw_panel(
         axes[1],
@@ -241,7 +241,7 @@ def make_figure(
         velocity_tolerance,
         r"Axial-velocity error $|e_{v_x}|$ [m/s]",
         r"Lateral-velocity error $|e_{v_y}|$ [m/s]",
-        "(b) Velocity error",
+        r"(b) CoM velocity error relative to the $P_3$ target",
     )
     draw_panel(
         axes[2],
@@ -252,7 +252,7 @@ def make_figure(
         attitude_tolerance,
         r"Attitude error $|e_{\psi}|$ [deg]",
         r"Angular-rate error $|e_{\omega}|$ [deg/s]",
-        "(c) Attitude error",
+        r"(c) Attitude-alignment error relative to the $P_3$ target",
     )
 
     # One shared legend avoids repeating identical outcome counts in each panel.

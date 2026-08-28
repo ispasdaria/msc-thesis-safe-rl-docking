@@ -75,6 +75,37 @@ def saturation_fraction(env, atol=1e-12):
     return float(np.mean(saturated_any))
 
 
+def translational_delta_v_proxy(env):
+    """Return ``sum ||a_xy,applied|| dt`` for the completed rollout."""
+    times, _, _, actions_body_clipped, _ = env.get_history_arrays()
+
+    if actions_body_clipped.size == 0:
+        return 0.0
+
+    if times.size >= 2:
+        dt = float(np.median(np.diff(times)))
+    else:
+        dt = float(getattr(env, "dt", 1.0))
+
+    a_trans = actions_body_clipped[:, :2]
+    return float(np.sum(np.linalg.norm(a_trans, axis=1)) * dt)
+
+
+def angular_effort_proxy(env):
+    """Return ``sum |alpha_z,applied| dt`` for the completed rollout."""
+    times, _, _, actions_body_clipped, _ = env.get_history_arrays()
+
+    if actions_body_clipped.size == 0:
+        return 0.0
+
+    if times.size >= 2:
+        dt = float(np.median(np.diff(times)))
+    else:
+        dt = float(getattr(env, "dt", 1.0))
+
+    return float(np.sum(np.abs(actions_body_clipped[:, 2])) * dt)
+
+
 def trajectory_mean_vx(env):
     """
     Mean vx over the whole stored trajectory.
@@ -158,6 +189,8 @@ def build_rollout_record(env, state, info, seed, steps):
     final_error, component_error = compute_final_error(env, state)
     status = rollout_status(info)
     sat = saturation_fraction(env)
+    delta_v_proxy = translational_delta_v_proxy(env)
+    angular_effort = angular_effort_proxy(env)
 
     violated_constraints = info.get("violated_constraints", [])
     if violated_constraints is None:
@@ -172,6 +205,8 @@ def build_rollout_record(env, state, info, seed, steps):
         "steps": int(steps),
         "elapsed_time": float(env.time),
         "saturation_fraction": float(sat),
+        "delta_v_proxy": float(delta_v_proxy),
+        "angular_effort": float(angular_effort),
         "final_error": float(final_error),
         "abs_final_ex": float(abs(component_error[0])) if component_error.size else float("nan"),
         "abs_final_ey": float(abs(component_error[1])) if component_error.size else float("nan"),
@@ -362,6 +397,8 @@ def run_rollouts(
     fail_omega = 0
 
     sat_fractions = []
+    delta_v_proxies = []
+    angular_effort_proxies = []
     rollout_records = []
 
     # Final error diagnostics relative to the sampled P3 target.
@@ -454,6 +491,8 @@ def run_rollouts(
             fail_omega += int(failed_components[5])
 
         sat_fractions.append(saturation_fraction(env))
+        delta_v_proxies.append(translational_delta_v_proxy(env))
+        angular_effort_proxies.append(angular_effort_proxy(env))
 
         q = env.get_derived_quantities(state)
         final_port_speeds.append(q["port_speed"])
@@ -526,6 +565,14 @@ def run_rollouts(
         "vel_rate": violation_velocity_rate,
         "align_rate": violation_alignment_rate,
         "sat_fraction": sat_mean,
+        "delta_v_proxy": (
+            float(np.mean(delta_v_proxies)) if delta_v_proxies else float("nan")
+        ),
+        "angular_effort": (
+            float(np.mean(angular_effort_proxies))
+            if angular_effort_proxies
+            else float("nan")
+        ),
         "final_err": final_error_mean,
         "ex": final_ex_mean,
         "ey": final_ey_mean,
@@ -561,6 +608,7 @@ def run_rollouts(
 def print_header():
     header = (
         "q_scale r_scale success timeout safety unsafe0 geom vel align sat "
+        "dv effort "
         "final_err ex ey evx evy epsi eomega "
         "vport vport_dist com_dist rho psi_abs omega_abs vy vy_abs sdot "
         "vx_final vx_mean elapsed est_final_vx est_mean_vx "
@@ -581,6 +629,8 @@ def print_result_row(q_scale, r_scale, result):
         f" {result['vel_rate']:5.3f}"
         f" {result['align_rate']:5.3f}"
         f" {result['sat_fraction']:5.3f}"
+        f" {result['delta_v_proxy']:7.3f}"
+        f" {result['angular_effort']:7.4f}"
         f" {result['final_err']:9.3f}"
         f" {result['ex']:7.3f}"
         f" {result['ey']:7.3f}"

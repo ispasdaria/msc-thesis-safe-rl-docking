@@ -13,7 +13,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
+from matplotlib.patches import Circle, Patch
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -38,6 +38,7 @@ from lqr_sweep_final import compute_final_error_history, run_single_rollout
 RESULT_DIR = SCRIPT_DIR / "results" / "lqr_final"
 DEFAULT_CACHE = RESULT_DIR / "final_approach_0_49_port_distance_histories.npz"
 DEFAULT_OUTPUT = RESULT_DIR / "final_approach_convergence"
+DEFAULT_PORT_XY_OUTPUT = RESULT_DIR / "final_approach_port_xy_trajectories"
 TRAJECTORY_COLOR = "#0072B2"
 MEDIAN_COLOR = "#003B5C"
 TOLERANCE_COLOR = "#009E73"
@@ -56,6 +57,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dock-tolerance", type=float, default=0.1)
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--port-xy-output",
+        type=Path,
+        default=DEFAULT_PORT_XY_OUTPUT,
+        help="Docking-port trajectory output path without an extension.",
+    )
     parser.add_argument(
         "--recompute",
         action="store_true",
@@ -79,6 +86,8 @@ def collect_histories(args: argparse.Namespace) -> dict[str, np.ndarray]:
     seeds: list[int] = []
     times: list[np.ndarray] = []
     distances: list[np.ndarray] = []
+    port_x_positions: list[np.ndarray] = []
+    port_y_positions: list[np.ndarray] = []
     axial_velocities: list[np.ndarray] = []
     successes: list[bool] = []
     reasons: list[str] = []
@@ -99,6 +108,8 @@ def collect_histories(args: argparse.Namespace) -> dict[str, np.ndarray]:
         seeds.append(seed)
         times.append(np.asarray(rollout_times, dtype=float))
         distances.append(np.asarray(port_distance, dtype=float))
+        port_x_positions.append(np.asarray(error_history[:, 0], dtype=float))
+        port_y_positions.append(np.asarray(error_history[:, 1], dtype=float))
         axial_velocities.append(np.asarray(axial_port_velocity, dtype=float))
         successes.append(bool(info.get("success", False)))
         reasons.append(str(info.get("termination_reason", "unknown")))
@@ -108,20 +119,42 @@ def collect_histories(args: argparse.Namespace) -> dict[str, np.ndarray]:
     max_length = max(array.size for array in times)
     padded_times = np.full((args.rollouts, max_length), np.nan, dtype=float)
     padded_distances = np.full((args.rollouts, max_length), np.nan, dtype=float)
+    padded_port_x_positions = np.full(
+        (args.rollouts, max_length), np.nan, dtype=float
+    )
+    padded_port_y_positions = np.full(
+        (args.rollouts, max_length), np.nan, dtype=float
+    )
     padded_axial_velocities = np.full(
         (args.rollouts, max_length), np.nan, dtype=float
     )
-    for index, (rollout_times, rollout_distances, rollout_velocities) in enumerate(
-        zip(times, distances, axial_velocities)
+    for index, (
+        rollout_times,
+        rollout_distances,
+        rollout_port_x,
+        rollout_port_y,
+        rollout_velocities,
+    ) in enumerate(
+        zip(
+            times,
+            distances,
+            port_x_positions,
+            port_y_positions,
+            axial_velocities,
+        )
     ):
         padded_times[index, : rollout_times.size] = rollout_times
         padded_distances[index, : rollout_distances.size] = rollout_distances
+        padded_port_x_positions[index, : rollout_port_x.size] = rollout_port_x
+        padded_port_y_positions[index, : rollout_port_y.size] = rollout_port_y
         padded_axial_velocities[index, : rollout_velocities.size] = rollout_velocities
 
     return {
         "seeds": np.asarray(seeds, dtype=int),
         "times": padded_times,
         "port_distances": padded_distances,
+        "port_x_positions": padded_port_x_positions,
+        "port_y_positions": padded_port_y_positions,
         "axial_port_velocities": padded_axial_velocities,
         "success": np.asarray(successes, dtype=bool),
         "termination_reasons": np.asarray(reasons, dtype="U32"),
@@ -139,7 +172,10 @@ def load_cache(path: Path) -> dict[str, np.ndarray]:
         return {key: np.asarray(data[key]) for key in data.files}
 
 
-def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
+def make_figure(
+    histories: dict[str, np.ndarray], *, logarithmic: bool = True,
+    time_unit: str = "minutes",
+) -> plt.Figure:
     seeds = np.asarray(histories["seeds"], dtype=int)
     times = np.asarray(histories["times"], dtype=float)
     distances = np.asarray(histories["port_distances"], dtype=float)
@@ -154,6 +190,16 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
     )
     median_seconds = float(np.median(completion_seconds))
     median_index = int(np.argmin(np.abs(completion_seconds - median_seconds)))
+    if time_unit == "minutes":
+        time_divisor = 60.0
+        time_axis_label = "Time [min]"
+        completion_unit = "min"
+    elif time_unit == "seconds":
+        time_divisor = 1.0
+        time_axis_label = "Time [s]"
+        completion_unit = "s"
+    else:
+        raise ValueError("time_unit must be either 'minutes' or 'seconds'")
 
     plt.rcParams.update(
         {
@@ -174,7 +220,7 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
     for index in range(seeds.size):
         count = valid_counts[index]
         time_ax.plot(
-            times[index, :count] / 60.0,
+            times[index, :count] / time_divisor,
             distances[index, :count],
             color=TRAJECTORY_COLOR,
             linewidth=0.85,
@@ -182,7 +228,7 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
             zorder=2,
         )
         time_ax.scatter(
-            times[index, count - 1] / 60.0,
+            times[index, count - 1] / time_divisor,
             distances[index, count - 1],
             s=8,
             color=TRAJECTORY_COLOR,
@@ -210,7 +256,7 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
 
     median_count = valid_counts[median_index]
     time_ax.plot(
-        times[median_index, :median_count] / 60.0,
+        times[median_index, :median_count] / time_divisor,
         distances[median_index, :median_count],
         color=MEDIAN_COLOR,
         linewidth=2.2,
@@ -218,7 +264,7 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
         zorder=4,
     )
     time_ax.scatter(
-        times[median_index, median_count - 1] / 60.0,
+        times[median_index, median_count - 1] / time_divisor,
         distances[median_index, median_count - 1],
         s=42,
         marker="o",
@@ -246,7 +292,7 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
         zorder=5,
     )
 
-    lower_limit = min(0.07, 0.8 * np.nanmin(distances))
+    lower_limit = min(0.07, 0.8 * np.nanmin(distances)) if logarithmic else 0.0
     for ax in (time_ax, phase_ax):
         ax.axhspan(
             lower_limit, tolerance, color=TOLERANCE_COLOR, alpha=0.13, zorder=1
@@ -258,13 +304,20 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
             linestyle="--",
             zorder=3,
         )
-        ax.set_yscale("log")
+        if logarithmic:
+            ax.set_yscale("log")
         ax.set_ylim(lower_limit, 1.12 * np.nanmax(distances))
-        ax.grid(True, which="both", color="#D9D9D9", linewidth=0.65, alpha=0.75)
+        ax.grid(
+            True,
+            which="both" if logarithmic else "major",
+            color="#D9D9D9",
+            linewidth=0.65,
+            alpha=0.75,
+        )
         ax.set_axisbelow(True)
 
-    time_ax.set_xlim(0.0, 1.03 * np.max(completion_seconds) / 60.0)
-    time_ax.set_xlabel("Time [min]")
+    time_ax.set_xlim(0.0, 1.03 * np.max(completion_seconds) / time_divisor)
+    time_ax.set_xlabel(time_axis_label)
     time_ax.set_ylabel(r"Docking-port distance $\|\mathbf{r}_p\|$ [m]")
     time_ax.set_title(
         "(a) Docking-port distance versus time", loc="left", fontweight="bold"
@@ -277,14 +330,15 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
         fontweight="bold",
     )
 
-    completion_minutes = completion_seconds / 60.0
+    completion_times = completion_seconds / time_divisor
     time_ax.text(
         0.035,
         0.055,
         (
             f"{int(np.sum(success))}/{success.size} successful\n"
-            f"Completion time: median {np.median(completion_minutes):.1f} min "
-            f"(range {np.min(completion_minutes):.1f}–{np.max(completion_minutes):.1f} min)"
+            f"Completion time: median {np.median(completion_times):.1f} "
+            f"{completion_unit} (range {np.min(completion_times):.1f}–"
+            f"{np.max(completion_times):.1f} {completion_unit})"
         ),
         transform=time_ax.transAxes,
         fontsize=11,
@@ -327,20 +381,168 @@ def make_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
     return fig
 
 
+def make_port_xy_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
+    """Plot docking-port-relative trajectories in the docking plane."""
+    seeds = np.asarray(histories["seeds"], dtype=int)
+    times = np.asarray(histories["times"], dtype=float)
+    port_x = np.asarray(histories["port_x_positions"], dtype=float)
+    port_y = np.asarray(histories["port_y_positions"], dtype=float)
+    tolerance = float(np.asarray(histories["dock_tolerance"]))
+
+    valid_counts = np.sum(np.isfinite(times), axis=1)
+    completion_seconds = np.asarray(
+        [times[index, count - 1] for index, count in enumerate(valid_counts)],
+        dtype=float,
+    )
+    median_seconds = float(np.median(completion_seconds))
+    median_index = int(np.argmin(np.abs(completion_seconds - median_seconds)))
+
+    plt.rcParams.update(
+        {
+            "font.size": 10.5,
+            "axes.labelsize": 11,
+            "axes.titlesize": 12,
+            "legend.fontsize": 11.5,
+            "figure.dpi": 120,
+            "savefig.dpi": 300,
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+        }
+    )
+    fig, full_ax = plt.subplots(figsize=(9.6, 5.6))
+
+    for index in range(seeds.size):
+        count = valid_counts[index]
+        for ax in (full_ax,):
+            ax.plot(
+                port_x[index, :count],
+                port_y[index, :count],
+                color=TRAJECTORY_COLOR,
+                linewidth=0.85,
+                alpha=0.18,
+                zorder=2,
+            )
+            ax.scatter(
+                port_x[index, count - 1],
+                port_y[index, count - 1],
+                s=9,
+                color=TRAJECTORY_COLOR,
+                alpha=0.28,
+                edgecolor="none",
+                zorder=3,
+            )
+
+    median_count = valid_counts[median_index]
+    for ax in (full_ax,):
+        ax.plot(
+            port_x[median_index, :median_count],
+            port_y[median_index, :median_count],
+            color=MEDIAN_COLOR,
+            linewidth=2.2,
+            alpha=0.95,
+            zorder=4,
+        )
+        ax.scatter(
+            port_x[median_index, median_count - 1],
+            port_y[median_index, median_count - 1],
+            s=42,
+            marker="o",
+            facecolor=MEDIAN_COLOR,
+            edgecolor="white",
+            linewidth=0.6,
+            zorder=5,
+        )
+        ax.add_patch(
+            Circle(
+                (0.0, 0.0),
+                tolerance,
+                facecolor=TOLERANCE_COLOR,
+                edgecolor="#007A59",
+                linewidth=1.4,
+                linestyle="--",
+                alpha=0.13,
+                zorder=1,
+            )
+        )
+        ax.axhline(0.0, color="#AAAAAA", linewidth=0.8, linestyle=":", zorder=0)
+        ax.axvline(0.0, color="#AAAAAA", linewidth=0.8, linestyle=":", zorder=0)
+        ax.grid(True, color="#D9D9D9", linewidth=0.65, alpha=0.75)
+        ax.set_axisbelow(True)
+
+    full_ax.margins(x=0.035, y=0.10)
+    full_ax.set_xlabel(
+        r"Axial target docking-port-relative position $r_{p,x}$ [m]"
+    )
+    full_ax.set_ylabel(
+        r"Lateral target docking-port-relative position $r_{p,y}$ [m]"
+    )
+    full_ax.set_title(
+        "Final-approach trajectories in the docking-plane across 50 rollouts",
+        loc="left",
+        fontweight="bold",
+    )
+    # The physical 0.1 m tolerance is sub-pixel at the full-trajectory scale.
+    # Use a screen-space circle to show its location without adding a close-up.
+    full_ax.scatter(
+        0.0,
+        0.0,
+        s=190,
+        marker="o",
+        facecolor=TOLERANCE_COLOR,
+        edgecolor="#007A59",
+        linewidth=1.5,
+        alpha=0.30,
+        zorder=6,
+    )
+
+    legend_handles = [
+        Line2D(
+            [], [], color=TRAJECTORY_COLOR, linewidth=1.2, alpha=0.3,
+            label="Individual rollouts"
+        ),
+        Line2D(
+            [], [], color=MEDIAN_COLOR, linewidth=2.2,
+            label=(
+                f"Rollout nearest to median duration (seed {seeds[median_index]}, "
+                f"{completion_seconds[median_index]:.0f} s)"
+            )
+        ),
+        Line2D(
+            [], [], marker="o", linestyle="none",
+            markerfacecolor=TOLERANCE_COLOR, markeredgecolor="#007A59",
+            alpha=0.45, markersize=9, label="0.1 m docking tolerance"
+        ),
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.55, 0.94),
+        ncol=3,
+        frameon=False,
+    )
+    fig.subplots_adjust(left=0.10, right=0.985, bottom=0.14, top=0.82)
+    return fig
+
+
 def main() -> None:
     args = parse_args()
     histories = None
     if not args.recompute and args.cache.exists():
         histories = load_cache(args.cache)
 
-    if histories is None or "axial_port_velocities" not in histories:
+    required_history_fields = {
+        "axial_port_velocities",
+        "port_x_positions",
+        "port_y_positions",
+    }
+    if histories is None or not required_history_fields.issubset(histories):
         histories = collect_histories(args)
         write_cache(args.cache, histories)
         print(f"Wrote {args.cache}")
     else:
         print(f"Loaded {args.cache}")
 
-    figure = make_figure(histories)
+    figure = make_figure(histories, logarithmic=True)
     output_base = args.output.with_suffix("")
     output_base.parent.mkdir(parents=True, exist_ok=True)
     png_path = output_base.with_suffix(".png")
@@ -348,6 +550,15 @@ def main() -> None:
     figure.savefig(png_path, bbox_inches="tight", facecolor="white")
     figure.savefig(pdf_path, bbox_inches="tight", facecolor="white")
     plt.close(figure)
+
+    port_xy_figure = make_port_xy_figure(histories)
+    port_xy_output_base = args.port_xy_output.with_suffix("")
+    port_xy_output_base.parent.mkdir(parents=True, exist_ok=True)
+    port_xy_png_path = port_xy_output_base.with_suffix(".png")
+    port_xy_pdf_path = port_xy_output_base.with_suffix(".pdf")
+    port_xy_figure.savefig(port_xy_png_path, bbox_inches="tight", facecolor="white")
+    port_xy_figure.savefig(port_xy_pdf_path, bbox_inches="tight", facecolor="white")
+    plt.close(port_xy_figure)
 
     success = np.asarray(histories["success"], dtype=bool)
     lengths = np.sum(np.isfinite(histories["times"]), axis=1)
@@ -361,6 +572,8 @@ def main() -> None:
     )
     print(f"Wrote {png_path}")
     print(f"Wrote {pdf_path}")
+    print(f"Wrote {port_xy_png_path}")
+    print(f"Wrote {port_xy_pdf_path}")
 
 
 if __name__ == "__main__":

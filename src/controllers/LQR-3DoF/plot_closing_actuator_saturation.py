@@ -164,9 +164,9 @@ def make_figure(records: list[dict[str, object]]) -> plt.Figure:
     fig, axes = plt.subplots(1, 3, figsize=(11.8, 4.8))
     rng = np.random.default_rng(20260828)
     panel_titles = (
-        r"(a) Axial acceleration $a_x$",
-        r"(b) Lateral acceleration $a_y$",
-        r"(c) Angular acceleration $\alpha_z$",
+        r"(a) Body-axis acceleration $a_{x,b_c}$",
+        r"(b) Body-axis acceleration $a_{y,b_c}$",
+        r"(c) Body-axis angular acceleration $\alpha_{z,b_c}$",
     )
     y_limits = ((89.5, 91.15), (92.4, 99.5), (-0.001, 0.031))
 

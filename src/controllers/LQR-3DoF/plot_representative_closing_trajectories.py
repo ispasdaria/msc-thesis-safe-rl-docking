@@ -382,9 +382,9 @@ def make_xy_figure(
         ax, timeout, TIMEOUT_COLOR, "--", "Timeout", "X"
     )
 
-    ax.set_xlabel("Position $x$ [m]")
-    ax.set_ylabel("Position $y$ [m]")
-    ax.set_title("Closing trajectories in the orbital plane", loc="left", fontweight="bold")
+    ax.set_xlabel(r"Axial CoM-relative position $x$ [m]")
+    ax.set_ylabel(r"Lateral CoM-relative position $y$ [m]")
+    ax.set_title("Closing trajectories in the docking plane", loc="left", fontweight="bold")
     ax.grid(True, color="#D9D9D9", linewidth=0.7, alpha=0.8)
     ax.set_axisbelow(True)
     ax.margins(x=0.03, y=0.08)

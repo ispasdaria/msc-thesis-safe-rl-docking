@@ -92,7 +92,7 @@ def make_demonstration_env(mode, seed, reward_version):
 def build_lqr_controller(core_env):
     """Build the repository's tuned closing LQR for one core environment."""
 
-    Q = build_Q_closing()
+    Q = build_Q_closing(dt=core_env.dt)
     R = build_R_closing(core_env)
     A, B = build_linearized_3dof_matrices(core_env)
     K, _ = compute_lqr_gain(A=A, B=B, Q=Q, R=R)

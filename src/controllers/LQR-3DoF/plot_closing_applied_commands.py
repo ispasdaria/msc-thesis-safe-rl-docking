@@ -215,7 +215,6 @@ def make_figures(
     requested = history["requested"]
     applied = history["applied"]
     p3_target = history["p3_target"]
-    metadata = history["metadata"]
     window_mask = select_window(history, window_start, window_duration)
     summary_time, _, requested_ax_median, _ = binned_percentiles(
         times, requested[:, 0], bin_width=180.0
@@ -242,36 +241,36 @@ def make_figures(
     command_figure, (axial_ax, lateral_ax) = plt.subplots(
         2,
         1,
-        figsize=(9.4, 7.2),
+        figsize=(8.4, 6.6),
         sharex=True,
         sharey=True,
     )
     command_figure.subplots_adjust(
-        left=0.11,
-        right=0.985,
-        bottom=0.105,
-        top=0.88,
-        hspace=0.20,
-    )
-    detail_figure, detail_ax = plt.subplots(figsize=(8.4, 5.2))
-    detail_figure.subplots_adjust(
-        left=0.145,
+        left=0.13,
         right=0.975,
-        bottom=0.15,
-        top=0.87,
+        bottom=0.11,
+        top=0.88,
+        hspace=0.24,
+    )
+    detail_figure, detail_ax = plt.subplots(figsize=(8.4, 5.0))
+    detail_figure.subplots_adjust(
+        left=0.13,
+        right=0.975,
+        bottom=0.13,
+        top=0.88,
     )
     velocity_figure, (vx_ax, vy_ax) = plt.subplots(
         2,
         1,
-        figsize=(9.4, 6.8),
+        figsize=(8.4, 6.6),
         sharex=True,
     )
     velocity_figure.subplots_adjust(
-        left=0.11,
-        right=0.985,
+        left=0.13,
+        right=0.975,
         bottom=0.11,
-        top=0.86,
-        hspace=0.20,
+        top=0.88,
+        hspace=0.24,
     )
 
     # Three-minute component medians prevent the requested 1 Hz oscillation
@@ -283,14 +282,14 @@ def make_figures(
             requested_ax_median,
             applied[:, 0],
             AXIAL_COLOR,
-            r"(a) Axial command $a_{x,b_c}$",
+            r"(a) Axial command, $a_{x,b_c}$",
         ),
         (
             lateral_ax,
             requested_ay_median,
             applied[:, 1],
             LATERAL_COLOR,
-            r"(b) Lateral command $a_{y,b_c}$",
+            r"(b) Lateral command, $a_{y,b_c}$",
         ),
     )
     for axis, requested_median, applied_component, color, title in component_specs:
@@ -301,7 +300,7 @@ def make_figures(
             linestyle="--",
             linewidth=1.55,
             alpha=0.88,
-            label="Requested, 180-s median",
+            label="Requested (180-s binned median)",
             zorder=2,
         )
         axis.plot(
@@ -311,28 +310,25 @@ def make_figures(
             linewidth=0.35,
             alpha=0.38,
             rasterized=True,
-            label="Applied, 1-s samples",
+            label="Applied (1-s history)",
             zorder=3,
         )
-        axis.set_title(title, loc="left", fontweight="bold")
+        axis.set_title(title, fontsize=11)
         axis.axhline(0.0, color="#888888", linewidth=0.65, alpha=0.65)
-        axis.grid(True, color="#D9D9D9", linewidth=0.7, alpha=0.85)
+        axis.grid(True, alpha=0.25)
         axis.set_axisbelow(True)
         axis.legend(
-            loc="upper right",
-            ncol=2,
-            fontsize=8.6,
+            loc="best",
+            fontsize=9,
             frameon=True,
-            framealpha=0.92,
-            columnspacing=1.0,
         )
 
     command_figure.supylabel(
-        r"Translational acceleration command in $\mathcal{F}_{b_c}$ [m/s$^2$]",
-        x=0.025,
-        fontsize=10.5,
+        r"Chaser body-frame acceleration command, $a_{b_c}$ [m/s$^2$]",
+        x=0.035,
+        fontsize=11,
     )
-    lateral_ax.set_xlabel("Elapsed closing time [h]")
+    lateral_ax.set_xlabel(r"Elapsed closing time, $t$ [h]", fontsize=11)
     lateral_ax.set_xlim(time_hours[0], time_hours[-1])
     displayed_min = min(
         float(np.min(requested_ax_median)),
@@ -348,6 +344,10 @@ def make_figures(
     axial_ax.set_ylim(
         displayed_min - 0.12 * displayed_span,
         displayed_max + 0.72 * displayed_span,
+    )
+    command_figure.suptitle(
+        "Closing-phase requested and applied translational commands",
+        fontsize=12,
     )
 
     detail_time = times[window_mask]
@@ -408,26 +408,24 @@ def make_figures(
         zorder=1,
     )
     detail_ax.set_xlim(window_start, window_start + window_duration)
-    detail_ax.set_xlabel("Elapsed closing time [s]")
+    detail_ax.set_xlabel(r"Elapsed closing time, $t$ [s]", fontsize=11)
     detail_ax.set_ylabel(
-        r"Translational acceleration command in $\mathcal{F}_{b_c}$ [m/s$^2$]"
+        r"Chaser body-frame acceleration command, $a_{b_c}$ [m/s$^2$]",
+        fontsize=11,
     )
-    detail_ax.set_title(
+    detail_figure.suptitle(
         "Ten-second detail of requested and applied translational commands",
-        loc="left",
-        fontweight="bold",
+        fontsize=12,
     )
-    detail_ax.grid(True, color="#E1E1E1", linewidth=0.65, alpha=0.85)
+    detail_ax.grid(True, alpha=0.25)
     detail_ax.set_axisbelow(True)
     detail_ax.set_ylim(-0.14, 0.17)
     detail_ax.legend(
-        loc="upper center",
+        loc="upper right",
         ncol=2,
-        fontsize=7.8,
+        fontsize=9,
         frameon=True,
-        framealpha=0.92,
-        columnspacing=0.9,
-        handlelength=2.6,
+        columnspacing=1.0,
     )
 
     velocity_specs = (
@@ -436,23 +434,36 @@ def make_figures(
             states[:, 2],
             float(p3_target[2]),
             AXIAL_COLOR,
-            r"(a) Axial relative velocity $v_x$",
+            r"(a) Axial relative velocity, $v_x$",
         ),
         (
             vy_ax,
             states[:, 3],
             float(p3_target[3]),
             LATERAL_COLOR,
-            r"(b) Lateral relative velocity $v_y$",
+            r"(b) Lateral relative velocity, $v_y$",
         ),
     )
     for axis, velocity, target_velocity, color, title in velocity_specs:
+        velocity_summary_time, _, velocity_median, _ = binned_percentiles(
+            times, velocity, bin_width=180.0
+        )
         axis.plot(
             time_hours,
             velocity,
             color=color,
-            linewidth=1.45,
-            label="Simulated velocity",
+            linewidth=0.30,
+            alpha=0.20,
+            rasterized=True,
+            label="Native history (1-s samples)",
+            zorder=2,
+        )
+        axis.plot(
+            velocity_summary_time / 3600.0,
+            velocity_median,
+            color=color,
+            linewidth=1.85,
+            label="180-s median",
             zorder=3,
         )
         axis.axhline(
@@ -461,7 +472,7 @@ def make_figures(
             linestyle="--",
             linewidth=1.15,
             label=r"$P_3$ terminal target",
-            zorder=2,
+            zorder=1,
         )
         axis.scatter(
             time_hours[-1],
@@ -472,58 +483,27 @@ def make_figures(
             linewidth=0.6,
             zorder=4,
         )
-        axis.set_title(title, loc="left", fontweight="bold")
-        axis.grid(True, color="#D9D9D9", linewidth=0.7, alpha=0.85)
+        axis.set_title(title, fontsize=11)
+        axis.grid(True, alpha=0.25)
         axis.set_axisbelow(True)
         axis.legend(
             loc="best",
-            ncol=2,
-            fontsize=8.6,
+            fontsize=9,
             frameon=True,
-            framealpha=0.92,
         )
 
     velocity_figure.supylabel(
-        r"Relative velocity in $\mathcal{F}_{O}$ [m/s]",
-        x=0.025,
-        fontsize=10.5,
+        r"Relative velocity in $\mathcal{F}_{o}$ [m/s]",
+        x=0.035,
+        fontsize=11,
     )
-    vy_ax.set_xlabel("Elapsed closing time [h]")
+    vy_ax.set_xlabel(r"Elapsed closing time, $t$ [h]", fontsize=11)
     vy_ax.set_xlim(time_hours[0], time_hours[-1])
+    velocity_figure.suptitle(
+        "Closing-phase relative-velocity history",
+        fontsize=12,
+    )
 
-    seed = metadata.get("seed", "?")
-    status = metadata.get("status", "successful")
-    duration = float(times[-1])
-    rollout_text = (
-        f"Representative {status} rollout: seed {seed}, duration {duration:,.0f} s"
-    )
-    command_figure.text(
-        0.985,
-        0.975,
-        rollout_text,
-        ha="right",
-        va="top",
-        fontsize=9.5,
-        color="#444444",
-    )
-    detail_figure.text(
-        0.975,
-        0.975,
-        rollout_text,
-        ha="right",
-        va="top",
-        fontsize=9.5,
-        color="#444444",
-    )
-    velocity_figure.text(
-        0.985,
-        0.975,
-        rollout_text,
-        ha="right",
-        va="top",
-        fontsize=9.5,
-        color="#444444",
-    )
     return command_figure, detail_figure, velocity_figure
 
 

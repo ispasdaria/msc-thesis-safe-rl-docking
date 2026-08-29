@@ -34,6 +34,13 @@ from train_sac_closing_her_v4_residual_v15 import (
 from train_sac_closing_reference_residual_lqr_no_her import (
     prefill_standard_replay_buffer,
 )
+from train_sac_closing_reference_residual_lqr_pilot_e_dt01 import (
+    DEFAULT_ARGUMENTS as PILOT_E_DT01_ARGUMENTS,
+)
+from train_sac_closing_reference_residual_lqr_stratified import (
+    build_parser as build_stratified_parser,
+    validate_args as validate_stratified_args,
+)
 from zero_residual_constrained_sac import ZeroResidualConstrainedSAC
 
 
@@ -60,6 +67,22 @@ def test_reference_residual_environment_contract():
     assert env.action_space.shape == (3,)
     assert info["reward_scheme"] == env.reward_scheme
     env.close()
+
+
+def test_pilot_e_dt01_defaults_are_physically_time_matched():
+    parser = build_stratified_parser()
+    args = parser.parse_args(PILOT_E_DT01_ARGUMENTS)
+    validate_stratified_args(parser, args)
+
+    assert args.dt == 0.1
+    assert args.total_timesteps == 500_000
+    assert args.source_transition_count == 600_000
+    assert args.prefill_residual_hold_steps == 10
+    assert args.critic_warmup_steps == 100_000
+    assert args.zero_residual_actor_anneal_end_step == 300_000
+    assert args.train_freq == 40
+    assert np.isclose(args.gamma, 0.9999**0.1)
+    assert args.time_scale_persistent_reward is True
 
 
 def test_zero_reference_residual_exactly_reproduces_closing_lqr_transition():
@@ -97,6 +120,68 @@ def test_zero_reference_residual_exactly_reproduces_closing_lqr_transition():
     assert info["cbf_filter_applied"] is False
     residual_env.close()
     reference_env.close()
+
+
+def test_dt01_zero_residual_uses_retuned_lqr_and_scaled_persistent_costs():
+    residual_env = ReferenceResidualLQRGoalConditionedClosingEnv(
+        mode="testing",
+        seed=709,
+        dt=0.1,
+        max_time=1.0,
+        reference_residual_bounds=(0.02, 0.01, np.deg2rad(1.0)),
+        progress_gamma=0.9999899995499715,
+        time_scale_persistent_reward=True,
+    )
+    reference_env = GoalConditionedClosingV3Env(
+        mode="testing",
+        seed=709,
+        dt=0.1,
+        max_time=1.0,
+    )
+    residual_env.reset(seed=709)
+    reference_env.reset(seed=709)
+    expected = residual_env.lqr_action_for_reference_residual(np.zeros(3))[2]
+
+    _, _, _, _, info = residual_env.step(np.zeros(3, dtype=np.float32))
+    reference_env.step(expected)
+
+    np.testing.assert_allclose(
+        residual_env.core_env.state,
+        reference_env.core_env.state,
+        rtol=0.0,
+        atol=1e-10,
+    )
+    assert np.isclose(info["sac_decision_interval_seconds"], 0.1)
+    assert np.isclose(info["lqr_update_interval_seconds"], 0.1)
+    assert np.isclose(info["persistent_reward_time_scale"], 0.1)
+    residual_env.close()
+    reference_env.close()
+
+
+def test_dt01_prefill_horizon_is_interpreted_in_physical_seconds():
+    transitions, summaries = collect_reference_residual_trajectories(
+        minimum_transitions=3,
+        seed_start=710,
+        max_episodes=1,
+        max_steps=0.3,
+        env_kwargs={
+            "dt": 0.1,
+            "reference_residual_bounds": (
+                0.02,
+                0.01,
+                np.deg2rad(1.0),
+            ),
+            "progress_gamma": 0.9999899995499715,
+        },
+        residual_std=0.0,
+        residual_clip=0.5,
+        zero_episode_fraction=1.0,
+        random_seed=710,
+        retain_failure_episodes=True,
+    )
+
+    assert len(transitions) == 3
+    assert summaries[0]["steps"] == 3
 
 
 def test_sac_action_offsets_only_vx_vy_and_attitude_references():

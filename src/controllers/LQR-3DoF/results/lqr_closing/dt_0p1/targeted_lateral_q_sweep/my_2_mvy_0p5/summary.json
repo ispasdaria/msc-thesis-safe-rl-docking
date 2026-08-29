@@ -1,0 +1,170 @@
+{
+  "my": 2.0,
+  "mvy": 0.5,
+  "tag": "my_2_mvy_0p5",
+  "effective_selected_q_multiplier_y": 13.0,
+  "effective_selected_q_multiplier_vy": 3.25,
+  "Q_diagonal": [
+    0.002275,
+    13.52,
+    406250.0,
+    422500.0,
+    10669.120637538168,
+    1066912.0637538168
+  ],
+  "R_diagonal_unchanged": [
+    4444.444444444444,
+    4444.444444444444,
+    312500.0
+  ],
+  "K": [
+    [
+      0.0007154544012619176,
+      6.879358328631754e-16,
+      9.560736420841327,
+      1.0113455400986818e-14,
+      3.2108513305207534e-15,
+      3.076611474573559e-14
+    ],
+    [
+      -1.581812199436106e-15,
+      0.05515304887930451,
+      1.0113455400986818e-14,
+      9.755655082963864,
+      -2.3046589102375667e-12,
+      -1.3561637786149698e-12
+    ],
+    [
+      -1.479391502377124e-17,
+      -1.5922130573376016e-13,
+      4.3756252082823955e-16,
+      -1.928766262919068e-14,
+      0.18477333692979925,
+      1.9451645888907652
+    ]
+  ],
+  "ky": 0.05515304887930451,
+  "kvy": 9.755655082963864,
+  "kvy_over_ky_seconds": 176.88333249378263,
+  "sampled_eigenvalues_dt_0p1": [
+    0.9999925167132246,
+    0.04393026393063673,
+    0.024724241217345844,
+    0.8145216646832072,
+    0.999434474522801,
+    0.9900380097430672
+  ],
+  "spectral_radius_dt_0p1": 0.9999925167132246,
+  "sampled_stable_dt_0p1": true,
+  "configuration": {
+    "dt_seconds": 0.1,
+    "max_time_seconds": 12000.0,
+    "seeds": "0-49",
+    "num_rollouts": 50,
+    "mode": "testing",
+    "Q_only_lateral_retuning": true,
+    "R_unchanged": true,
+    "controller_architecture_unchanged": true,
+    "reference_construction_unchanged": true
+  },
+  "outcomes": {
+    "successes": 30,
+    "success_rate": 0.6,
+    "timeouts": 3,
+    "timeout_rate": 0.06,
+    "hard_safety_violations": 17,
+    "hard_safety_violation_types": {
+      "geometry": 0,
+      "velocity": 17,
+      "alignment": 0
+    }
+  },
+  "mean_elapsed_physical_time_seconds": 7524.914000015769,
+  "mean_absolute_terminal_errors": {
+    "axial_position_m": 492.09008031248726,
+    "lateral_position_m": 25.916155922839433,
+    "axial_velocity_mps": 0.057065678852005336,
+    "lateral_velocity_mps": 0.10508301819839472,
+    "attitude_rad": 0.004298048768243658,
+    "angular_rate_radps": 0.00040763319640007965
+  },
+  "p3_tolerance_failures": {
+    "axial_position": {
+      "count": 19,
+      "fraction": 0.38
+    },
+    "lateral_position": {
+      "count": 17,
+      "fraction": 0.34
+    },
+    "axial_velocity": {
+      "count": 17,
+      "fraction": 0.34
+    },
+    "lateral_velocity": {
+      "count": 17,
+      "fraction": 0.34
+    },
+    "attitude": {
+      "count": 2,
+      "fraction": 0.04
+    },
+    "angular_rate": {
+      "count": 1,
+      "fraction": 0.02
+    }
+  },
+  "mean_actuator_saturation_fractions": {
+    "any_channel": 0.33974481679568513,
+    "ax_bc": 0.08678169662301682,
+    "ay_bc": 0.3396439907461529,
+    "alphaz_bc": 0.0050652351723141946
+  },
+  "mean_control_effort": {
+    "translational_sum_norm_a_dt_mps": 0.42366225797902785,
+    "angular_sum_abs_alpha_dt_radps": 0.004980508251515748
+  },
+  "raw_result": {
+    "success_rate": 0.6,
+    "timeout_rate": 0.06,
+    "safety_rate": 0.34,
+    "unsafe_reset_rate": 0.0,
+    "geom_rate": 0.0,
+    "vel_rate": 0.34,
+    "align_rate": 0.0,
+    "sat_fraction": 0.33974481679568513,
+    "sat_ax_fraction": 0.08678169662301682,
+    "sat_ay_fraction": 0.3396439907461529,
+    "sat_alphaz_fraction": 0.0050652351723141946,
+    "delta_v_proxy": 0.42366225797902785,
+    "angular_effort": 0.004980508251515748,
+    "final_err": 492.80543166316374,
+    "ex": 492.09008031248726,
+    "ey": 25.916155922839433,
+    "evx": 0.057065678852005336,
+    "evy": 0.10508301819839472,
+    "epsi": 0.004298048768243658,
+    "eomega": 0.00040763319640007965,
+    "vport_mean": 0.1430748429952802,
+    "vport_dist": 771.3611668319119,
+    "com_dist": 795.452195510183,
+    "rho_mean": 26.377910543805356,
+    "psi_abs": 0.00977737366818726,
+    "omega_abs": 5.144875430509715e-05,
+    "vy_mean": -0.017828210400487838,
+    "vy_abs": 0.10115570429952221,
+    "sdot_mean": 0.08672585028287708,
+    "rx_dot_final": -0.08672654586055759,
+    "vx_traj_mean": -0.1386463491623472,
+    "elapsed_time": 7524.914000015769,
+    "est_time_final_vx": 16176.226565494046,
+    "est_time_mean_vx": 10118.60942288759,
+    "fail_rx_rate": 0.38,
+    "fail_ry_rate": 0.34,
+    "fail_vx_rate": 0.34,
+    "fail_vy_rate": 0.34,
+    "fail_psi_rate": 0.04,
+    "fail_omega_rate": 0.02
+  },
+  "discarded_before_rollouts": false
+}

@@ -87,7 +87,7 @@ def scheduled_axial_reference(
 
 def build_gain(env: Docking3DoFEnv) -> np.ndarray:
     """Construct the implemented closing-phase LQR gain."""
-    Q = build_Q_closing()
+    Q = build_Q_closing(dt=env.dt)
     R = build_R_closing(env)
     A, B = build_linearized_3dof_matrices(env)
     K, _ = compute_lqr_gain(A, B, Q, R)

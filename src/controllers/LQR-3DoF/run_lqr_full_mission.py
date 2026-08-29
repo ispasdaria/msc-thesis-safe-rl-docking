@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import math
 import os
 import sys
 from collections import Counter
@@ -60,7 +61,7 @@ def make_json_safe(value):
 
 
 def build_closing_controller(env):
-    Q = build_Q_closing()
+    Q = build_Q_closing(dt=env.dt)
     R = build_R_closing(env)
     A, B = build_closing_matrices(env)
     K, _ = compute_closing_lqr_gain(A, B, Q, R)
@@ -83,6 +84,40 @@ def build_final_controller(env):
     return LQRFinalController(K, H)
 
 
+class ControllerMetricTracker:
+    """Track applied-command metrics without changing a controller's output."""
+
+    def __init__(self, controller):
+        self.controller = controller
+        # Match the environment-history convention, which includes the reset
+        # state with a zero command as its first sample.
+        self.samples = 1
+        self.saturated_any = 0
+        self.saturated_channels = np.zeros(3, dtype=np.int64)
+        self.translational_effort = 0.0
+        self.angular_effort = 0.0
+
+    def compute_action(self, env, state):
+        action = np.asarray(self.controller.compute_action(env, state), dtype=float)
+        applied = env.clip_action(action)
+        saturated = np.abs(action - applied) > 1e-12
+        self.samples += 1
+        self.saturated_any += int(np.any(saturated))
+        self.saturated_channels += saturated
+        self.translational_effort += float(np.linalg.norm(applied[:2]) * env.dt)
+        self.angular_effort += float(abs(applied[2]) * env.dt)
+        return action
+
+    def metrics(self):
+        denominator = float(self.samples)
+        return {
+            "saturation_fraction_total": self.saturated_any / denominator,
+            "saturation_fraction_channels": self.saturated_channels / denominator,
+            "translational_effort": self.translational_effort,
+            "angular_effort": self.angular_effort,
+        }
+
+
 def print_phase_result(name, result):
     print(f"\n{name.upper()} RESULT")
     print("-" * 50)
@@ -97,45 +132,91 @@ def print_phase_result(name, result):
     print("final_info:", final_info)
 
 
-def create_runner(seed, closing_max_time, final_max_time, integrator="rk4"):
+def create_runner(
+    seed,
+    closing_max_time,
+    final_max_time,
+    integrator="rk4",
+    closing_dt=1.0,
+    final_dt=1.0,
+):
     return DockingMissionRunner(
         closing_env_kwargs={
             "integrator": integrator,
             "seed": seed,
             "max_time": closing_max_time,
+            "dt": closing_dt,
         },
         final_env_kwargs={
             "integrator": integrator,
             "seed": seed,
             "max_time": final_max_time,
+            "dt": final_dt,
         },
     )
 
 
 def configure_runner(runner):
-    closing_controller = build_closing_controller(runner.closing_env)
-    final_controller = build_final_controller(runner.final_env)
+    closing_tracker = ControllerMetricTracker(
+        build_closing_controller(runner.closing_env)
+    )
+    final_tracker = ControllerMetricTracker(build_final_controller(runner.final_env))
 
-    runner.set_controller("closing", closing_controller)
-    runner.set_controller("final", final_controller)
+    runner.set_controller("closing", closing_tracker)
+    runner.set_controller("final", final_tracker)
+    runner.phase_metric_trackers = {
+        "closing": closing_tracker,
+        "final": final_tracker,
+    }
 
     return runner
 
 
-def run_full_mission(seed, mode, closing_max_time, final_max_time, integrator="rk4"):
-    runner = create_runner(seed, closing_max_time, final_max_time, integrator=integrator)
+def run_full_mission(
+    seed,
+    mode,
+    closing_max_time,
+    final_max_time,
+    integrator="rk4",
+    closing_dt=1.0,
+    final_dt=1.0,
+    retain_history=True,
+):
+    runner = create_runner(
+        seed,
+        closing_max_time,
+        final_max_time,
+        closing_dt=closing_dt,
+        final_dt=final_dt,
+        integrator=integrator,
+    )
     configure_runner(runner)
+    if not retain_history:
+        # The 600-mission dt=0.1 campaign can contain tens of millions of
+        # control steps. Metrics are accumulated by ControllerMetricTracker,
+        # so retaining every per-step dictionary is unnecessary.
+        runner.closing_env.log_step = lambda **_: None
+        runner.final_env.log_step = lambda **_: None
     mission_result = runner.run_mission_with_registered(mode=mode)
     mission_result["seed"] = seed
     return runner, mission_result
 
 
-def run_one_mission(seed=0, mode="testing", closing_max_time=12000.0, final_max_time=5000.0):
+def run_one_mission(
+    seed=0,
+    mode="testing",
+    closing_max_time=12000.0,
+    final_max_time=5000.0,
+    closing_dt=1.0,
+    final_dt=1.0,
+):
     runner, mission_result = run_full_mission(
         seed=seed,
         mode=mode,
         closing_max_time=closing_max_time,
         final_max_time=final_max_time,
+        closing_dt=closing_dt,
+        final_dt=final_dt,
     )
 
     print("\nFULL MISSION RESULT")
@@ -193,9 +274,13 @@ def summarize_missions(mission_results):
 
     return {
         "num_missions": n,
+        "mission_successes": mission_successes,
         "mission_success_rate": mission_successes / n,
+        "closing_successes": closing_successes,
         "closing_success_rate": closing_successes / n,
+        "final_attempts": final_attempts,
         "final_attempt_rate": final_attempts / n,
+        "final_successes": final_successes,
         "final_success_rate_given_attempt": (
             final_successes / final_attempts if final_attempts > 0 else 0.0
         ),
@@ -208,12 +293,122 @@ def summarize_missions(mission_results):
     }
 
 
-def get_saturation_fraction(env, phase):
-    if phase == "closing":
-        sat = analyze_closing_saturation(env)
-    else:
-        sat = analyze_final_saturation(env)
-    return float(sat.get("saturation_fraction_total", 0.0))
+def wilson_interval(count, total, z=1.959963984540054):
+    """Return the two-sided 95% Wilson interval for a binomial proportion."""
+    if total <= 0:
+        return float("nan"), float("nan")
+    p = count / float(total)
+    z2 = z * z
+    denominator = 1.0 + z2 / total
+    center = (p + z2 / (2.0 * total)) / denominator
+    half_width = z * math.sqrt(p * (1.0 - p) / total + z2 / (4.0 * total**2))
+    half_width /= denominator
+    return center - half_width, center + half_width
+
+
+def finite_mean(records, key, predicate=lambda _: True):
+    values = [
+        float(record[key])
+        for record in records
+        if predicate(record) and np.isfinite(float(record[key]))
+    ]
+    return float(np.mean(values)) if values else float("nan")
+
+
+def summarize_mission_records(records, configuration):
+    n = len(records)
+    mission_successes = sum(record["mission_success"] for record in records)
+    closing_successes = sum(record["closing_success"] for record in records)
+    closing_timeouts = sum(record["closing_reason"] == "timeout" for record in records)
+    closing_safety = sum(record["closing_hard_safety"] for record in records)
+    final_attempts = sum(record["final_attempted"] for record in records)
+    final_successes = sum(record["final_success"] for record in records)
+    final_timeouts = sum(record["final_reason"] == "timeout" for record in records)
+    final_safety = sum(record["final_hard_safety"] for record in records)
+    overall_safety = sum(record["mission_hard_safety"] for record in records)
+    success_low, success_high = wilson_interval(mission_successes, n)
+    safety_low, safety_high = wilson_interval(overall_safety, n)
+
+    return {
+        "configuration": configuration,
+        "counts_and_rates": {
+            "num_missions": n,
+            "closing_successes": closing_successes,
+            "closing_success_rate": closing_successes / n,
+            "closing_timeouts": closing_timeouts,
+            "closing_hard_safety_violations": closing_safety,
+            "missions_reaching_final_approach": final_attempts,
+            "final_successes": final_successes,
+            "final_success_rate_given_attempt": (
+                final_successes / final_attempts if final_attempts else float("nan")
+            ),
+            "final_timeouts": final_timeouts,
+            "final_hard_safety_violations": final_safety,
+            "overall_mission_successes": mission_successes,
+            "overall_mission_success_rate": mission_successes / n,
+            "overall_mission_success_wilson_95": {
+                "lower": success_low,
+                "upper": success_high,
+            },
+            "missions_with_hard_safety_violation": overall_safety,
+            "overall_hard_safety_violation_rate": overall_safety / n,
+            "overall_hard_safety_wilson_95": {
+                "lower": safety_low,
+                "upper": safety_high,
+            },
+        },
+        "mean_completion_times_seconds": {
+            "closing_all": finite_mean(records, "closing_elapsed_time_s"),
+            "closing_successful": finite_mean(
+                records, "closing_elapsed_time_s", lambda record: record["closing_success"]
+            ),
+            "final_attempted": finite_mean(
+                records, "final_elapsed_time_s", lambda record: record["final_attempted"]
+            ),
+            "final_successful": finite_mean(
+                records, "final_elapsed_time_s", lambda record: record["final_success"]
+            ),
+        },
+        "mean_terminal_errors": {
+            "closing_error_norm": finite_mean(records, "closing_final_error_norm"),
+            "closing_abs_axial_position_m": finite_mean(records, "closing_abs_ex_m"),
+            "closing_abs_lateral_position_m": finite_mean(records, "closing_abs_ey_m"),
+            "closing_abs_axial_velocity_mps": finite_mean(records, "closing_abs_evx_mps"),
+            "closing_abs_lateral_velocity_mps": finite_mean(records, "closing_abs_evy_mps"),
+            "closing_abs_attitude_rad": finite_mean(records, "closing_abs_epsi_rad"),
+            "closing_abs_angular_rate_radps": finite_mean(records, "closing_abs_eomega_radps"),
+            "final_port_distance_m": finite_mean(
+                records, "final_port_distance_m", lambda record: record["final_attempted"]
+            ),
+            "final_port_speed_mps": finite_mean(
+                records, "final_port_speed_mps", lambda record: record["final_attempted"]
+            ),
+            "final_abs_attitude_rad": finite_mean(
+                records, "final_abs_attitude_rad", lambda record: record["final_attempted"]
+            ),
+            "final_abs_angular_rate_radps": finite_mean(
+                records, "final_abs_angular_rate_radps", lambda record: record["final_attempted"]
+            ),
+        },
+        "mean_actuator_saturation_fractions": {
+            "closing_any": finite_mean(records, "closing_sat_any"),
+            "closing_ax": finite_mean(records, "closing_sat_ax"),
+            "closing_ay": finite_mean(records, "closing_sat_ay"),
+            "closing_alphaz": finite_mean(records, "closing_sat_alphaz"),
+            "final_any_given_attempt": finite_mean(
+                records, "final_sat_any", lambda record: record["final_attempted"]
+            ),
+            "final_ax_given_attempt": finite_mean(
+                records, "final_sat_ax", lambda record: record["final_attempted"]
+            ),
+            "final_ay_given_attempt": finite_mean(
+                records, "final_sat_ay", lambda record: record["final_attempted"]
+            ),
+            "final_alphaz_given_attempt": finite_mean(
+                records, "final_sat_alphaz", lambda record: record["final_attempted"]
+            ),
+        },
+    }
 
 
 def get_closing_final_error_norm(result, runner):
@@ -231,10 +426,23 @@ def get_closing_final_error_norm(result, runner):
     return float(np.linalg.norm(e))
 
 
+def get_closing_final_error_components(result, runner):
+    terminal_state = result["closing_result"].get("terminal_state")
+    p3_target = getattr(runner.closing_env, "p3_target", None)
+    if terminal_state is None or p3_target is None:
+        return np.full(6, np.nan)
+    error = np.asarray(terminal_state, dtype=float) - np.asarray(p3_target, dtype=float)
+    error[4] = (error[4] + np.pi) % (2.0 * np.pi) - np.pi
+    return error
+
+
 def build_mission_record(result, runner):
     final_attempted = result["final_result"] is not None
-    closing_sat = get_saturation_fraction(runner.closing_env, "closing")
-    final_sat = get_saturation_fraction(runner.final_env, "final") if final_attempted else 0.0
+    closing_metrics = runner.phase_metric_trackers["closing"].metrics()
+    final_metrics = runner.phase_metric_trackers["final"].metrics()
+    closing_channels = closing_metrics["saturation_fraction_channels"]
+    final_channels = final_metrics["saturation_fraction_channels"]
+    closing_error = get_closing_final_error_components(result, runner)
 
     closing_reason = result["closing_result"]["termination_reason"]
     final_reason = (
@@ -242,6 +450,12 @@ def build_mission_record(result, runner):
         if result["final_result"] is None
         else result["final_result"]["termination_reason"]
     )
+    closing_info = result["closing_result"]["final_info"]
+    final_info = {} if not final_attempted else result["final_result"]["final_info"]
+    closing_constraints = list(closing_info.get("violated_constraints", []) or [])
+    final_constraints = list(final_info.get("violated_constraints", []) or [])
+    closing_hard_safety = closing_reason == "safety_violation"
+    final_hard_safety = final_reason == "safety_violation"
 
     return {
         "seed": int(result["seed"]),
@@ -250,13 +464,45 @@ def build_mission_record(result, runner):
         "closing_success": bool(result["closing_result"]["success"]),
         "final_attempted": bool(final_attempted),
         "final_success": bool(final_attempted and result["final_result"]["success"]),
+        "closing_dt_s": float(runner.closing_env.dt),
+        "final_dt_s": float(runner.final_env.dt),
         "closing_reason": closing_reason,
         "final_reason": final_reason,
+        "closing_hard_safety": bool(closing_hard_safety),
+        "final_hard_safety": bool(final_hard_safety),
+        "mission_hard_safety": bool(closing_hard_safety or final_hard_safety),
+        "closing_violated_constraints": ";".join(closing_constraints),
+        "final_violated_constraints": ";".join(final_constraints),
         "closing_steps": int(result["closing_result"]["num_steps"]),
         "final_steps": 0 if not final_attempted else int(result["final_result"]["num_steps"]),
-        "closing_sat": closing_sat,
-        "final_sat": final_sat,
+        "closing_elapsed_time_s": float(runner.closing_env.time),
+        "final_elapsed_time_s": float(runner.final_env.time) if final_attempted else float("nan"),
+        "closing_sat_any": float(closing_metrics["saturation_fraction_total"]),
+        "closing_sat_ax": float(closing_channels[0]),
+        "closing_sat_ay": float(closing_channels[1]),
+        "closing_sat_alphaz": float(closing_channels[2]),
+        "final_sat_any": float(final_metrics["saturation_fraction_total"]) if final_attempted else float("nan"),
+        "final_sat_ax": float(final_channels[0]) if final_attempted else float("nan"),
+        "final_sat_ay": float(final_channels[1]) if final_attempted else float("nan"),
+        "final_sat_alphaz": float(final_channels[2]) if final_attempted else float("nan"),
+        # Backward-compatible aliases used by representative-mission selection.
+        "closing_sat": float(closing_metrics["saturation_fraction_total"]),
+        "final_sat": float(final_metrics["saturation_fraction_total"]) if final_attempted else 0.0,
+        "closing_translational_effort_mps": float(closing_metrics["translational_effort"]),
+        "closing_angular_effort_radps": float(closing_metrics["angular_effort"]),
+        "final_translational_effort_mps": float(final_metrics["translational_effort"]) if final_attempted else float("nan"),
+        "final_angular_effort_radps": float(final_metrics["angular_effort"]) if final_attempted else float("nan"),
         "closing_final_error_norm": get_closing_final_error_norm(result, runner),
+        "closing_abs_ex_m": float(abs(closing_error[0])),
+        "closing_abs_ey_m": float(abs(closing_error[1])),
+        "closing_abs_evx_mps": float(abs(closing_error[2])),
+        "closing_abs_evy_mps": float(abs(closing_error[3])),
+        "closing_abs_epsi_rad": float(abs(closing_error[4])),
+        "closing_abs_eomega_radps": float(abs(closing_error[5])),
+        "final_port_distance_m": float(final_info.get("port_distance", np.nan)),
+        "final_port_speed_mps": float(final_info.get("port_speed", np.nan)),
+        "final_abs_attitude_rad": float(abs(final_info.get("psi_e", np.nan))),
+        "final_abs_angular_rate_radps": float(abs(final_info.get("omega", np.nan))),
     }
 
 
@@ -267,7 +513,7 @@ def write_mission_records_csv(records, output_path):
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     fieldnames = list(records[0].keys())
-    with open(output_path, "w", newline="", encoding="utf-8") as handle:
+    with open(output_path, "x", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(records)
@@ -370,6 +616,8 @@ def save_full_mission_history(runner, result, record, label, output_dir, mode, c
         "final_saturation": record["final_sat"],
         "closing_max_time": float(closing_max_time),
         "final_max_time": float(final_max_time),
+        "closing_dt": float(runner.closing_env.dt),
+        "final_dt": float(runner.final_env.dt),
         "transition_state": result.get("transition_state"),
         "closing_result": result["closing_result"],
         "final_result": result["final_result"],
@@ -419,9 +667,12 @@ def run_many_missions(
     mode="testing",
     closing_max_time=12000.0,
     final_max_time=5000.0,
+    closing_dt=1.0,
+    final_dt=1.0,
     save_mission_histories=False,
     history_dir=os.path.join(LQR_ROOT, "results", "lqr_mission", "mission_histories"),
     results_csv=None,
+    summary_json=None,
 ):
     mission_results = []
     records = []
@@ -436,10 +687,18 @@ def run_many_missions(
             mode=mode,
             closing_max_time=closing_max_time,
             final_max_time=final_max_time,
+            closing_dt=closing_dt,
+            final_dt=final_dt,
+            retain_history=save_mission_histories,
         )
 
         record = build_mission_record(result, runner)
         records.append(record)
+        # Keep only aggregate/terminal data across the campaign. Selected
+        # histories, when requested, are reproduced in a separate rerun below.
+        result["closing_result"]["history"] = None
+        if result["final_result"] is not None:
+            result["final_result"]["history"] = None
         mission_results.append(result)
 
         print(
@@ -452,11 +711,43 @@ def run_many_missions(
             f"closing_sat={record['closing_sat']:.3f} | final_sat={record['final_sat']:.3f}"
         )
 
-    summary = summarize_missions(mission_results)
+    configuration = {
+        "phase_controllers": "frozen_selected_LQR",
+        "mode": mode,
+        "seed_start": int(seed_start),
+        "seed_end": int(seed_start + num_missions - 1),
+        "num_missions": int(num_missions),
+        "closing_dt_seconds": float(closing_dt),
+        "final_dt_seconds": float(final_dt),
+        "closing_max_time_seconds": float(closing_max_time),
+        "final_max_time_seconds": float(final_max_time),
+        "handover": "actual closing terminal state passed directly as final initial state",
+        "closing_controller": {
+            "Q": build_Q_closing(dt=runner.closing_env.dt),
+            "R": build_R_closing(runner.closing_env),
+            "K": runner.phase_metric_trackers["closing"].controller.K,
+            "v_fast_mps": runner.phase_metric_trackers["closing"].controller.v_fast,
+            "d_fast_m": runner.phase_metric_trackers["closing"].controller.d_fast,
+            "d_slow_m": runner.phase_metric_trackers["closing"].controller.d_slow,
+        },
+        "final_controller": {
+            "Q_port": build_Q_final(),
+            "R": build_R_final(runner.final_env),
+            "K": runner.phase_metric_trackers["final"].controller.K,
+        },
+    }
+    summary = summarize_mission_records(records, configuration)
 
     if results_csv:
         write_mission_records_csv(records, results_csv)
         print(f"mission records written to: {results_csv}")
+
+    if summary_json:
+        os.makedirs(os.path.dirname(os.path.abspath(summary_json)), exist_ok=True)
+        with open(summary_json, "x", encoding="utf-8") as handle:
+            json.dump(make_json_safe(summary), handle, indent=2, allow_nan=True)
+            handle.write("\n")
+        print(f"mission summary written to: {summary_json}")
 
     print("\nMISSION SUMMARY")
     print("=" * 60)
@@ -474,6 +765,9 @@ def run_many_missions(
                 mode=mode,
                 closing_max_time=closing_max_time,
                 final_max_time=final_max_time,
+                closing_dt=closing_dt,
+                final_dt=final_dt,
+                retain_history=True,
             )
             path = save_full_mission_history(
                 runner=selected_runner,
@@ -497,11 +791,19 @@ def run_runner_closing_only(
     mode="testing",
     closing_max_time=12000.0,
     final_max_time=5000.0,
+    closing_dt=1.0,
+    final_dt=1.0,
 ):
     results = []
 
     for seed in range(seed_start, seed_start + num_episodes):
-        runner = create_runner(seed, closing_max_time, final_max_time)
+        runner = create_runner(
+            seed,
+            closing_max_time,
+            final_max_time,
+            closing_dt=closing_dt,
+            final_dt=final_dt,
+        )
         closing_controller = build_closing_controller(runner.closing_env)
         runner.set_controller("closing", closing_controller)
 
@@ -559,6 +861,8 @@ def main():
     parser.add_argument("--num-missions", type=int, default=300)
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--mode", type=str, default="testing", choices=["nominal", "testing", "training"])
+    parser.add_argument("--closing-dt", type=float, default=1.0)
+    parser.add_argument("--final-dt", type=float, default=1.0)
     parser.add_argument("--closing-max-time", type=float, default=12000.0)
     parser.add_argument("--final-max-time", type=float, default=5000.0)
     parser.add_argument("--skip-closing-only", action="store_true")
@@ -570,7 +874,59 @@ def main():
         default=os.path.join(LQR_ROOT, "results", "lqr_mission", "mission_histories"),
     )
     parser.add_argument("--results-csv", type=str, default=None)
+    parser.add_argument("--summary-json", type=str, default=None)
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Build both phase controllers, print configuration, and exit without missions.",
+    )
     args = parser.parse_args()
+
+    if args.num_missions <= 0:
+        parser.error("--num-missions must be positive")
+    if args.closing_max_time <= 0.0 or args.final_max_time <= 0.0:
+        parser.error("phase maximum times must be positive")
+
+    check_runner = create_runner(
+        seed=args.seed_start,
+        closing_max_time=args.closing_max_time,
+        final_max_time=args.final_max_time,
+        closing_dt=args.closing_dt,
+        final_dt=args.final_dt,
+    )
+    configure_runner(check_runner)
+    print("FULL-MISSION LQR CONFIGURATION")
+    print("=" * 60)
+    print(f"seeds: {args.seed_start}-{args.seed_start + args.num_missions - 1}")
+    print(f"closing dt: {check_runner.closing_env.dt:g} s")
+    print(f"final dt: {check_runner.final_env.dt:g} s")
+    print(f"closing max physical time: {check_runner.closing_env.max_time:g} s")
+    print(f"final max physical time: {check_runner.final_env.max_time:g} s")
+    print(
+        "closing Q lateral-velocity weight: "
+        f"{build_Q_closing(dt=check_runner.closing_env.dt)[3, 3]:g}"
+    )
+    print("closing K:")
+    print(check_runner.phase_metric_trackers["closing"].controller.K)
+    print("final K:")
+    print(check_runner.phase_metric_trackers["final"].controller.K)
+    print("handover: actual closing terminal state -> final initial_state")
+    print("final handover reset: no P3 state resampling")
+
+    if args.check_only:
+        print("Check-only mode: no missions were run and no files were written.")
+        return
+
+    existing_outputs = [
+        path
+        for path in (args.results_csv, args.summary_json)
+        if path is not None and os.path.exists(path)
+    ]
+    if existing_outputs:
+        raise FileExistsError(
+            "Refusing to overwrite existing campaign output: "
+            + ", ".join(existing_outputs)
+        )
 
     if not args.skip_closing_only:
         run_runner_closing_only(
@@ -579,6 +935,8 @@ def main():
             mode=args.mode,
             closing_max_time=args.closing_max_time,
             final_max_time=args.final_max_time,
+            closing_dt=args.closing_dt,
+            final_dt=args.final_dt,
         )
 
     if not args.skip_one_mission:
@@ -587,6 +945,8 @@ def main():
             mode=args.mode,
             closing_max_time=args.closing_max_time,
             final_max_time=args.final_max_time,
+            closing_dt=args.closing_dt,
+            final_dt=args.final_dt,
         )
 
     mission_results, summary = run_many_missions(
@@ -595,9 +955,12 @@ def main():
         mode=args.mode,
         closing_max_time=args.closing_max_time,
         final_max_time=args.final_max_time,
+        closing_dt=args.closing_dt,
+        final_dt=args.final_dt,
         save_mission_histories=args.save_mission_histories,
         history_dir=args.history_dir,
         results_csv=args.results_csv,
+        summary_json=args.summary_json,
     )
     inspect_final_failures(mission_results)
 

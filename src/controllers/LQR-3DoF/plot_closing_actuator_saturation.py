@@ -76,7 +76,9 @@ def parse_args() -> argparse.Namespace:
 def build_controller(max_time: float) -> LQRClosingController:
     env = Docking3DoFEnv(phase="closing", max_time=max_time, seed=0)
     A, B = build_linearized_3dof_matrices(env)
-    gain, _ = compute_lqr_gain(A, B, build_Q_closing(), build_R_closing(env))
+    gain, _ = compute_lqr_gain(
+        A, B, build_Q_closing(dt=env.dt), build_R_closing(env)
+    )
     return LQRClosingController(gain)
 
 

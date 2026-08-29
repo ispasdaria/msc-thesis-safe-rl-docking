@@ -472,6 +472,254 @@ def test_closing_reward_v15_uses_symmetric_progress():
     env.close()
 
 
+def test_closing_reward_v15_dt_scales_only_time_integrated_terms():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        dt=0.1,
+        seed=13,
+        closing_reward_version="v15_dt",
+    )
+    env.reset(seed=13)
+
+    state = env.core_env.state.copy()
+    state[2] = -0.20
+    state[5] = 0.0
+    target_error = state - env.core_env.p3_target
+    target_error[4] = env.core_env.wrap_to_pi(target_error[4])
+    pos_error = np.linalg.norm(target_error[0:2])
+    attitude_error = abs(target_error[4])
+
+    env.prev_closing_pos_error = pos_error + 0.1
+    env.prev_closing_attitude_error = attitude_error + np.deg2rad(2.0)
+    physical_action = np.array([env.core_env.ax_max, 0.0, 0.0])
+    _, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.array([1.0, 0.0, 0.0]),
+        physical_action=physical_action,
+        info={"warning": True, "failure": True, "success": False},
+        terminated=True,
+        truncated=False,
+    )
+
+    assert components["closing_reward_version"] == "v15_dt"
+    assert np.isclose(components["closing_reward_time_scale"], 0.1)
+    assert np.isclose(components["reward_position"], -0.0002 * pos_error)
+    assert np.isclose(
+        components["reward_velocity"],
+        -0.05 * np.linalg.norm(target_error[2:4]),
+    )
+    assert np.isclose(
+        components["reward_attitude"],
+        -0.5 * attitude_error,
+    )
+    assert np.isclose(components["reward_action"], -0.001)
+    assert np.isclose(
+        components["reward_lateral_speed"],
+        -0.5 * abs(target_error[3]),
+    )
+    assert np.isclose(
+        components["reward_lateral"],
+        -0.001 * abs(target_error[1]),
+    )
+    assert np.isclose(components["reward_s_dot"], -0.5)
+    assert np.isclose(components["reward_progress"], 2.0)
+    assert np.isclose(
+        components["reward_attitude_progress"],
+        50.0 * np.deg2rad(2.0),
+    )
+    assert np.isclose(components["reward_warning"], -1.0)
+    assert np.isclose(components["reward_failure"], -1000.0)
+
+    # The no-progress threshold represents 0.01 m/s at every integration
+    # cadence. A 0.005 m improvement in 0.1 s is therefore meaningful.
+    env.prev_closing_pos_error = pos_error + 0.005
+    _, moving = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+    assert np.isclose(moving["no_progress"], 0.0)
+    assert np.isclose(moving["reward_no_progress"], 0.0)
+
+    env.prev_closing_pos_error = pos_error + 0.0005
+    _, stationary = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+    assert np.isclose(stationary["no_progress"], 1.0)
+    assert np.isclose(stationary["reward_no_progress"], -0.005)
+    env.close()
+
+
+def test_closing_reward_v15_dt_matches_v15_at_reference_timestep():
+    env_v15 = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        dt=1.0,
+        seed=37,
+        closing_reward_version="v15",
+    )
+    env_v15_dt = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        dt=1.0,
+        seed=37,
+        closing_reward_version="v15_dt",
+    )
+    env_v15.reset(seed=37)
+    env_v15_dt.reset(seed=37)
+
+    state = env_v15.core_env.state.copy()
+    pos_error = np.linalg.norm(state[0:2] - env_v15.core_env.p3_target[0:2])
+    for env in (env_v15, env_v15_dt):
+        env.prev_closing_pos_error = pos_error + 0.1
+
+    arguments = {
+        "state": state,
+        "normalized_action": np.array([0.2, -0.1, 0.3]),
+        "physical_action": np.array([0.002, -0.001, 0.0009]),
+        "info": {"warning": True, "failure": False, "success": False},
+        "terminated": False,
+        "truncated": False,
+    }
+    reward_v15, components_v15 = env_v15._compute_sac_reward(**arguments)
+    reward_v15_dt, components_v15_dt = env_v15_dt._compute_sac_reward(
+        **arguments
+    )
+
+    assert np.isclose(reward_v15_dt, reward_v15)
+    for key, value in components_v15.items():
+        if key.startswith("reward_"):
+            assert np.isclose(components_v15_dt[key], value), key
+
+    env_v15.close()
+    env_v15_dt.close()
+
+
+def test_closing_reward_v15_dt_safe_corrects_terminal_and_alignment_incentives():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        dt=0.1,
+        seed=43,
+        closing_reward_version="v15_dt_safe",
+    )
+    env.reset(seed=43)
+    tolerance = env.core_env.p3_target_tolerance
+    state = env.core_env.p3_target.copy()
+    state[0] += 100.0
+    state[4] += np.deg2rad(2.0)
+    state[5] += np.deg2rad(0.1)
+    env.prev_closing_pos_error = 100.0
+    env.prev_closing_attitude_error = np.deg2rad(3.0)
+    env.prev_closing_rate_error = np.deg2rad(0.15)
+
+    _, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": True, "success": False},
+        terminated=True,
+        truncated=False,
+    )
+
+    attitude_ratio = np.deg2rad(2.0) / tolerance[4]
+    rate_ratio = np.deg2rad(0.1) / tolerance[5]
+    expected_attitude_state = -0.1 * np.tanh(attitude_ratio / 4.0) ** 2
+    expected_rate_state = -0.05 * np.tanh(rate_ratio / 4.0) ** 2
+    expected_attitude_progress = 100.0 * (
+        np.log1p(np.deg2rad(3.0) / tolerance[4])
+        - np.log1p(attitude_ratio)
+    )
+    expected_rate_progress = 25.0 * (
+        np.log1p(np.deg2rad(0.15) / tolerance[5])
+        - np.log1p(rate_ratio)
+    )
+
+    assert components["closing_reward_version"] == "v15_dt_safe"
+    assert np.isclose(components["closing_reward_time_scale"], 0.1)
+    assert np.isclose(components["reward_attitude"], expected_attitude_state)
+    assert np.isclose(components["reward_rate"], expected_rate_state)
+    assert np.isclose(
+        components["reward_attitude_progress"],
+        expected_attitude_progress,
+    )
+    assert np.isclose(
+        components["reward_rate_progress"],
+        expected_rate_progress,
+    )
+    assert np.isclose(components["reward_failure"], -50_000.0)
+
+    env.prev_closing_pos_error = 100.0
+    env.prev_closing_attitude_error = np.deg2rad(2.0)
+    env.prev_closing_rate_error = np.deg2rad(0.1)
+    _, success = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": True},
+        terminated=True,
+        truncated=False,
+    )
+    assert np.isclose(success["reward_success"], 50_000.0)
+
+    env.prev_closing_pos_error = 100.0
+    env.prev_closing_attitude_error = np.deg2rad(2.0)
+    env.prev_closing_rate_error = np.deg2rad(0.1)
+    _, timeout = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=True,
+    )
+    assert np.isclose(timeout["reward_timeout"], -10_000.0)
+    env.close()
+
+
+def test_closing_reward_v15_dt_safe_brakes_before_warning_boundary():
+    env = Docking3DoFGymEnv(
+        phase="closing",
+        mode="testing",
+        dt=0.1,
+        seed=47,
+        closing_reward_version="v15_dt_safe",
+    )
+    env.reset(seed=47)
+    state = env.core_env.p3_target.copy()
+    state[0] += 100.0
+    state[2] = -0.12
+    state[3] = 0.0
+    state[4] = 0.0
+    state[5] = 0.0
+    env.prev_closing_pos_error = 100.0
+    env.prev_closing_attitude_error = 0.0
+    env.prev_closing_rate_error = 0.0
+
+    _, components = env._compute_sac_reward(
+        state=state,
+        normalized_action=np.zeros(3),
+        physical_action=np.zeros(3),
+        info={"warning": False, "failure": False, "success": False},
+        terminated=False,
+        truncated=False,
+    )
+
+    assert abs(components["s_dot"]) < env.core_env.sdot_safe_close
+    assert np.isclose(components["reward_s_dot"], 0.0)
+    assert components["reward_axial_speed_guard"] < 0.0
+    env.close()
+
+
 def test_closing_reward_v16_normalizes_terminal_errors():
     env = Docking3DoFGymEnv(
         phase="closing",
@@ -874,6 +1122,10 @@ def main():
     test_closing_observation_is_augmented()
     test_closing_observation_wraps_attitude_error()
     test_closing_reward_v15_uses_symmetric_progress()
+    test_closing_reward_v15_dt_scales_only_time_integrated_terms()
+    test_closing_reward_v15_dt_matches_v15_at_reference_timestep()
+    test_closing_reward_v15_dt_safe_corrects_terminal_and_alignment_incentives()
+    test_closing_reward_v15_dt_safe_brakes_before_warning_boundary()
     test_closing_reward_v16_normalizes_terminal_errors()
     test_closing_reward_v17_uses_smooth_terminal_progress()
     test_closing_reward_v18_scales_v17_progress()

@@ -1,0 +1,70 @@
+{
+  "experiment_name": "sac_closing_v15dtsafe_dt0p1_diagnostic_500k_gamma099999_tf16_seed0",
+  "purpose": "controlled closing SAC timestep experiment at 10 Hz",
+  "seed": 0,
+  "device": "auto",
+  "dt_seconds": 0.1,
+  "control_interval_seconds": 0.1,
+  "control_frequency_hz": 10.0,
+  "action_hold_steps": 1,
+  "integrator": "rk4",
+  "max_time_seconds": 12000.0,
+  "max_episode_steps": 120000,
+  "total_timesteps": 500000,
+  "simulated_training_time_seconds": 50000.0,
+  "full_physical_time_matched_timesteps": 4000000,
+  "reward": {
+    "version": "v15_dt_safe",
+    "reference_dt_seconds": 1.0,
+    "persistent_cost_scale": 0.1,
+    "progress_potential_scale_changed": false,
+    "terminal_event_scale_changed": false,
+    "no_progress_rate_threshold_mps": 0.01,
+    "terminal_failure_reward": -50000.0,
+    "terminal_success_reward": 50000.0,
+    "terminal_timeout_reward": -10000.0,
+    "task_first_checkpoint_selection": true,
+    "early_speed_guard_fraction_of_safe_limit": 0.7,
+    "tolerance_normalized_alignment": true
+  },
+  "discount": {
+    "base_gamma_at_1s": 0.99,
+    "gamma_per_decision": 0.99999,
+    "conversion": "base_gamma ** (dt / reference_dt)"
+  },
+  "hyperparameters": {
+    "learning_rate": 0.00026276728418436003,
+    "batch_size": 512,
+    "tau": 0.01,
+    "gamma": 0.99999,
+    "learning_starts": 50000,
+    "train_freq": 16,
+    "gradient_steps": 8,
+    "ent_coef": "auto_0.05",
+    "buffer_size": 500000,
+    "target_update_interval": 1,
+    "policy": "MlpPolicy",
+    "policy_network": [
+      256,
+      256
+    ]
+  },
+  "evaluation": {
+    "frequency_timesteps": 100000,
+    "frequency_physical_seconds": 10000.0,
+    "seeds": [
+      100,
+      101,
+      102
+    ],
+    "max_steps": 120000
+  },
+  "normalization": {
+    "normalize_observations": true,
+    "normalize_rewards": true,
+    "clip_observations": 10.0,
+    "clip_rewards": 10.0,
+    "gamma": 0.99999,
+    "fresh_statistics": true
+  }
+}

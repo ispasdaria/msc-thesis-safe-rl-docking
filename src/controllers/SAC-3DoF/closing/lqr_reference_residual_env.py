@@ -53,6 +53,8 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
         success_bonus=100.0,
         safety_failure_penalty=1000.0,
         timeout_penalty=100.0,
+        time_scale_persistent_reward=False,
+        reward_reference_dt=1.0,
         lqr_controller=None,
         **kwargs,
     ):
@@ -86,11 +88,20 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
         self.success_bonus = float(success_bonus)
         self.safety_failure_penalty = float(safety_failure_penalty)
         self.timeout_penalty = float(timeout_penalty)
+        self.time_scale_persistent_reward = bool(
+            time_scale_persistent_reward
+        )
+        self.reward_reference_dt = float(reward_reference_dt)
+        if (
+            not np.isfinite(self.reward_reference_dt)
+            or self.reward_reference_dt <= 0.0
+        ):
+            raise ValueError("reward_reference_dt must be finite and positive.")
         self.previous_reference_residual_action = np.zeros(3, dtype=np.float32)
 
         if lqr_controller is None:
             A, B = build_linearized_3dof_matrices(self.core_env)
-            Q = build_Q_closing()
+            Q = build_Q_closing(dt=self.core_env.dt)
             R = build_R_closing(self.core_env)
             K, _ = compute_lqr_gain(A=A, B=B, Q=Q, R=R)
             lqr_controller = LQRClosingController(K)
@@ -164,14 +175,19 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
         )
         magnitude_cost = np.sum(np.square(action), axis=-1)
         smoothness_cost = np.sum(np.square(action - previous_action), axis=-1)
+        persistent_scale = (
+            float(self.core_env.dt) / self.reward_reference_dt
+            if self.time_scale_persistent_reward
+            else 1.0
+        )
         progress = previous_cost - self.progress_gamma * next_cost
         reward = (
             self.progress_weight * progress
             + self.success_bonus * success
             - self.safety_failure_penalty * failure
             - self.timeout_penalty * time_limit * (1.0 - success)
-            - self.reference_magnitude_weight * magnitude_cost
-            - self.reference_smoothness_weight * smoothness_cost
+            - persistent_scale * self.reference_magnitude_weight * magnitude_cost
+            - persistent_scale * self.reference_smoothness_weight * smoothness_cost
         )
         reward = np.asarray(reward, dtype=np.float32)
         if reward.ndim == 0:
@@ -282,6 +298,11 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
                 "executed_normalized_action": normalized_action.copy(),
                 "sac_decision_interval_seconds": float(self.core_env.dt),
                 "lqr_update_interval_seconds": float(self.core_env.dt),
+                "persistent_reward_time_scale": float(
+                    self.core_env.dt / self.reward_reference_dt
+                    if self.time_scale_persistent_reward
+                    else 1.0
+                ),
                 "cbf_filter_applied": False,
             }
         )

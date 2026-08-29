@@ -77,7 +77,35 @@ class Docking3DoFGymEnv(gym.Env):
         "p3_omega_error",
     )
     final_observation_labels = ("rpx", "rpy", "vpx", "vpy", "psi_e", "omegaz")
-    closing_reward_versions = ("v15", "v16", "v17", "v18", "v19", "v20")
+    closing_reward_versions = (
+        "v15",
+        "v15_dt",
+        "v15_dt_safe",
+        "v16",
+        "v17",
+        "v18",
+        "v19",
+        "v20",
+    )
+
+    # Reward v15_dt is the time-consistent form of v15. Persistent costs are
+    # interpreted as cost rates and integrated over the simulator step. The
+    # progress-potential and terminal-event terms retain their original scale.
+    closing_reward_reference_dt = 1.0
+
+    # Reward v15_dt_safe keeps v15_dt's physical-time interpretation while
+    # correcting the long-horizon incentive to terminate early. It also uses
+    # bounded tolerance-normalized alignment costs and introduces velocity
+    # guard penalties before the existing warning boundary.
+    closing_safe_failure_reward = -50_000.0
+    closing_safe_success_reward = 50_000.0
+    closing_safe_timeout_reward = -10_000.0
+    closing_safe_attitude_state_scale = 1.0
+    closing_safe_rate_state_scale = 0.5
+    closing_safe_attitude_progress_scale = 100.0
+    closing_safe_rate_progress_scale = 25.0
+    closing_safe_speed_guard_scale = 10.0
+    closing_safe_speed_guard_fraction = 0.7
 
     # Reward v16 adds bounded P3-terminal error shaping to v15. The
     # ratios are clipped so the very small velocity/alignment tolerances cannot
@@ -387,6 +415,7 @@ class Docking3DoFGymEnv(gym.Env):
             self.prev_closing_pos_error = np.linalg.norm(target_error[0:2])
             self.prev_closing_lateral_error = abs(target_error[1])
             self.prev_closing_attitude_error = abs(target_error[4])
+            self.prev_closing_rate_error = abs(target_error[5])
             self.prev_closing_terminal_cost = self._closing_v17_terminal_cost(
                 target_error,
                 self.core_env.p3_target_tolerance,
@@ -622,9 +651,19 @@ class Docking3DoFGymEnv(gym.Env):
 
         action_norm = np.linalg.norm(physical_action / action_scale)
 
+        closing_reward_time_scale = 1.0
+        if (
+            self.phase == "closing"
+            and self.closing_reward_version in {"v15_dt", "v15_dt_safe"}
+        ):
+            closing_reward_time_scale = (
+                self.core_env.dt / self.closing_reward_reference_dt
+            )
+
         reward_components = {
             "phase": self.phase,
             "closing_reward_version": self.closing_reward_version,
+            "closing_reward_time_scale": float(closing_reward_time_scale),
 
             # Raw diagnostic quantities
             "port_distance": float(port_distance),
@@ -701,6 +740,7 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_lateral_speed": 0.0,
             "reward_attitude": 0.0,
             "reward_attitude_progress": 0.0,
+            "reward_rate_progress": 0.0,
             "reward_rate": 0.0,
             "reward_action": 0.0,
             "reward_alpha": 0.0,
@@ -709,6 +749,8 @@ class Docking3DoFGymEnv(gym.Env):
             "reward_no_progress": 0.0,
             "reward_unsafe_forward_progress": 0.0,
             "reward_speed_margin": 0.0,
+            "reward_port_speed_guard": 0.0,
+            "reward_axial_speed_guard": 0.0,
             "reward_rho_keep": 0.0,
             "reward_rho_progress": 0.0,
             "reward_cone_preference": 0.0,
@@ -770,6 +812,11 @@ class Docking3DoFGymEnv(gym.Env):
                 )
 
             self.prev_closing_attitude_error = attitude_error
+            rate_progress = 0.0
+            if hasattr(self, "prev_closing_rate_error"):
+                rate_progress = self.prev_closing_rate_error - rate_error
+
+            self.prev_closing_rate_error = rate_error
 
             vp_safe = self.core_env.vp_safe_close
             vp_unsafe = self.core_env.vp_unsafe_close
@@ -813,18 +860,24 @@ class Docking3DoFGymEnv(gym.Env):
                 p3_alignment_ratio = 0.0
                 axial_overshoot = 0.0
 
-            reward_position = -0.002 * pos_error
-            reward_velocity = -0.5 * vel_error
+            reward_position = (
+                -0.002 * pos_error * closing_reward_time_scale
+            )
+            reward_velocity = (
+                -0.5 * vel_error * closing_reward_time_scale
+            )
             # Reward v14 strengthens the persistent P3-relative attitude
             # penalty while retaining v13's attitude-progress term.
-            reward_attitude = -5.0 * attitude_error
+            reward_attitude = (
+                -5.0 * attitude_error * closing_reward_time_scale
+            )
             # Reward v13 adds only P3-relative attitude progress to v12. This
             # rewards reducing alignment error and penalizes the observed
             # rotation toward the 180-degree anti-aligned state without
             # prescribing an attitude trajectory or penalizing angular action.
             reward_attitude_progress = 50.0 * attitude_progress
-            reward_rate = -0.1 * rate_error
-            reward_action = -0.01 * action_norm
+            reward_rate = -0.1 * rate_error * closing_reward_time_scale
+            reward_action = -0.01 * action_norm * closing_reward_time_scale
             # Reward v12 retains v10's lateral P3-relative velocity penalty. It
             # does not prescribe axial closing speed and does not retain reward
             # v9's angular-action penalty.
@@ -833,7 +886,11 @@ class Docking3DoFGymEnv(gym.Env):
                 if self.core_env.p3_target is not None
                 else abs(q["v_p"][1])
             )
-            reward_lateral_speed = -5.0 * lateral_velocity_error
+            reward_lateral_speed = (
+                -5.0
+                * lateral_velocity_error
+                * closing_reward_time_scale
+            )
             # Apply no axial-speed penalty inside the safe set. Once the axial
             # speed enters the warning band, increase the penalty smoothly up
             # to the hard safety boundary.
@@ -843,7 +900,11 @@ class Docking3DoFGymEnv(gym.Env):
                 0.0,
                 1.0,
             )
-            reward_s_dot = -20.0 * sdot_warning_depth**2
+            reward_s_dot = (
+                -20.0
+                * sdot_warning_depth**2
+                * closing_reward_time_scale
+            )
             # Apply the same warning-depth shaping to total docking-port speed.
             # This remains zero throughout the safe set and therefore does not
             # prescribe a velocity schedule. It only distinguishes safe states
@@ -854,22 +915,112 @@ class Docking3DoFGymEnv(gym.Env):
                 0.0,
                 1.0,
             )
-            reward_speed_margin = -20.0 * port_speed_warning_depth**2
+            reward_speed_margin = (
+                -20.0
+                * port_speed_warning_depth**2
+                * closing_reward_time_scale
+            )
             # Reward v15 uses symmetric P3-distance progress together with
             # persistent lateral position and velocity shaping. Axial
             # overshoot remains available as a rollout diagnostic, but it is
             # deliberately not part of this reward version.
             reward_progress = 20.0 * distance_progress
             reward_axial_overshoot = 0.0
+            no_progress_distance = (
+                0.01 * closing_reward_time_scale
+            )
             no_progress = (
                 pos_error > 50.0
-                and distance_progress < 0.01
+                and distance_progress < no_progress_distance
             )
-            reward_no_progress = -0.05 if no_progress else 0.0
+            reward_no_progress = (
+                -0.05 * closing_reward_time_scale
+                if no_progress
+                else 0.0
+            )
             # Reward v15 adds a persistent P3-relative lateral-position cost.
             # Together with reward_lateral_speed, this creates a position-plus-
             # damping objective without prescribing a lateral velocity profile.
-            reward_lateral = -0.01 * lateral_error
+            reward_lateral = (
+                -0.01 * lateral_error * closing_reward_time_scale
+            )
+
+            reward_rate_progress = 0.0
+            reward_port_speed_guard = 0.0
+            reward_axial_speed_guard = 0.0
+            if (
+                self.closing_reward_version == "v15_dt_safe"
+                and self.core_env.p3_target is not None
+            ):
+                # Bound persistent alignment costs so long safe trajectories
+                # cannot become intrinsically worse than immediate failure.
+                attitude_ratio = attitude_error / max(p3_tol[4], 1e-12)
+                rate_ratio = rate_error / max(p3_tol[5], 1e-12)
+                reward_attitude = (
+                    -self.closing_safe_attitude_state_scale
+                    * np.tanh(attitude_ratio / 4.0) ** 2
+                    * closing_reward_time_scale
+                )
+                reward_rate = (
+                    -self.closing_safe_rate_state_scale
+                    * np.tanh(rate_ratio / 4.0) ** 2
+                    * closing_reward_time_scale
+                )
+
+                previous_attitude_ratio = max(
+                    0.0,
+                    attitude_error + attitude_progress,
+                ) / max(p3_tol[4], 1e-12)
+                previous_rate_ratio = max(
+                    0.0,
+                    rate_error + rate_progress,
+                ) / max(p3_tol[5], 1e-12)
+                reward_attitude_progress = (
+                    self.closing_safe_attitude_progress_scale
+                    * (
+                        np.log1p(previous_attitude_ratio)
+                        - np.log1p(attitude_ratio)
+                    )
+                )
+                reward_rate_progress = (
+                    self.closing_safe_rate_progress_scale
+                    * (
+                        np.log1p(previous_rate_ratio)
+                        - np.log1p(rate_ratio)
+                    )
+                )
+
+                # Begin braking guidance before the existing safe/warning
+                # boundary. The original warning-depth costs remain active and
+                # become progressively stronger closer to the hard boundary.
+                port_guard_start = (
+                    self.closing_safe_speed_guard_fraction * vp_safe
+                )
+                axial_guard_start = (
+                    self.closing_safe_speed_guard_fraction * sdot_safe
+                )
+                port_guard_depth = np.clip(
+                    (port_speed - port_guard_start)
+                    / max(vp_unsafe - port_guard_start, 1e-12),
+                    0.0,
+                    1.0,
+                )
+                axial_guard_depth = np.clip(
+                    (abs(q["s_dot"]) - axial_guard_start)
+                    / max(sdot_unsafe - axial_guard_start, 1e-12),
+                    0.0,
+                    1.0,
+                )
+                reward_port_speed_guard = (
+                    -self.closing_safe_speed_guard_scale
+                    * port_guard_depth**2
+                    * closing_reward_time_scale
+                )
+                reward_axial_speed_guard = (
+                    -self.closing_safe_speed_guard_scale
+                    * axial_guard_depth**2
+                    * closing_reward_time_scale
+                )
 
             # Reward v16 extends v15 with P3-tolerance-normalized terminal
             # shaping. Each state component is divided by the exact tolerance
@@ -985,6 +1136,7 @@ class Docking3DoFGymEnv(gym.Env):
                     + reward_attitude
                     + reward_attitude_progress
                     + reward_rate
+                    + reward_rate_progress
                     + reward_action
                     + reward_lateral_speed
                     + reward_s_dot
@@ -993,6 +1145,8 @@ class Docking3DoFGymEnv(gym.Env):
                     + reward_no_progress
                     + reward_lateral
                     + reward_speed_margin
+                    + reward_port_speed_guard
+                    + reward_axial_speed_guard
                     + reward_tolerance_aggregate
                     + reward_tolerance_worst
                     + reward_tolerance_progress
@@ -1029,6 +1183,7 @@ class Docking3DoFGymEnv(gym.Env):
                     "alignment_gate": float(alignment_gate),
                     "no_progress": float(no_progress),
                     "attitude_progress": float(attitude_progress),
+                    "rate_progress": float(rate_progress),
                     "p3_axial_ratio": float(p3_error_ratios[0]),
                     "p3_vx_ratio": float(p3_error_ratios[2]),
                     "p3_vy_ratio": float(p3_error_ratios[3]),
@@ -1063,6 +1218,7 @@ class Docking3DoFGymEnv(gym.Env):
                         reward_attitude_progress
                     ),
                     "reward_rate": float(reward_rate),
+                    "reward_rate_progress": float(reward_rate_progress),
                     "reward_action": float(reward_action),
                     "reward_lateral_speed": float(reward_lateral_speed),
                     "reward_s_dot": float(reward_s_dot),
@@ -1071,6 +1227,12 @@ class Docking3DoFGymEnv(gym.Env):
                     "reward_no_progress": float(reward_no_progress),
                     "reward_lateral": float(reward_lateral),
                     "reward_speed_margin": float(reward_speed_margin),
+                    "reward_port_speed_guard": float(
+                        reward_port_speed_guard
+                    ),
+                    "reward_axial_speed_guard": float(
+                        reward_axial_speed_guard
+                    ),
                     "reward_tolerance_aggregate": float(
                         reward_tolerance_aggregate
                     ),
@@ -1210,22 +1372,43 @@ class Docking3DoFGymEnv(gym.Env):
             raise ValueError("Unknown phase.")
 
         if info.get("warning", False):
-            reward_warning = -10.0
+            reward_warning = -10.0 * closing_reward_time_scale
             reward += reward_warning
             reward_components["reward_warning"] = float(reward_warning)
 
         if info.get("failure", False):
-            reward_failure = -1000.0
+            reward_failure = (
+                self.closing_safe_failure_reward
+                if (
+                    self.phase == "closing"
+                    and self.closing_reward_version == "v15_dt_safe"
+                )
+                else -1000.0
+            )
             reward += reward_failure
             reward_components["reward_failure"] = float(reward_failure)
 
         if info.get("success", False):
-            reward_success = 1000.0
+            reward_success = (
+                self.closing_safe_success_reward
+                if (
+                    self.phase == "closing"
+                    and self.closing_reward_version == "v15_dt_safe"
+                )
+                else 1000.0
+            )
             reward += reward_success
             reward_components["reward_success"] = float(reward_success)
 
         if truncated:
-            reward_timeout = -200.0
+            reward_timeout = (
+                self.closing_safe_timeout_reward
+                if (
+                    self.phase == "closing"
+                    and self.closing_reward_version == "v15_dt_safe"
+                )
+                else -200.0
+            )
             reward += reward_timeout
             reward_components["reward_timeout"] = float(reward_timeout)
 

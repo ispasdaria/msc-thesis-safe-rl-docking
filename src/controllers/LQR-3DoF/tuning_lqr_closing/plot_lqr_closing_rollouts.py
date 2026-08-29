@@ -3,6 +3,10 @@ import glob
 import json
 import os
 
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -197,24 +201,115 @@ def plot_rollout(path, save_dir=None, show=True):
         raw = actions_body_raw[:n]
         clipped = actions_body_clipped[:n]
 
-        fig2, axes2 = plt.subplots(3, 1, figsize=(12, 9), sharex=True)
-        fig2.suptitle(title + " | body-frame control actions")
+        fig2, axes2 = plt.subplots(3, 2, figsize=(15, 10))
+        fig2.suptitle(
+            title
+            + " | body-frame control actions\n"
+            + "red markers identify updates where the requested command was clipped"
+        )
 
-        action_names = ["ax command", "ay command", "alpha command"]
-        for i, ax in enumerate(axes2):
+        action_names = [
+            r"$a_{x,b_c}$",
+            r"$a_{y,b_c}$",
+            r"$\alpha_{z,b_c}$",
+        ]
+        action_units = [r"m/s$^2$", r"m/s$^2$", r"rad/s$^2$"]
+        action_limits = np.array([0.01, 0.01, 0.003], dtype=float)
+        saturated = np.abs(raw - clipped) > 1e-12
+        dt = float(metadata.get("dt", np.median(np.diff(action_time))))
+        control_update_count = int(metadata.get("steps", n))
+
+        saturated_any = np.any(saturated, axis=1)
+        if np.any(saturated_any):
+            last_saturation_time = float(action_time[np.flatnonzero(saturated_any)[-1]])
+            startup_end = min(float(action_time[-1]), max(30.0, last_saturation_time + 5.0))
+        else:
+            startup_end = min(float(action_time[-1]), 30.0)
+        startup = action_time <= startup_end
+
+        for i in range(3):
             if i >= raw.shape[1]:
                 continue
-            ax.plot(action_time, raw[:, i], linestyle="--", label="raw")
-            ax.plot(action_time, clipped[:, i], label="clipped")
-            ax.set_ylabel(action_names[i])
-            ax.grid(True)
-            ax.legend()
 
-        axes2[-1].set_xlabel("time [s]")
-        fig2.tight_layout()
+            limit = action_limits[i]
+            requested_percent = 100.0 * raw[:, i] / limit
+            applied_percent = 100.0 * clipped[:, i] / limit
+            channel_saturated = saturated[:, i]
+            count = int(np.count_nonzero(channel_saturated))
+            fraction_percent = 100.0 * count / control_update_count
+            saturated_duration = count * dt
+
+            startup_ax = axes2[i, 0]
+            startup_ax.plot(
+                action_time[startup],
+                requested_percent[startup],
+                linestyle="--",
+                linewidth=1.2,
+                color="tab:blue",
+                label="requested",
+            )
+            startup_ax.plot(
+                action_time[startup],
+                applied_percent[startup],
+                linewidth=1.5,
+                color="tab:orange",
+                label="applied",
+            )
+            startup_saturated = startup & channel_saturated
+            startup_ax.scatter(
+                action_time[startup_saturated],
+                applied_percent[startup_saturated],
+                s=10,
+                color="tab:red",
+                label="actually clipped",
+                zorder=3,
+            )
+            startup_ax.axhline(100.0, color="black", linestyle=":", linewidth=1.0)
+            startup_ax.axhline(-100.0, color="black", linestyle=":", linewidth=1.0)
+            startup_ax.set_yscale("symlog", linthresh=5.0)
+            startup_ax.set_ylabel(
+                f"{action_names[i]}\n[% of limit]"
+            )
+            startup_ax.set_title(
+                f"Startup detail (0-{startup_end:g} s); limit = +/-{limit:g} {action_units[i]}"
+            )
+            startup_ax.grid(True, which="both", alpha=0.35)
+
+            full_ax = axes2[i, 1]
+            full_ax.plot(
+                action_time,
+                applied_percent,
+                linewidth=0.8,
+                color="tab:orange",
+                rasterized=True,
+                label="applied",
+            )
+            full_ax.scatter(
+                action_time[channel_saturated],
+                applied_percent[channel_saturated],
+                s=8,
+                color="tab:red",
+                label="actually clipped",
+                zorder=3,
+            )
+            full_ax.axhline(100.0, color="black", linestyle=":", linewidth=1.0)
+            full_ax.axhline(-100.0, color="black", linestyle=":", linewidth=1.0)
+            full_ax.set_ylim(-110.0, 110.0)
+            full_ax.set_ylabel(f"{action_names[i]}\n[% of limit]")
+            full_ax.set_title(
+                f"Full rollout: {count}/{control_update_count} updates clipped "
+                f"({fraction_percent:.4g}%, {saturated_duration:.3g} s)"
+            )
+            full_ax.grid(True, alpha=0.35)
+
+        axes2[0, 0].legend(loc="best")
+        axes2[0, 1].legend(loc="best")
+        axes2[-1, 0].set_xlabel("time [s]")
+        axes2[-1, 1].set_xlabel("time [s]")
+        fig2.tight_layout(rect=(0.0, 0.0, 1.0, 0.95))
 
         if save_dir is not None:
-            actions_path = os.path.join(save_dir, f"{base}_actions.png")
+            actions_path = os.path.join(save_dir, f"{base}_actions_clear.png")
             fig2.savefig(actions_path, dpi=200)
             output_paths.append(actions_path)
 
@@ -271,8 +366,7 @@ def collect_input_files(args):
 
     if args.files:
         files.extend(args.files)
-
-    if args.history_dir:
+    elif args.history_dir:
         files.extend(glob.glob(os.path.join(args.history_dir, "*.npz")))
 
     # Keep order stable and remove duplicates.

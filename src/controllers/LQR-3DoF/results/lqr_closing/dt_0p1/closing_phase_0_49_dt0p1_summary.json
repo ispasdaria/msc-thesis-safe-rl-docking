@@ -1,0 +1,91 @@
+{
+  "configuration": {
+    "phase": "closing",
+    "mode": "testing",
+    "seeds": "0-49",
+    "num_rollouts": 50,
+    "dt_seconds": 0.1,
+    "max_physical_time_seconds": 12000.0,
+    "q_scale_applied_to_selected_Q": 1.0,
+    "r_scale_applied_to_selected_R": 1.0,
+    "continuous_care_gain_identical_to_dt_1p0": true,
+    "actuator_limits": {
+      "ax_mps2": 0.01,
+      "ay_mps2": 0.01,
+      "alphaz_radps2": 0.003
+    },
+    "velocity_schedule": {
+      "v_fast_mps": -0.08,
+      "d_fast_m": 100.0,
+      "d_slow_m": 10.0
+    }
+  },
+  "outcomes": {
+    "successes": 23,
+    "success_rate": 0.46,
+    "timeouts": 27,
+    "timeout_rate": 0.54,
+    "hard_safety_violations": 0,
+    "hard_safety_violation_types": {
+      "geometry": 0,
+      "velocity": 0,
+      "alignment": 0
+    }
+  },
+  "timing": {
+    "mean_elapsed_all_rollouts_seconds": 11689.916000024996,
+    "mean_elapsed_successful_rollouts_seconds": 11325.904347849759,
+    "mean_steps": 116899.16,
+    "maximum_steps": 120000,
+    "maximum_elapsed_seconds": 12000.000000026124
+  },
+  "mean_absolute_terminal_errors_all_rollouts": {
+    "axial_position_m": 14.943363256870011,
+    "lateral_position_m": 1.7527099907355599,
+    "axial_velocity_mps": 0.0045087649581008835,
+    "lateral_velocity_mps": 0.004956369384655956,
+    "attitude_rad": 0.004452153301828448,
+    "attitude_deg": 0.2550895939400042,
+    "angular_rate_radps": 0.0004229149691491904,
+    "angular_rate_degps": 0.024231242825154025
+  },
+  "p3_tolerance_failures": {
+    "axial_position": {"count": 6, "fraction": 0.12},
+    "lateral_position": {"count": 24, "fraction": 0.48},
+    "axial_velocity": {"count": 1, "fraction": 0.02},
+    "lateral_velocity": {"count": 0, "fraction": 0.0},
+    "attitude": {"count": 2, "fraction": 0.04},
+    "angular_rate": {"count": 0, "fraction": 0.0}
+  },
+  "mean_actuator_saturation_fractions": {
+    "any_channel": 0.0011935517398818862,
+    "ax_bc": 0.0006860749677996425,
+    "ay_bc": 0.0010128259594609544,
+    "alphaz_bc": 0.00004609047685061411
+  },
+  "mean_control_effort": {
+    "translational_sum_norm_a_dt_mps": 0.4479793720360555,
+    "angular_sum_abs_alpha_dt_radps": 0.005031957004754941
+  },
+  "historical_dt_1p0_comparison": {
+    "successes": 41,
+    "success_rate": 0.82,
+    "timeouts": 9,
+    "timeout_rate": 0.18,
+    "hard_safety_violations": 0,
+    "mean_elapsed_all_rollouts_seconds": 11236.66,
+    "mean_elapsed_successful_rollouts_seconds": 11069.09756097561,
+    "mean_any_channel_saturation_fraction": 0.9954296603853061,
+    "mean_ax_bc_saturation_fraction": 0.9017302302969399,
+    "mean_ay_bc_saturation_fraction": 0.9566101403776921,
+    "mean_alphaz_bc_saturation_fraction": 0.00009082683423796339,
+    "mean_translational_effort_mps": 158.70778466060858,
+    "mean_angular_effort_radps": 0.028095973605957704
+  },
+  "representative_seed_41_alternation": {
+    "dt_1p0_translational_full_limit_reversal_fraction": 0.9961291457728513,
+    "dt_0p1_translational_full_limit_reversal_fraction": 0.0,
+    "dt_1p0_translational_total_variation_per_second": 0.03990126899209122,
+    "dt_0p1_translational_total_variation_per_second": 0.000004608911699900933
+  }
+}

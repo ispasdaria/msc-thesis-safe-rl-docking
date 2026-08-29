@@ -58,21 +58,29 @@ def apply_diag_multipliers(base, multipliers):
     return np.diag(diag * multipliers)
 
 
-def saturation_fraction(env, atol=1e-12):
+def saturation_fractions(env, atol=1e-12):
     """
-    Fraction of logged timesteps where at least one body-frame action channel
-    was clipped by the environment.
+    Fractions of logged timesteps where the body-frame action was clipped.
+
+    Returns the any-channel fraction followed by the three per-channel
+    fractions in the order ax_Bc, ay_Bc, alphaz_Bc.
     """
     _, _, actions_body_raw, actions_body_clipped, _ = env.get_history_arrays()
 
     if actions_body_raw.size == 0 or actions_body_clipped.size == 0:
-        return 0.0
+        return 0.0, np.zeros(3, dtype=float)
 
     diff = actions_body_raw - actions_body_clipped
     saturated_per_channel = np.abs(diff) > atol
     saturated_any = np.any(saturated_per_channel, axis=1)
 
-    return float(np.mean(saturated_any))
+    return float(np.mean(saturated_any)), np.mean(saturated_per_channel, axis=0)
+
+
+def saturation_fraction(env, atol=1e-12):
+    """Backward-compatible any-channel actuator-saturation fraction."""
+    fraction_any, _ = saturation_fractions(env, atol=atol)
+    return fraction_any
 
 
 def translational_delta_v_proxy(env):
@@ -155,13 +163,14 @@ def compute_final_error(env, state):
     return float(np.linalg.norm(e)), e
 
 
-def run_single_rollout(controller, max_time, seed, mode="testing"):
+def run_single_rollout(controller, max_time, seed, mode="testing", dt=1.0):
     """
     Runs one closing-phase rollout and returns the completed environment,
     final state, final info dictionary, and number of integration steps.
     """
     env = Docking3DoFEnv(
         phase="closing",
+        dt=dt,
         max_time=max_time,
         seed=seed,
     )
@@ -171,7 +180,7 @@ def run_single_rollout(controller, max_time, seed, mode="testing"):
     done = False
     info = {}
     steps = 0
-    max_steps = int(max_time / env.dt) + 1
+    max_steps = int(np.ceil(max_time / env.dt)) + 1
 
     while not done and steps < max_steps:
         action = controller.compute_action(env, state)
@@ -181,16 +190,24 @@ def run_single_rollout(controller, max_time, seed, mode="testing"):
     return env, state, info, steps
 
 
-def build_rollout_record(env, state, info, seed, steps):
+def build_rollout_record(env, state, info, seed, steps, rollout_metrics=None):
     """
     Builds a lightweight per-rollout record used for selecting representative
     histories. This record does not contain the full trajectory.
     """
     final_error, component_error = compute_final_error(env, state)
     status = rollout_status(info)
-    sat = saturation_fraction(env)
-    delta_v_proxy = translational_delta_v_proxy(env)
-    angular_effort = angular_effort_proxy(env)
+    if rollout_metrics is None:
+        sat, sat_channels = saturation_fractions(env)
+        delta_v_proxy = translational_delta_v_proxy(env)
+        angular_effort = angular_effort_proxy(env)
+    else:
+        sat = float(rollout_metrics["saturation_fraction"])
+        sat_channels = np.asarray(
+            rollout_metrics["saturation_fraction_channels"], dtype=float
+        )
+        delta_v_proxy = float(rollout_metrics["delta_v_proxy"])
+        angular_effort = float(rollout_metrics["angular_effort"])
 
     violated_constraints = info.get("violated_constraints", [])
     if violated_constraints is None:
@@ -203,10 +220,24 @@ def build_rollout_record(env, state, info, seed, steps):
         "termination_reason": str(info.get("termination_reason", status)),
         "violated_constraints": list(violated_constraints),
         "steps": int(steps),
+        "dt": float(env.dt),
         "elapsed_time": float(env.time),
         "saturation_fraction": float(sat),
+        "saturation_fraction_ax": float(sat_channels[0]),
+        "saturation_fraction_ay": float(sat_channels[1]),
+        "saturation_fraction_alphaz": float(sat_channels[2]),
         "delta_v_proxy": float(delta_v_proxy),
         "angular_effort": float(angular_effort),
+        "peak_port_speed": float(
+            rollout_metrics.get("peak_port_speed", float("nan"))
+        )
+        if rollout_metrics is not None
+        else float("nan"),
+        "peak_s_dot_abs": float(
+            rollout_metrics.get("peak_s_dot_abs", float("nan"))
+        )
+        if rollout_metrics is not None
+        else float("nan"),
         "final_error": float(final_error),
         "abs_final_ex": float(abs(component_error[0])) if component_error.size else float("nan"),
         "abs_final_ey": float(abs(component_error[1])) if component_error.size else float("nan"),
@@ -214,6 +245,12 @@ def build_rollout_record(env, state, info, seed, steps):
         "abs_final_evy": float(abs(component_error[3])) if component_error.size else float("nan"),
         "abs_final_epsi": float(abs(component_error[4])) if component_error.size else float("nan"),
         "abs_final_eomega": float(abs(component_error[5])) if component_error.size else float("nan"),
+        "fail_rx_tolerance": bool(abs(component_error[0]) > env.p3_target_tolerance[0]),
+        "fail_ry_tolerance": bool(abs(component_error[1]) > env.p3_target_tolerance[1]),
+        "fail_vx_tolerance": bool(abs(component_error[2]) > env.p3_target_tolerance[2]),
+        "fail_vy_tolerance": bool(abs(component_error[3]) > env.p3_target_tolerance[3]),
+        "fail_psi_tolerance": bool(abs(component_error[4]) > env.p3_target_tolerance[4]),
+        "fail_omega_tolerance": bool(abs(component_error[5]) > env.p3_target_tolerance[5]),
     }
 
 
@@ -300,6 +337,7 @@ def save_rollout_history(
         max_time=args.max_time,
         seed=record["seed"],
         mode=args.mode,
+        dt=args.dt,
     )
 
     times, states, actions_body_raw, actions_body_clipped, actions_orbital = (
@@ -381,6 +419,7 @@ def run_rollouts(
     max_time,
     seed_start,
     mode="testing",
+    dt=1.0,
 ):
     successes = 0
     timeouts = 0
@@ -397,6 +436,7 @@ def run_rollouts(
     fail_omega = 0
 
     sat_fractions = []
+    sat_channel_fractions = []
     delta_v_proxies = []
     angular_effort_proxies = []
     rollout_records = []
@@ -426,13 +466,22 @@ def run_rollouts(
     initial_s_delta = []
     elapsed_times = []
     mean_vx_trajectory = []
+    peak_port_speeds = []
+    peak_s_dot_abs_values = []
 
     for seed in range(seed_start, seed_start + num_rollouts):
         env = Docking3DoFEnv(
             phase="closing",
+            dt=dt,
             max_time=max_time,
             seed=seed,
         )
+
+        # The aggregate evaluation needs only running metrics, not the full
+        # per-step dictionaries retained for diagnostic trajectory plots.
+        # Suppressing history storage leaves dynamics, control, monitoring,
+        # and termination unchanged while keeping dt=0.1 evaluations compact.
+        env.log_step = lambda **_: None
 
         state = env.reset(mode=mode)
 
@@ -442,16 +491,40 @@ def run_rollouts(
         initial_monitor = env.monitor_safety(state)
         if initial_monitor.get("unsafe"):
             unsafe_at_reset += 1
+        initial_derived = initial_monitor["derived"]
+        peak_port_speed = float(initial_derived["port_speed"])
+        peak_s_dot_abs = float(abs(initial_derived["s_dot"]))
 
         done = False
         info = {}
         steps = 0
-        max_steps = int(max_time / env.dt) + 1
+        max_steps = int(np.ceil(max_time / env.dt)) + 1
+
+        # Match the history-based definitions exactly, including the initial
+        # zero-action/state sample logged by an ordinary environment reset.
+        sample_count = 1
+        saturation_any_count = 0
+        saturation_channel_counts = np.zeros(3, dtype=np.int64)
+        delta_v_proxy = 0.0
+        angular_effort = 0.0
+        vx_sum = float(state[2])
 
         while not done and steps < max_steps:
             action = controller.compute_action(env, state)
+            action_clipped = env.clip_action(action)
+            clipped_channels = np.abs(action - action_clipped) > 1e-12
+            saturation_channel_counts += clipped_channels
+            saturation_any_count += int(np.any(clipped_channels))
+            delta_v_proxy += float(np.linalg.norm(action_clipped[:2]) * env.dt)
+            angular_effort += float(abs(action_clipped[2]) * env.dt)
             state, done, info = env.step(action)
+            if "port_speed" in info:
+                peak_port_speed = max(peak_port_speed, float(info["port_speed"]))
+            if "s_dot" in info:
+                peak_s_dot_abs = max(peak_s_dot_abs, float(abs(info["s_dot"])))
             steps += 1
+            sample_count += 1
+            vx_sum += float(state[2])
 
         if info.get("success"):
             successes += 1
@@ -490,9 +563,14 @@ def run_rollouts(
             fail_psi += int(failed_components[4])
             fail_omega += int(failed_components[5])
 
-        sat_fractions.append(saturation_fraction(env))
-        delta_v_proxies.append(translational_delta_v_proxy(env))
-        angular_effort_proxies.append(angular_effort_proxy(env))
+        sat_any = saturation_any_count / float(sample_count)
+        sat_channels = saturation_channel_counts / float(sample_count)
+        sat_fractions.append(sat_any)
+        sat_channel_fractions.append(sat_channels)
+        delta_v_proxies.append(delta_v_proxy)
+        angular_effort_proxies.append(angular_effort)
+        peak_port_speeds.append(peak_port_speed)
+        peak_s_dot_abs_values.append(peak_s_dot_abs)
 
         q = env.get_derived_quantities(state)
         final_port_speeds.append(q["port_speed"])
@@ -507,9 +585,25 @@ def run_rollouts(
         final_rx_dot.append(state[2])
 
         elapsed_times.append(env.time)
-        mean_vx_trajectory.append(trajectory_mean_vx(env))
+        mean_vx_trajectory.append(vx_sum / float(sample_count))
 
-        rollout_records.append(build_rollout_record(env, state, info, seed, steps))
+        rollout_metrics = {
+            "saturation_fraction": sat_any,
+            "saturation_fraction_channels": sat_channels,
+            "delta_v_proxy": delta_v_proxy,
+            "angular_effort": angular_effort,
+            "peak_port_speed": peak_port_speed,
+            "peak_s_dot_abs": peak_s_dot_abs,
+        }
+        rollout_records.append(
+            build_rollout_record(
+                env, state, info, seed, steps, rollout_metrics=rollout_metrics
+            )
+        )
+
+        completed = seed - seed_start + 1
+        if completed % 5 == 0 or completed == num_rollouts:
+            print(f"Completed {completed}/{num_rollouts} rollouts")
 
     success_rate = successes / float(num_rollouts)
     timeout_rate = timeouts / float(num_rollouts)
@@ -520,6 +614,11 @@ def run_rollouts(
     violation_alignment_rate = violation_alignment / float(num_rollouts)
 
     sat_mean = float(np.mean(sat_fractions)) if sat_fractions else 0.0
+    sat_channel_mean = (
+        np.mean(np.asarray(sat_channel_fractions, dtype=float), axis=0)
+        if sat_channel_fractions
+        else np.zeros(3, dtype=float)
+    )
 
     final_error_mean = float(np.mean(final_errors)) if final_errors else float("nan")
     final_ex_mean = float(np.mean(final_ex)) if final_ex else float("nan")
@@ -565,6 +664,9 @@ def run_rollouts(
         "vel_rate": violation_velocity_rate,
         "align_rate": violation_alignment_rate,
         "sat_fraction": sat_mean,
+        "sat_ax_fraction": float(sat_channel_mean[0]),
+        "sat_ay_fraction": float(sat_channel_mean[1]),
+        "sat_alphaz_fraction": float(sat_channel_mean[2]),
         "delta_v_proxy": (
             float(np.mean(delta_v_proxies)) if delta_v_proxies else float("nan")
         ),
@@ -600,6 +702,14 @@ def run_rollouts(
         "fail_vy_rate": fail_vy / float(num_rollouts),
         "fail_psi_rate": fail_psi / float(num_rollouts),
         "fail_omega_rate": fail_omega / float(num_rollouts),
+        "peak_port_speed_max": (
+            float(np.max(peak_port_speeds)) if peak_port_speeds else float("nan")
+        ),
+        "peak_s_dot_abs_max": (
+            float(np.max(peak_s_dot_abs_values))
+            if peak_s_dot_abs_values
+            else float("nan")
+        ),
     }
 
     return result, rollout_records
@@ -607,7 +717,7 @@ def run_rollouts(
 
 def print_header():
     header = (
-        "q_scale r_scale success timeout safety unsafe0 geom vel align sat "
+        "q_scale r_scale success timeout safety unsafe0 geom vel align sat sat_ax sat_ay sat_az "
         "dv effort "
         "final_err ex ey evx evy epsi eomega "
         "vport vport_dist com_dist rho psi_abs omega_abs vy vy_abs sdot "
@@ -629,6 +739,9 @@ def print_result_row(q_scale, r_scale, result):
         f" {result['vel_rate']:5.3f}"
         f" {result['align_rate']:5.3f}"
         f" {result['sat_fraction']:5.3f}"
+        f" {result['sat_ax_fraction']:6.3f}"
+        f" {result['sat_ay_fraction']:6.3f}"
+        f" {result['sat_alphaz_fraction']:6.3f}"
         f" {result['delta_v_proxy']:7.3f}"
         f" {result['angular_effort']:7.4f}"
         f" {result['final_err']:9.3f}"
@@ -666,6 +779,7 @@ def main():
         description="Sweep Q/R scales for closing-phase LQR and report success/saturation."
     )
     parser.add_argument("--rollouts", type=int, default=50)
+    parser.add_argument("--dt", type=float, default=1.0)
     parser.add_argument("--max-time", type=float, default=12000.0)
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--mode", type=str, default="testing", choices=["nominal", "testing", "training"])
@@ -719,9 +833,11 @@ def main():
     q_mults = parse_multipliers(args.q_mults, 6, "--q-mults")
     r_mults = parse_multipliers(args.r_mults, 3, "--r-mults")
 
-    env_for_gain = Docking3DoFEnv(phase="closing", max_time=args.max_time, seed=0)
+    env_for_gain = Docking3DoFEnv(
+        phase="closing", dt=args.dt, max_time=args.max_time, seed=0
+    )
     A, B = build_linearized_3dof_matrices(env_for_gain)
-    Q_base = apply_diag_multipliers(build_Q_closing(), q_mults)
+    Q_base = apply_diag_multipliers(build_Q_closing(dt=args.dt), q_mults)
     R_base = apply_diag_multipliers(build_R_closing(env_for_gain), r_mults)
 
     if q_mults is not None:
@@ -756,6 +872,7 @@ def main():
                 max_time=args.max_time,
                 seed_start=args.seed_start,
                 mode=args.mode,
+                dt=args.dt,
             )
 
             if args.results_csv:

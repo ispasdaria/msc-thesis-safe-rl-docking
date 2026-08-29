@@ -75,6 +75,7 @@ def build_parser():
     parser.add_argument("--source-max-episodes", type=int, default=12)
     parser.add_argument("--max-time", type=float, default=12_000.0)
     parser.add_argument("--max-eval-steps", type=int, default=12_000)
+    parser.add_argument("--dt", type=float, choices=(0.1, 1.0), default=1.0)
     parser.add_argument("--vx-reference-bound", type=float, default=0.02)
     parser.add_argument("--vy-reference-bound", type=float, default=0.01)
     parser.add_argument(
@@ -90,9 +91,20 @@ def build_parser():
     parser.add_argument("--success-bonus", type=float, default=1.0)
     parser.add_argument("--failure-penalty", type=float, default=10.0)
     parser.add_argument("--timeout-penalty", type=float, default=1.0)
+    parser.add_argument(
+        "--time-scale-persistent-reward",
+        action="store_true",
+        help=(
+            "Scale residual magnitude and smoothness costs by dt/1s. "
+            "Use this for physically matched sub-second experiments."
+        ),
+    )
     parser.add_argument("--initial-log-std", type=float, default=-3.0)
     parser.add_argument("--prefill-residual-std", type=float, default=0.25)
     parser.add_argument("--prefill-residual-clip", type=float, default=0.75)
+    parser.add_argument(
+        "--prefill-residual-hold-steps", type=int, default=1
+    )
     parser.add_argument(
         "--prefill-zero-episode-fraction", type=float, default=0.5
     )
@@ -133,6 +145,7 @@ def validate_args(parser, args):
         "learning_rate",
         "train_freq",
         "gradient_steps",
+        "prefill_residual_hold_steps",
     )
     for name in positive:
         if getattr(args, name) <= 0:
@@ -164,6 +177,7 @@ def validate_args(parser, args):
 
 def environment_kwargs(args):
     return {
+        "dt": args.dt,
         "reference_residual_bounds": (
             args.vx_reference_bound,
             args.vy_reference_bound,
@@ -176,6 +190,8 @@ def environment_kwargs(args):
         "success_bonus": args.success_bonus,
         "safety_failure_penalty": args.failure_penalty,
         "timeout_penalty": args.timeout_penalty,
+        "time_scale_persistent_reward": args.time_scale_persistent_reward,
+        "reward_reference_dt": 1.0,
         "terminate_on_success": True,
     }
 
@@ -390,7 +406,11 @@ def main(argv=None):
             "residual_std": args.prefill_residual_std,
             "residual_clip": args.prefill_residual_clip,
             "zero_episode_fraction": args.prefill_zero_episode_fraction,
-            "decision_interval_seconds": 1.0,
+            "residual_hold_steps": args.prefill_residual_hold_steps,
+            "decision_interval_seconds": (
+                args.dt * args.prefill_residual_hold_steps
+            ),
+            "simulator_interval_seconds": args.dt,
             "random_seed": args.prefill_random_seed,
             "retain_failure_episodes": args.retain_failure_prefill,
         },
@@ -438,6 +458,7 @@ def main(argv=None):
         zero_episode_fraction=args.prefill_zero_episode_fraction,
         random_seed=args.prefill_random_seed,
         retain_failure_episodes=args.retain_failure_prefill,
+        residual_hold_steps=args.prefill_residual_hold_steps,
     )
     write_csv(result_dir / "source_episode_collection.csv", source_rows)
 

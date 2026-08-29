@@ -99,10 +99,13 @@ def collect_reference_residual_trajectories(
     zero_episode_fraction,
     random_seed,
     retain_failure_episodes,
+    residual_hold_steps=1,
 ):
-    """Collect complete LQR episodes with 1 Hz reference probes."""
+    """Collect complete LQR episodes with reference-residual probes."""
     if minimum_transitions <= 0:
         raise ValueError("minimum_transitions must be positive.")
+    if residual_hold_steps <= 0:
+        raise ValueError("residual_hold_steps must be positive.")
     rng = np.random.default_rng(random_seed)
     env = make_her_env(
         seed=seed_start,
@@ -114,6 +117,8 @@ def collect_reference_residual_trajectories(
     transitions = []
     summaries = []
     accepted_episode_id = 0
+    environment_dt = float(env_kwargs.get("dt", 1.0))
+    maximum_control_steps = int(np.ceil(float(max_steps) / environment_dt))
     try:
         for attempt in range(max_episodes):
             if len(transitions) >= minimum_transitions:
@@ -128,10 +133,11 @@ def collect_reference_residual_trajectories(
             action_square_sum = np.zeros(3, dtype=np.float64)
             action_abs_max = np.zeros(3, dtype=np.float64)
             lqr_saturated_steps = 0
-            for _ in range(int(max_steps)):
+            action = np.zeros(3, dtype=np.float32)
+            for step in range(maximum_control_steps):
                 if zero_episode:
                     action = np.zeros(3, dtype=np.float32)
-                else:
+                elif step % int(residual_hold_steps) == 0:
                     action = np.clip(
                         rng.normal(0.0, residual_std, size=3),
                         -residual_clip,
@@ -168,6 +174,7 @@ def collect_reference_residual_trajectories(
                     "steps": len(episode),
                     "accepted": int(retained),
                     "zero_reference_residual_episode": int(zero_episode),
+                    "residual_hold_steps": int(residual_hold_steps),
                     "success": int(bool(final_info.get("success", False))),
                     "failure": int(failure),
                     "time_limit": int(bool(final_info.get("time_limit", False))),

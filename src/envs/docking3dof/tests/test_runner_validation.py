@@ -23,7 +23,22 @@ for path in (SRC_PATH, LQR_PATH):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from run_lqr_full_mission import run_full_mission
+from run_lqr_full_mission import create_runner, run_full_mission
+
+
+def test_full_mission_runner_supports_phase_specific_time_steps():
+    runner = create_runner(
+        seed=300,
+        closing_max_time=12_000.0,
+        final_max_time=5_000.0,
+        closing_dt=0.1,
+        final_dt=1.0,
+    )
+
+    assert runner.closing_env.dt == pytest.approx(0.1)
+    assert runner.final_env.dt == pytest.approx(1.0)
+    assert runner.closing_env.max_time == pytest.approx(12_000.0)
+    assert runner.final_env.max_time == pytest.approx(5_000.0)
 
 
 @pytest.fixture(scope="module")
@@ -95,5 +110,25 @@ def test_nominal_mission_histories_are_complete_and_finite(nominal_mission):
         assert np.all(np.isfinite(actions_raw))
         assert np.all(np.isfinite(actions_clipped))
         assert np.all(np.isfinite(actions_orbital))
+
+
+def test_lightweight_saturation_tracking_matches_saved_history(nominal_mission):
+    runner, _ = nominal_mission
+
+    for phase, env in (
+        ("closing", runner.closing_env),
+        ("final", runner.final_env),
+    ):
+        _, _, actions_raw, actions_clipped, _ = env.get_history_arrays()
+        saturated_channels = np.abs(actions_raw - actions_clipped) > 1e-12
+        tracked = runner.phase_metric_trackers[phase].metrics()
+
+        assert tracked["saturation_fraction_total"] == pytest.approx(
+            np.mean(np.any(saturated_channels, axis=1))
+        )
+        assert np.allclose(
+            tracked["saturation_fraction_channels"],
+            np.mean(saturated_channels, axis=0),
+        )
         assert np.all(actions_clipped <= env.action_high + 1e-12)
         assert np.all(actions_clipped >= env.action_low - 1e-12)

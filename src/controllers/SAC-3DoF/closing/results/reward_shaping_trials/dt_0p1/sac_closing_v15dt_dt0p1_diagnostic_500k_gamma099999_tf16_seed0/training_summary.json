@@ -1,0 +1,11 @@
+{
+  "experiment_name": "sac_closing_v15dt_dt0p1_diagnostic_500k_gamma099999_tf16_seed0",
+  "completed": true,
+  "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_diagnostic_500k_gamma099999_tf16_seed0\\sac_closing_v15dt_dt0p1_diagnostic_500k_gamma099999_tf16_seed0_final.zip",
+  "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_diagnostic_500k_gamma099999_tf16_seed0\\sac_closing_v15dt_dt0p1_diagnostic_500k_gamma099999_tf16_seed0_final_vecnormalize.pkl",
+  "best_checkpoint": {
+    "episode": 167,
+    "timestep": 200000,
+    "score": -2291.2479837075716
+  }
+}

@@ -37,6 +37,7 @@ def make_her_env(
     mode,
     max_time=12_000.0,
     reward_version="v1",
+    dt=1.0,
     **env_kwargs,
 ):
     try:
@@ -48,7 +49,7 @@ def make_her_env(
         ) from exc
     return env_class(
         mode=mode,
-        dt=1.0,
+        dt=float(dt),
         max_time=max_time,
         integrator="rk4",
         normalize_action=True,
@@ -115,11 +116,13 @@ def evaluate_model(
     rows = []
     for seed in seeds:
         environment_options = dict(env_kwargs or {})
+        environment_dt = float(environment_options.pop("dt", 1.0))
         env = make_her_env(
             seed=int(seed),
             mode=mode,
-            max_time=max_steps,
+            max_time=float(max_steps) * environment_dt,
             reward_version=reward_version,
+            dt=environment_dt,
             **environment_options,
         )
         observation, _ = env.reset(seed=int(seed))

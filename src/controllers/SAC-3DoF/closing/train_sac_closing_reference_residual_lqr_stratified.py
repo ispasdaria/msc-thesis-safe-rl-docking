@@ -136,7 +136,10 @@ def write_model_readme(
                 timeout=float(summary["time_limit_rate"]),
                 position=float(summary["mean_minimum_position_error"]),
                 ratio=float(summary["mean_best_max_target_ratio"]),
-                steps=float(summary["mean_steps"]),
+                steps=(
+                    float(summary["mean_steps"])
+                    * float(config["sac_decision_interval_seconds"])
+                ),
             )
         )
     replay = config["replay_distribution"]
@@ -172,15 +175,25 @@ def write_model_readme(
         )
     )
     if actor_constraint["schedule_used"]:
+        if float(config["dt_seconds"]) == 1.0:
+            transfer_description = (
+                "The controller, reward, replay distribution, seeds, "
+                "initialization, and all other SAC settings are unchanged."
+            )
+        else:
+            transfer_description = (
+                f"This replication transfers Pilot E to dt="
+                f"{config['dt_seconds']:.3g} s. Interaction counts, replay "
+                "prefill, warm-up, checkpoint positions, and actor-prior "
+                "annealing are physically time-matched to the 1 s run."
+            )
         change_description = (
-            f"Pilot {config['pilot']} changes exactly one Pilot D setting: "
-            "the zero-residual actor penalty is annealed linearly from "
-            f"{actor_constraint['initial_weight']:.3g} at interaction "
-            f"{actor_constraint['anneal_start_step']:,} to "
+            f"Pilot {config['pilot']} uses a zero-residual actor penalty "
+            f"annealed linearly from {actor_constraint['initial_weight']:.3g} "
+            f"at interaction {actor_constraint['anneal_start_step']:,} to "
             f"{actor_constraint['final_weight']:.3g} at interaction "
             f"{actor_constraint['anneal_end_step']:,}, then held constant. "
-            "The controller, reward, replay distribution, seeds, "
-            "initialization, and all other SAC settings are unchanged."
+            f"{transfer_description}"
         )
         actor_weight_description = (
             f"{actor_constraint['initial_weight']:.3g} at "
@@ -189,9 +202,10 @@ def write_model_readme(
             f"{actor_constraint['anneal_end_step']:,}"
         )
     else:
-        change_description = """Pilot D changes only Pilot C's replay sampling
-distribution. The controller, fixed P3 goal, reward, one-second SAC/LQR
-cadence, zero-residual actor prior, and no-HER setup are unchanged."""
+        change_description = f"""Pilot D changes only Pilot C's replay sampling
+distribution. The controller, fixed P3 goal, reward,
+{config['sac_decision_interval_seconds']:.3g}-second SAC/LQR cadence,
+zero-residual actor prior, and no-HER setup are unchanged."""
         actor_weight_description = f"{actor_constraint['initial_weight']:.3g}"
     content = f"""# Pilot {config['pilot']} P3-stratified reference-residual SAC model card
 
@@ -264,7 +278,7 @@ ratio from the actual next state and actual fixed P3 target.
 | Actor zero-reference weight | {actor_weight_description} |
 | Train frequency / gradient steps | {sac['train_freq']} / {sac['gradient_steps']} |
 | Batch size | {sac['batch_size']} |
-| Discount factor | {sac['gamma']:.4f} |
+| Discount factor | {sac['gamma']:.8f} |
 | Target smoothing | {sac['tau']:.4f} |
 | Entropy coefficient | `{sac['ent_coef']}` |
 | Target entropy | {sac['target_entropy']:.1f} |
@@ -329,8 +343,10 @@ def main(argv=None):
             "vy_mps": args.vy_reference_bound,
             "attitude_deg": args.attitude_reference_bound_deg,
         },
-        "sac_decision_interval_seconds": 1.0,
-        "lqr_update_interval_seconds": 1.0,
+        "dt_seconds": args.dt,
+        "control_frequency_hz": 1.0 / args.dt,
+        "sac_decision_interval_seconds": args.dt,
+        "lqr_update_interval_seconds": args.dt,
         "residual_hold_steps": 1,
         "distance_gate_used": False,
         "her_used": False,
@@ -345,6 +361,12 @@ def main(argv=None):
             "timeout_penalty": args.timeout_penalty,
             "magnitude_weight": args.reference_magnitude_weight,
             "smoothness_weight": args.reference_smoothness_weight,
+            "persistent_terms_time_scaled": bool(
+                args.time_scale_persistent_reward
+            ),
+            "persistent_time_scale": (
+                args.dt if args.time_scale_persistent_reward else 1.0
+            ),
             "scale_relative_to_pilot_b": 0.01,
         },
         "replay_distribution": {
@@ -377,7 +399,11 @@ def main(argv=None):
             "residual_std": args.prefill_residual_std,
             "residual_clip": args.prefill_residual_clip,
             "zero_episode_fraction": args.prefill_zero_episode_fraction,
-            "decision_interval_seconds": 1.0,
+            "residual_hold_steps": args.prefill_residual_hold_steps,
+            "decision_interval_seconds": (
+                args.dt * args.prefill_residual_hold_steps
+            ),
+            "simulator_interval_seconds": args.dt,
             "random_seed": args.prefill_random_seed,
             "retain_failure_episodes": args.retain_failure_prefill,
         },
@@ -447,6 +473,7 @@ def main(argv=None):
         zero_episode_fraction=args.prefill_zero_episode_fraction,
         random_seed=args.prefill_random_seed,
         retain_failure_episodes=args.retain_failure_prefill,
+        residual_hold_steps=args.prefill_residual_hold_steps,
     )
     write_csv(result_dir / "source_episode_collection.csv", source_rows)
 
@@ -554,7 +581,10 @@ def main(argv=None):
     print(f"Experiment:       {args.experiment_name}")
     print("HER in training:  no")
     print("CBF in training:  no")
-    print("SAC/LQR cadence:  1 Hz / 1 Hz")
+    print(
+        "SAC/LQR cadence:  "
+        f"{1.0 / args.dt:g} Hz / {1.0 / args.dt:g} Hz"
+    )
     print("Replay batches:   50% global / 25% ratio <=5 / 25% ratio <=2")
     if args.zero_residual_actor_final_weight is not None:
         print(

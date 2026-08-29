@@ -152,10 +152,18 @@ def make_eval_env(seed=0):
     return env
 
 
-def evaluate_deterministic_policy(model, eval_seeds, max_steps=12000):
+def evaluate_deterministic_policy(
+    model,
+    eval_seeds,
+    max_steps=12000,
+    eval_env_factory=None,
+):
     """
     Evaluates the current deterministic policy with the live VecNormalize stats.
     """
+
+    if eval_env_factory is None:
+        eval_env_factory = make_eval_env
 
     vecnorm = model.get_vec_normalize_env()
     if vecnorm is None:
@@ -172,7 +180,7 @@ def evaluate_deterministic_policy(model, eval_seeds, max_steps=12000):
 
     try:
         for seed in eval_seeds:
-            env = make_eval_env(seed=seed)
+            env = eval_env_factory(seed=seed)
             obs, _ = env.reset(seed=seed)
 
             total_reward = 0.0
@@ -371,6 +379,7 @@ class BestModelCallback(BaseCallback):
         eval_seeds,
         eval_freq=50_000,
         max_steps=12000,
+        eval_env_factory=None,
     ):
         super().__init__()
         self.best_model_path = best_model_path
@@ -378,6 +387,7 @@ class BestModelCallback(BaseCallback):
         self.eval_seeds = list(eval_seeds)
         self.eval_freq = eval_freq
         self.max_steps = max_steps
+        self.eval_env_factory = eval_env_factory
 
         self.best_mean_return = -np.inf
         self.completed_episodes = 0
@@ -402,6 +412,7 @@ class BestModelCallback(BaseCallback):
             self.model,
             eval_seeds=self.eval_seeds,
             max_steps=self.max_steps,
+            eval_env_factory=self.eval_env_factory,
         )
         mean_return = float(np.mean(returns))
         std_return = float(np.std(returns))
@@ -462,6 +473,7 @@ class PeriodicEvalCallback(BaseCallback):
         eval_seeds,
         eval_every_episodes=10,
         max_steps=12000,
+        eval_env_factory=None,
     ):
         super().__init__()
 
@@ -472,6 +484,7 @@ class PeriodicEvalCallback(BaseCallback):
         self.eval_seeds = list(eval_seeds)
         self.eval_every_episodes = eval_every_episodes
         self.max_steps = max_steps
+        self.eval_env_factory = eval_env_factory
 
         self.completed_episodes = 0
 
@@ -525,6 +538,7 @@ class PeriodicEvalCallback(BaseCallback):
             self.model,
             eval_seeds=self.eval_seeds,
             max_steps=self.max_steps,
+            eval_env_factory=self.eval_env_factory,
         )
 
     def _save_csv(self):

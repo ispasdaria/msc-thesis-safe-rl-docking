@@ -1,0 +1,11 @@
+{
+  "experiment_name": "sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot",
+  "completed": true,
+  "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot_final.zip",
+  "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot_final_vecnormalize.pkl",
+  "best_checkpoint": {
+    "episode": 70,
+    "timestep": 500000,
+    "score": -7572.748713459822
+  }
+}

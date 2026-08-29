@@ -1,52 +1,6 @@
 # 7.1 LQR baseline performance
 
 
-## 7.1.2 Closing-phase controller
-
-### Applied-control effort and sampled-data behavior
-
-
-
-![Requested and applied closing commands for the representative successful rollout](../src/controllers/LQR-3DoF/results/lqr_closing/closing_applied_commands.png)
-
-*Requested (raw) and applied (clipped) body-frame translational commands for
-the representative successful closing rollout (seed 41). The stacked panels
-show the axial component above the lateral component. Requested commands are
-summarized using 180 s medians; applied commands are shown at their native 1 s
-sampling interval.*
-
-![Ten-second detail of requested and applied closing commands](../src/controllers/LQR-3DoF/results/lqr_closing/closing_applied_commands_detail.png)
-
-*Detail of the same command history from 100 to 110 s. The native samples
-expose one-step alternation at the 1 s control interval and clipping at the
-horizontal actuator limits.*
-
-![Relative velocity histories for the representative successful closing rollout](../src/controllers/LQR-3DoF/results/lqr_closing/closing_velocity_history.png)
-
-*Target-centered-orbital-frame velocity components for the same rollout. The
-dashed horizontal lines denote the sampled (P_3) terminal velocities, and
-the markers identify the terminal simulated values.*
-
-The command histories show that the closing controller remains at the
-translational actuator limits for most of the rollout: the requested commands
-substantially exceed the available (\pm 0.01\ \mathrm{m/s^2}), so the applied
-components are repeatedly clipped. The 100--110 s detail further shows
-one-step sign reversal at the 1 s control interval. This command chattering is
-a sampled-data limit cycle in which the demanded acceleration switches between
-opposite limits; it does not mean that the chaser reverses its velocity or
-position every second. Acceleration changes velocity incrementally, and the
-existing approach velocity continues to carry the chaser toward (P_3). The
-opposing increments largely cancel over successive pairs, but their small
-imbalance, together with the body-to-orbital-frame transformation and relative
-orbital dynamics, produces a nonzero slow correction that accumulates over the
-11,367 s maneuver. Consistent with this interpretation, (v_x) changes from
-(-0.1374) to (-0.0415\ \mathrm{m/s}), approaching its sampled (P_3) value
-of (-0.0364\ \mathrm{m/s}), while (v_y) terminates at
-(0.00539\ \mathrm{m/s}), near its (0.00244\ \mathrm{m/s}) target. The
-rollout can therefore reach (P_3) despite the chattering, although it does so
-with inefficient, nearly cancelling actuator activity and correspondingly
-large accumulated control effort.
-
 ## 7.1.3 Final-approach phase controller
 
 The selected final-approach controller completed all 50 phase-level rollouts

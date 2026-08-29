@@ -55,6 +55,20 @@ def test_build_Q_closing_is_psd():
     assert np.all(eigvals >= 0.0)
 
 
+def test_build_Q_closing_selects_only_supported_dt_weights():
+    Q_default = build_Q_closing()
+    Q_dt1 = build_Q_closing(dt=1.0)
+    Q_dt01 = build_Q_closing(dt=0.1)
+
+    assert np.array_equal(Q_default, Q_dt1)
+    assert Q_dt1[3, 3] == pytest.approx(845_000.0)
+    assert Q_dt01[3, 3] == pytest.approx(718_250.0)
+    assert np.array_equal(np.delete(np.diag(Q_dt01), 3), np.delete(np.diag(Q_dt1), 3))
+
+    with pytest.raises(ValueError, match="Unsupported closing-controller dt"):
+        build_Q_closing(dt=0.2)
+
+
 def test_build_R_closing_is_pd():
     env = Docking3DoFEnv()
     R = build_R_closing(env)

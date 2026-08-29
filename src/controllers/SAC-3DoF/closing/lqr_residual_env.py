@@ -90,7 +90,7 @@ class ResidualLQRGoalConditionedClosingEnv(GoalConditionedClosingV3Env):
 
         if lqr_controller is None:
             A, B = build_linearized_3dof_matrices(self.core_env)
-            Q = build_Q_closing()
+            Q = build_Q_closing(dt=self.core_env.dt)
             R = build_R_closing(self.core_env)
             K, _ = compute_lqr_gain(A=A, B=B, Q=Q, R=R)
             lqr_controller = LQRClosingController(K)

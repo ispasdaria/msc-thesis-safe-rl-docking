@@ -20,7 +20,7 @@ if SRC_PATH not in sys.path:
 from envs.docking3dof.core import Docking3DoFEnv
 
 
-def build_Q_closing():
+def build_Q_closing(dt=1.0):
     """
     Builds the tuned state weighting matrix Q for the closing-phase LQR.
 
@@ -34,7 +34,9 @@ def build_Q_closing():
     state significantly.
 
     The final tuned matrix also includes the selected global Q scale and
-    per-state multipliers obtained from the closing-phase Q/R sweep.
+    per-state multipliers obtained from the closing-phase Q/R sweep. Only
+    the explicitly supported controller intervals have selected Q matrices;
+    rejecting other intervals prevents a silent controller mismatch.
     """
 
     closing_design_scale = np.array(
@@ -64,12 +66,24 @@ def build_Q_closing():
     # Selected tuning from the closing-phase sweep.
     q_scale = 6.5
 
+    if np.isclose(dt, 1.0, rtol=0.0, atol=1e-12):
+        lateral_velocity_multiplier = 6.5
+    elif np.isclose(dt, 0.1, rtol=0.0, atol=1e-12):
+        # Final dt=0.1 s retuning selected after sampled-data verification.
+        lateral_velocity_multiplier = 6.5 * 0.85
+    else:
+        raise ValueError(
+            "Unsupported closing-controller dt. Selected Q matrices are "
+            "available only for dt=1.0 s and dt=0.1 s; "
+            f"received dt={dt!r}."
+        )
+
     q_multipliers = np.array(
         [
             3.5,     # rx
             6.5,     # ry
             25.0,    # vx
-            6.5,     # vy
+            lateral_velocity_multiplier,  # vy
             2.0,     # psi
             0.5,     # omegaz
         ],
@@ -546,7 +560,7 @@ def main():
 
     state = env.reset(mode="testing")
 
-    Q_closing = build_Q_closing()
+    Q_closing = build_Q_closing(dt=env.dt)
     R_closing = build_R_closing(env)
 
     A_closing, B_closing = build_linearized_3dof_matrices(env)

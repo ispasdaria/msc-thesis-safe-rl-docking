@@ -1,0 +1,89 @@
+{
+  "selection_order": [
+    "highest success rate",
+    "lowest safety-failure rate",
+    "lowest final maximum target ratio",
+    "lowest final position error",
+    "highest return"
+  ],
+  "best": {
+    "timestep": 500000,
+    "completed_episodes": 242,
+    "rollouts": 3,
+    "success_rate": 0.0,
+    "safety_failure_rate": 1.0,
+    "timeout_rate": 0.0,
+    "mean_final_max_target_ratio": 171.23178864388714,
+    "mean_final_position_error_m": 1377.6431233512449,
+    "mean_return": -56636.24386378463,
+    "mean_steps": 9259.333333333334,
+    "mean_elapsed_time_seconds": 925.9333333329199
+  },
+  "evaluations": [
+    {
+      "timestep": 100000,
+      "completed_episodes": 53,
+      "rollouts": 3,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 211.57321197274644,
+      "mean_final_position_error_m": 1397.51061789639,
+      "mean_return": -51482.638001529616,
+      "mean_steps": 1924.0,
+      "mean_elapsed_time_seconds": 192.39999999999336
+    },
+    {
+      "timestep": 200000,
+      "completed_episodes": 129,
+      "rollouts": 3,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 271.22651275648934,
+      "mean_final_position_error_m": 1399.9585264419595,
+      "mean_return": -51557.675459502025,
+      "mean_steps": 1326.6666666666667,
+      "mean_elapsed_time_seconds": 132.66666666666342
+    },
+    {
+      "timestep": 300000,
+      "completed_episodes": 187,
+      "rollouts": 3,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 293.582725750111,
+      "mean_final_position_error_m": 1404.4253386783455,
+      "mean_return": -50998.10842456915,
+      "mean_steps": 768.0,
+      "mean_elapsed_time_seconds": 76.79999999999983
+    },
+    {
+      "timestep": 400000,
+      "completed_episodes": 217,
+      "rollouts": 3,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 244.19082431921277,
+      "mean_final_position_error_m": 1337.7959412210644,
+      "mean_return": -58697.911864660935,
+      "mean_steps": 7042.0,
+      "mean_elapsed_time_seconds": 704.1999999999745
+    },
+    {
+      "timestep": 500000,
+      "completed_episodes": 242,
+      "rollouts": 3,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 171.23178864388714,
+      "mean_final_position_error_m": 1377.6431233512449,
+      "mean_return": -56636.24386378463,
+      "mean_steps": 9259.333333333334,
+      "mean_elapsed_time_seconds": 925.9333333329199
+    }
+  ]
+}

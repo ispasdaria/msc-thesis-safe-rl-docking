@@ -1,0 +1,232 @@
+{
+  "configuration": {
+    "phase": "closing",
+    "mode": "testing",
+    "dt_seconds": 0.1,
+    "max_time_seconds": 12000.0,
+    "maximum_control_steps": 120000,
+    "seed_start": 1000,
+    "seed_end": 1299,
+    "rollouts": 300,
+    "Q_closing": [
+      [
+        0.002275,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        6.76,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        406250.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        718249.9999999999,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        10669.120637538168,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1066912.0637538168
+      ]
+    ],
+    "R_closing": [
+      [
+        4444.444444444444,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        4444.444444444444,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        312500.0
+      ]
+    ],
+    "K_closing": [
+      [
+        0.0007154544010696028,
+        -1.0060411740247322e-16,
+        9.560736420841378,
+        -1.3058620688047695e-16,
+        1.7206011681704606e-15,
+        3.0182834894298077e-14
+      ],
+      [
+        -5.030795293948753e-16,
+        0.038998719952888165,
+        -1.3058620688047695e-16,
+        12.715512079342535,
+        -2.388952449675377e-13,
+        -3.879690116419293e-13
+      ],
+      [
+        -9.461739198809785e-17,
+        -1.3789679141455467e-15,
+        4.2926698516335044e-16,
+        -5.517781498907439e-15,
+        0.18477333692976236,
+        1.9451645888900249
+      ]
+    ],
+    "lateral_gains": {
+      "k_y": 0.038998719952888165,
+      "k_vy": 12.715512079342535,
+      "k_vy_over_k_y_seconds": 326.04947276996074
+    },
+    "controller_schedule": {
+      "v_fast_mps": -0.08,
+      "d_fast_m": 100.0,
+      "d_slow_m": 10.0
+    },
+    "actuator_limits": {
+      "ax_max_mps2": 0.01,
+      "ay_max_mps2": 0.01,
+      "alphaz_max_radps2": 0.003
+    },
+    "p3_target_tolerance": [
+      20.0,
+      2.0,
+      0.01,
+      0.01,
+      0.008726646259971648,
+      0.0008726646259971648
+    ]
+  },
+  "sampled_data_stability": {
+    "method": "exact_zero_order_hold",
+    "eigenvalues": [
+      {
+        "real": 0.9999925167132262,
+        "imag": 0.0,
+        "magnitude": 0.9999925167132262
+      },
+      {
+        "real": 0.043930263930630584,
+        "imag": 0.0,
+        "magnitude": 0.043930263930630584
+      },
+      {
+        "real": -0.27143947267881696,
+        "imag": 0.0,
+        "magnitude": 0.27143947267881696
+      },
+      {
+        "real": 0.814521664683283,
+        "imag": 0.0,
+        "magnitude": 0.814521664683283
+      },
+      {
+        "real": 0.9996932610571125,
+        "imag": 0.0,
+        "magnitude": 0.9996932610571125
+      },
+      {
+        "real": 0.990038009743065,
+        "imag": 0.0,
+        "magnitude": 0.990038009743065
+      }
+    ],
+    "spectral_radius": 0.9999925167132262,
+    "stable": true
+  },
+  "outcomes": {
+    "successes": 156,
+    "success_rate": 0.52,
+    "success_rate_wilson_95": {
+      "lower": 0.4635710820137406,
+      "upper": 0.5759231991372775
+    },
+    "timeouts": 143,
+    "hard_safety_violations": 1,
+    "hard_safety_by_type": {
+      "velocity": 1,
+      "geometry": 0,
+      "alignment": 0
+    }
+  },
+  "timing": {
+    "mean_elapsed_time_seconds": 11609.43000002476,
+    "mean_successful_completion_time_seconds": 11325.641666690339
+  },
+  "mean_absolute_terminal_errors": {
+    "axial_position_m": 21.330580799480312,
+    "lateral_position_m": 1.9698690200414064,
+    "axial_velocity_mps": 0.005616899332640857,
+    "lateral_velocity_mps": 0.006039574139612849,
+    "attitude_rad": 0.004561976592583067,
+    "angular_rate_radps": 0.00043332609953614174
+  },
+  "p3_tolerance_failures": {
+    "axial_position": {
+      "count": 34,
+      "fraction": 0.11333333333333333
+    },
+    "lateral_position": {
+      "count": 122,
+      "fraction": 0.4066666666666667
+    },
+    "axial_velocity": {
+      "count": 10,
+      "fraction": 0.03333333333333333
+    },
+    "lateral_velocity": {
+      "count": 1,
+      "fraction": 0.0033333333333333335
+    },
+    "attitude": {
+      "count": 17,
+      "fraction": 0.056666666666666664
+    },
+    "angular_rate": {
+      "count": 0,
+      "fraction": 0.0
+    }
+  },
+  "mean_actuator_saturation_fractions": {
+    "any_channel": 0.004673238562769119,
+    "ax_body": 0.0017687445017011386,
+    "ay_body": 0.004542728189014387,
+    "alphaz_body": 9.556381669345357e-05
+  },
+  "mean_control_effort": {
+    "translational_delta_v_mps": 0.4913991375248289,
+    "angular_rate_change_radps": 0.004533269683857554
+  },
+  "observed_maxima": {
+    "docking_port_speed_mps": 0.3505406320382137,
+    "absolute_axial_closing_speed_mps": 0.1970015208776106
+  }
+}

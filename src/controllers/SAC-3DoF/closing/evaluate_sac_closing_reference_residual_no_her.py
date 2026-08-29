@@ -129,6 +129,7 @@ def environment_kwargs(config):
     bounds = config["reference_residual_bounds"]
     reward = config["reward"]
     return {
+        "dt": float(config.get("dt_seconds", 1.0)),
         "reference_residual_bounds": (
             float(bounds["vx_mps"]),
             float(bounds["vy_mps"]),
@@ -141,6 +142,10 @@ def environment_kwargs(config):
         "success_bonus": float(reward["success_bonus"]),
         "safety_failure_penalty": float(reward["failure_penalty"]),
         "timeout_penalty": float(reward["timeout_penalty"]),
+        "time_scale_persistent_reward": bool(
+            reward.get("persistent_terms_time_scaled", False)
+        ),
+        "reward_reference_dt": 1.0,
         "terminate_on_success": bool(config["actual_p3_success_terminal"]),
     }
 
@@ -229,6 +234,10 @@ def main(argv=None):
             "model_path": str(model_path),
             **summarize_rollouts(rows),
         }
+        summary["dt_seconds"] = float(config.get("dt_seconds", 1.0))
+        summary["mean_elapsed_time_seconds"] = float(
+            summary["mean_steps"] * summary["dt_seconds"]
+        )
         summaries[label] = summary
         all_rows.extend(
             {"controller": label, "checkpoint": checkpoint, **row}
@@ -251,6 +260,7 @@ def main(argv=None):
             "test_seeds": seeds,
             "selection_seed_overlap": overlap,
             "max_eval_steps": args.max_eval_steps,
+            "dt_seconds": float(config.get("dt_seconds", 1.0)),
             "her_used": False,
             "cbf_used": False,
             "controllers": summaries,

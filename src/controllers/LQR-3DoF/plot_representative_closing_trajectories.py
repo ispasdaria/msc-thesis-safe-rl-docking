@@ -1,11 +1,10 @@
-"""Compare representative successful and convergence-limited closing rollouts.
+"""Compare representative final-controller closing rollouts.
 
-The default successful case is the median successful rollout selected by the
-50-rollout evaluation.  The default timeout (seed 13) is the median-terminal-
-error case among the timeouts whose axial distance was still decreasing at the
-time horizon.  This makes the selection reproducible and directly illustrates
-a convergence-limited failure without implying that every timeout has the same
-terminal trend.
+The default successful case (seed 20) has the median completion time among the
+eligible successes in the final ``dt = 0.1 s`` 50-rollout evaluation.  The
+default timeout (seed 1) finishes inside every P3 tolerance except lateral
+position, so it directly illustrates the final controller's dominant terminal
+limitation.  Seeds 41 and 13 from the earlier controller are not reused.
 """
 
 from __future__ import annotations
@@ -24,9 +23,15 @@ from matplotlib.patches import Patch, Rectangle
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-HISTORY_DIR = SCRIPT_DIR / "results" / "lqr_closing" / "rollout_histories"
-DEFAULT_SUCCESS = HISTORY_DIR / "q1_r1_seed0041_median_success.npz"
-DEFAULT_TIMEOUT = HISTORY_DIR / "q1_r1_seed0013_converging_timeout.npz"
+HISTORY_DIR = (
+    SCRIPT_DIR / "results" / "lqr_closing" / "dt_0p1" / "rollout_histories"
+)
+DEFAULT_SUCCESS = (
+    HISTORY_DIR / "q1_r1_seed0020_final_dt0p1_median_completion_success.npz"
+)
+DEFAULT_TIMEOUT = (
+    HISTORY_DIR / "q1_r1_seed0001_final_dt0p1_lateral_position_timeout.npz"
+)
 DEFAULT_OUTPUT = (
     SCRIPT_DIR / "results" / "lqr_closing" / "closing_representative_trajectories"
 )
@@ -396,8 +401,16 @@ def make_xy_figure(
     draw_xy_trajectory(inset, timeout, TIMEOUT_COLOR, "--", "Timeout", "X")
 
     for rollout, color, label in (
-        (success, SUCCESS_COLOR, "Seed 41 tolerance"),
-        (timeout, TIMEOUT_COLOR, "Seed 13 tolerance"),
+        (
+            success,
+            SUCCESS_COLOR,
+            f"Seed {success['metadata'].get('seed', '?')} tolerance",
+        ),
+        (
+            timeout,
+            TIMEOUT_COLOR,
+            f"Seed {timeout['metadata'].get('seed', '?')} tolerance",
+        ),
     ):
         target = np.asarray(rollout["target"], dtype=float)
         tolerance = np.asarray(rollout["tolerance"], dtype=float)

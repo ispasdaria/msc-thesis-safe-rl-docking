@@ -103,6 +103,26 @@ def _snapshot_fields(prefix, metrics):
     return fields
 
 
+def _classify_rollout_outcome(final_info, steps, max_steps):
+    """Return one evaluator outcome while accepting both success signals.
+
+    The core closing environment reports ``success`` from its physical terminal
+    check.  Goal-conditioned wrappers independently report ``is_success`` and
+    can disagree at a tolerance boundary because their observations are
+    converted to float32.  A success from either source is therefore valid.
+    """
+    failure = bool(final_info.get("failure", False))
+    success = bool(
+        final_info.get("success", False)
+        or final_info.get("is_success", False)
+    )
+    time_limit = bool(
+        final_info.get("time_limit", False)
+        or (steps >= int(max_steps) and not success and not failure)
+    )
+    return success, failure, time_limit
+
+
 def evaluate_model(
     model,
     seeds,
@@ -160,15 +180,19 @@ def evaluate_model(
                 )
             else:
                 current_target_2x_dwell_steps = 0
-            if bool(final_info.get("is_success", False)) or terminated or truncated:
+            if (
+                bool(final_info.get("success", False))
+                or bool(final_info.get("is_success", False))
+                or terminated
+                or truncated
+            ):
                 break
 
         final = physical_goal_metrics(env)
-        success = bool(final_info.get("is_success", False))
-        failure = bool(final_info.get("failure", False))
-        time_limit = bool(
-            final_info.get("time_limit", False)
-            or (steps >= int(max_steps) and not success and not failure)
+        success, failure, time_limit = _classify_rollout_outcome(
+            final_info,
+            steps,
+            max_steps,
         )
         row = {
                 "evaluation_seed": int(seed),

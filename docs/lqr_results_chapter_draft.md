@@ -1,59 +1,6 @@
 # 7.1 LQR baseline performance
 
 
-## 7.1.3 Final-approach phase controller
-
-The selected final-approach controller completed all 50 phase-level rollouts
-without timeout or hard-safety termination. This gives an observed success
-rate of 100% and a 95% Wilson interval of 92.9--100%. The mean elapsed time was
-3,750.0 s. At termination, the mean docking-port distance was 0.097 m and the
-mean docking-port speed was 0.005 m/s. The mean attitude and angular-rate
-errors were approximately \(6.87\times10^{-11}\) deg and
-\(1.87\times10^{-13}\) deg/s, respectively.
-
-At least one actuator channel was clipped during approximately 0.1% of the
-executed steps. Almost all clipping was associated with a short axial-control
-transient during the first 3--7 s; no clipping occurred after 7 s. The lateral
-channel was clipped in only two steps across two rollouts and the angular
-channel was never clipped. Thus, unlike closing, final approach was not
-persistently limited by the available control authority.
-
-**Table 7.3. Final-approach LQR evaluation after tuning.**
-
-| Metric | Result |
-|---|---:|
-| Evaluation seeds | 0--49 |
-| Number of rollouts | 50 |
-| Successful outcomes | 50 (100%) |
-| 95% Wilson interval for success | 92.9--100% |
-| Timeouts | 0 (0%) |
-| Observed hard-safety terminations | 0 (0%) |
-| Mean elapsed time | 3,750.0 s |
-| Mean any-channel clipping fraction | 0.1% |
-| Mean accumulated translational effort | 0.21673 m/s |
-| Mean accumulated angular effort | 0.001554 rad/s |
-| Mean terminal docking-port distance | 0.097 m |
-| Mean terminal docking-port speed | 0.005 m/s |
-| Mean terminal attitude error | \(6.87\times10^{-11}\) deg |
-| Mean terminal angular-rate error | \(1.87\times10^{-13}\) deg/s |
-
-The final-approach translational effort had a sample standard deviation of
-0.01331 m/s, a median of 0.21440 m/s, and a range of
-0.19590--0.24338 m/s. The angular effort had a standard deviation of
-0.000666 rad/s, a median of 0.001433 rad/s, and a range of
-0.000428--0.002847 rad/s. The mean translational effort was approximately 732
-times smaller than during closing, while the mean angular effort was
-approximately 18 times smaller. Part of this contrast follows from the shorter
-phase duration; however, the dominant difference is that final approach uses
-small applied accelerations after its brief initialization transient, whereas
-closing remains near the translational limits.
-
-*Insert final-approach convergence figure here. Suggested caption:
-Docking-port-relative trajectories and distance convergence for all 50
-final-approach rollouts. Every trajectory terminates inside the 0.1 m docking
-distance bound while satisfying the velocity, attitude, and angular-rate
-requirements.*
-
 ## 7.1.4 Held-out complete-mission evaluation
 
 After phase-level tuning, both controllers and their velocity schedules were

@@ -83,6 +83,19 @@ def build_parser():
     )
     parser.add_argument("--progress-weight", type=float, default=1.0)
     parser.add_argument(
+        "--goal-component-weights",
+        type=float,
+        nargs=6,
+        default=(1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+        metavar=("AXIAL", "LATERAL", "VX", "VY", "ATTITUDE", "RATE"),
+    )
+    parser.add_argument("--worst-component-weight", type=float, default=0.5)
+    parser.add_argument(
+        "--lateral-constraint-progress-weight",
+        type=float,
+        default=0.0,
+    )
+    parser.add_argument(
         "--reference-magnitude-weight", type=float, default=0.01
     )
     parser.add_argument(
@@ -91,12 +104,26 @@ def build_parser():
     parser.add_argument("--success-bonus", type=float, default=1.0)
     parser.add_argument("--failure-penalty", type=float, default=10.0)
     parser.add_argument("--timeout-penalty", type=float, default=1.0)
+    parser.add_argument("--timeout-violation-weight", type=float, default=0.0)
+    parser.add_argument(
+        "--reward-design",
+        choices=("v1", "dt01_lateral_v2"),
+        default="v1",
+    )
     parser.add_argument(
         "--time-scale-persistent-reward",
         action="store_true",
         help=(
             "Scale residual magnitude and smoothness costs by dt/1s. "
             "Use this for physically matched sub-second experiments."
+        ),
+    )
+    parser.add_argument(
+        "--time-consistent-smoothness-reward",
+        action="store_true",
+        help=(
+            "Treat smoothness as an action-rate cost, scaling squared "
+            "action increments by reference_dt/dt."
         ),
     )
     parser.add_argument("--initial-log-std", type=float, default=-3.0)
@@ -167,12 +194,23 @@ def validate_args(parser, args):
         "success_bonus",
         "failure_penalty",
         "timeout_penalty",
+        "timeout_violation_weight",
+        "lateral_constraint_progress_weight",
         "zero_residual_actor_weight",
         "actor_learning_rate_scale",
     )
     for name in nonnegative:
         if getattr(args, name) < 0.0:
             parser.error(f"--{name.replace('_', '-')} must be non-negative.")
+    if len(args.goal_component_weights) != 6 or any(
+        not np.isfinite(value) or value <= 0.0
+        for value in args.goal_component_weights
+    ):
+        parser.error("--goal-component-weights must contain six positives.")
+    if not np.isfinite(args.worst_component_weight) or not (
+        0.0 <= args.worst_component_weight <= 1.0
+    ):
+        parser.error("--worst-component-weight must lie in [0, 1].")
 
 
 def environment_kwargs(args):
@@ -185,13 +223,23 @@ def environment_kwargs(args):
         ),
         "progress_gamma": args.gamma,
         "progress_weight": args.progress_weight,
+        "goal_component_weights": tuple(args.goal_component_weights),
+        "worst_component_weight": args.worst_component_weight,
+        "lateral_constraint_progress_weight": (
+            args.lateral_constraint_progress_weight
+        ),
         "reference_magnitude_weight": args.reference_magnitude_weight,
         "reference_smoothness_weight": args.reference_smoothness_weight,
         "success_bonus": args.success_bonus,
         "safety_failure_penalty": args.failure_penalty,
         "timeout_penalty": args.timeout_penalty,
+        "timeout_violation_weight": args.timeout_violation_weight,
         "time_scale_persistent_reward": args.time_scale_persistent_reward,
+        "time_consistent_smoothness_reward": (
+            args.time_consistent_smoothness_reward
+        ),
         "reward_reference_dt": 1.0,
+        "reward_design": args.reward_design,
         "terminate_on_success": True,
     }
 
@@ -368,6 +416,11 @@ def main(argv=None):
         "reward_version": REWARD_VERSION,
         "reward_scheme": (
             ReferenceResidualLQRGoalConditionedClosingEnv.reward_scheme
+            if args.reward_design == "v1"
+            else (
+                "goal_conditioned_p3_reference_residual_lqr_"
+                "dt01_lateral_v2"
+            )
         ),
         "reference_residual_components": ["vx", "vy", "attitude"],
         "reference_residual_bounds": {
@@ -384,13 +437,23 @@ def main(argv=None):
         "cbf_filter_used_during_training": False,
         "cbf_signal_in_observation_or_reward": False,
         "reward": {
+            "design": args.reward_design,
             "progress_weight": args.progress_weight,
             "progress_form": "J(previous) - gamma * J(next)",
+            "goal_component_weights": list(args.goal_component_weights),
+            "worst_component_weight": args.worst_component_weight,
+            "lateral_constraint_progress_weight": (
+                args.lateral_constraint_progress_weight
+            ),
             "success_bonus": args.success_bonus,
             "failure_penalty": args.failure_penalty,
             "timeout_penalty": args.timeout_penalty,
+            "timeout_violation_weight": args.timeout_violation_weight,
             "magnitude_weight": args.reference_magnitude_weight,
             "smoothness_weight": args.reference_smoothness_weight,
+            "smoothness_is_action_rate_cost": bool(
+                args.time_consistent_smoothness_reward
+            ),
             "scale_relative_to_pilot_b": 0.01,
         },
         "training_seed": args.training_seed,

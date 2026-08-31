@@ -1,8 +1,9 @@
 """Plot closing-phase terminal errors against the P3 acceptance limits.
 
 The input is the per-rollout CSV written by ``lqr_sweep_closing.py``.  By
-default, the script uses the 50-rollout historical evaluation and writes both
-a high-resolution PNG and a vector PDF beside that CSV.
+default, the script uses the 50-rollout evaluation of the selected, refined
+``dt = 0.1 s`` controller and writes both a high-resolution PNG and a vector
+PDF to the canonical closing-results directory.
 """
 
 from __future__ import annotations
@@ -21,7 +22,15 @@ from matplotlib.patches import Rectangle
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_INPUT = SCRIPT_DIR / "results" / "lqr_closing" / "closing_phase_0_49.csv"
+DEFAULT_INPUT = (
+    SCRIPT_DIR
+    / "results"
+    / "lqr_closing"
+    / "dt_0p1"
+    / "fine_lateral_vy_q_sweep"
+    / "my_1_mvy_0p85"
+    / "rollouts_seeds_0_49.csv"
+)
 DEFAULT_OUTPUT = (
     SCRIPT_DIR
     / "results"
@@ -88,6 +97,14 @@ def parse_args() -> argparse.Namespace:
         default=np.rad2deg(DEFAULT_P3_TOLERANCE[4:6]),
         help="P3 attitude and angular-rate limits in deg and deg/s (default: 0.5 0.05).",
     )
+    parser.add_argument(
+        "--aiaa",
+        action="store_true",
+        help=(
+            "Use a 7-inch-wide AIAA publication layout with final-size "
+            "lettering and 600-dpi raster output."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -151,6 +168,7 @@ def draw_panel(
     xlabel: str,
     ylabel: str,
     title: str,
+    compact: bool = False,
 ) -> None:
     tol_x, tol_y = tolerance
 
@@ -161,17 +179,17 @@ def draw_panel(
             tol_y,
             facecolor="#009E73",
             edgecolor="#007A59",
-            alpha=0.13,
+            alpha=0.20 if compact else 0.13,
             linewidth=1.8,
             linestyle="--",
-            label=r"$P_3$ tolerance region",
+            label=r"$P_3$ tolerance" if compact else r"$P_3$ tolerance region",
             zorder=1,
         )
     )
     ax.scatter(
         x[success],
         y[success],
-        s=45,
+        s=28 if compact else 45,
         marker="o",
         facecolor="#0072B2",
         edgecolor="white",
@@ -183,7 +201,7 @@ def draw_panel(
     ax.scatter(
         x[timeout],
         y[timeout],
-        s=70,
+        s=42 if compact else 70,
         marker="X",
         facecolor="#D55E00",
         edgecolor="#7F2704",
@@ -206,21 +224,23 @@ def make_figure(
     position_tolerance: tuple[float, float],
     velocity_tolerance: tuple[float, float],
     attitude_tolerance: tuple[float, float],
+    aiaa: bool = False,
 ) -> plt.Figure:
+    base_font_size = 8.0 if aiaa else 10.5
     plt.rcParams.update(
         {
-            "font.size": 10.5,
-            "axes.labelsize": 11,
-            "axes.titlesize": 11.5,
-            "legend.fontsize": 11.5,
+            "font.size": base_font_size,
+            "axes.labelsize": base_font_size,
+            "axes.titlesize": 8.5 if aiaa else 11.5,
+            "legend.fontsize": 7.5 if aiaa else 11.5,
             "figure.dpi": 120,
-            "savefig.dpi": 300,
+            "savefig.dpi": 600 if aiaa else 300,
             "pdf.fonttype": 42,
             "ps.fonttype": 42,
         }
     )
 
-    fig, axes = plt.subplots(1, 3, figsize=(15.2, 4.35))
+    fig, axes = plt.subplots(1, 3, figsize=(7.0, 2.7) if aiaa else (15.2, 4.35))
     draw_panel(
         axes[0],
         data["ex"],
@@ -228,9 +248,10 @@ def make_figure(
         data["success"],
         data["timeout"],
         position_tolerance,
-        r"Axial error $|e_x|$ [m]",
-        r"Lateral error $|e_y|$ [m]",
-        r"(a) CoM position error relative to the $P_3$ target",
+        r"$|e_x|$ [m]" if aiaa else r"Axial error $|e_x|$ [m]",
+        r"$|e_y|$ [m]" if aiaa else r"Lateral error $|e_y|$ [m]",
+        "a) Position" if aiaa else r"(a) CoM position error relative to the $P_3$ target",
+        compact=aiaa,
     )
     draw_panel(
         axes[1],
@@ -239,9 +260,10 @@ def make_figure(
         data["success"],
         data["timeout"],
         velocity_tolerance,
-        r"Axial-velocity error $|e_{v_x}|$ [m/s]",
-        r"Lateral-velocity error $|e_{v_y}|$ [m/s]",
-        r"(b) CoM velocity error relative to the $P_3$ target",
+        r"$|e_{v_x}|$ [m/s]" if aiaa else r"Axial-velocity error $|e_{v_x}|$ [m/s]",
+        r"$|e_{v_y}|$ [m/s]" if aiaa else r"Lateral-velocity error $|e_{v_y}|$ [m/s]",
+        "b) Velocity" if aiaa else r"(b) CoM velocity error relative to the $P_3$ target",
+        compact=aiaa,
     )
     draw_panel(
         axes[2],
@@ -250,9 +272,10 @@ def make_figure(
         data["success"],
         data["timeout"],
         attitude_tolerance,
-        r"Attitude error $|e_{\psi}|$ [deg]",
-        r"Angular-rate error $|e_{\omega}|$ [deg/s]",
-        r"(c) Attitude-alignment error relative to the $P_3$ target",
+        r"$|e_{\psi}|$ [deg]" if aiaa else r"Attitude error $|e_{\psi}|$ [deg]",
+        r"$|e_{\omega}|$ [deg/s]" if aiaa else r"Angular-rate error $|e_{\omega}|$ [deg/s]",
+        "c) Attitude" if aiaa else r"(c) Attitude-alignment error relative to the $P_3$ target",
+        compact=aiaa,
     )
 
     # One shared legend avoids repeating identical outcome counts in each panel.
@@ -262,11 +285,18 @@ def make_figure(
         [handles[index] for index in order],
         [labels[index] for index in order],
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.015),
+        bbox_to_anchor=(0.5, 0.995 if aiaa else 1.015),
         ncol=3,
         frameon=False,
     )
-    fig.subplots_adjust(left=0.062, right=0.99, bottom=0.16, top=0.82, wspace=0.29)
+    if aiaa:
+        fig.subplots_adjust(
+            left=0.075, right=0.99, bottom=0.22, top=0.74, wspace=0.48
+        )
+    else:
+        fig.subplots_adjust(
+            left=0.062, right=0.99, bottom=0.16, top=0.82, wspace=0.29
+        )
     return fig
 
 
@@ -278,14 +308,18 @@ def main() -> None:
         tuple(args.position_tolerances),
         tuple(args.velocity_tolerances),
         tuple(args.attitude_tolerances),
+        aiaa=args.aiaa,
     )
 
     output_base = args.output.with_suffix("")
     output_base.parent.mkdir(parents=True, exist_ok=True)
     png_path = output_base.with_suffix(".png")
     pdf_path = output_base.with_suffix(".pdf")
-    figure.savefig(png_path, bbox_inches="tight", facecolor="white")
-    figure.savefig(pdf_path, bbox_inches="tight", facecolor="white")
+    save_options = {"facecolor": "white"}
+    if not args.aiaa:
+        save_options["bbox_inches"] = "tight"
+    figure.savefig(png_path, **save_options)
+    figure.savefig(pdf_path, **save_options)
     plt.close(figure)
 
     success_count = int(data["success"].sum())

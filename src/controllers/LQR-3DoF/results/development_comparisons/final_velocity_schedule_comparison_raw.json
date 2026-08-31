@@ -1,0 +1,43 @@
+{
+  "purpose": "illustrative controller-development comparison",
+  "controlled_difference": {
+    "without_schedule": "v_px_ref equals zero",
+    "with_schedule": "implemented distance-dependent v_far/v_creep reference"
+  },
+  "schedule": {
+    "v_far_m_per_s": -0.07,
+    "d_fast_m": 30.0,
+    "d_slow_m": 1.0,
+    "v_creep_m_per_s": -0.005
+  },
+  "mode": "nominal",
+  "seed": 0,
+  "dt_s": 1.0,
+  "max_time_s": 5000.0,
+  "integrator": "rk4",
+  "velocity_plot_moving_average_window_s": 1.0,
+  "initial_state": [
+    300.0,
+    0.0,
+    -0.03,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "without_schedule": {
+    "success": false,
+    "termination_reason": "timeout",
+    "elapsed_time_s": 5000.0,
+    "final_port_distance_m": 99.47576773869577,
+    "final_port_speed_m_per_s": 0.02030541739783673,
+    "saturation_fraction": 0.0
+  },
+  "with_schedule": {
+    "success": true,
+    "termination_reason": "success_docking",
+    "elapsed_time_s": 3742.0,
+    "final_port_distance_m": 0.09620990617553105,
+    "final_port_speed_m_per_s": 0.005025461281764139,
+    "saturation_fraction": 0.0010686615014694097
+  }
+}

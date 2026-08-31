@@ -9,12 +9,15 @@ independent final evaluation, which can be extended with held-out seeds.
 The original 50-rollout evaluations were conducted separately for each phase:
 50 closing-phase rollouts for the selected closing controller and a separate 50
 final-approach rollouts for the selected final-approach controller. They were
-part of controller tuning. The full list of candidate controllers and their
-intermediate rankings is not available, so candidate-ranking convergence cannot
-be reconstructed. The supporting analysis should therefore be described as a
-retrospective stability check of the selected controller's phase-level metrics,
-with one analysis for each phase, not as proof that all candidate rankings had
-converged.
+part of controller tuning. The full candidate list for the original 1.0 s
+Q/R tuning is not available, so its candidate-ranking convergence cannot be
+reconstructed. The later closing Q retuning at 0.1 s is an exception: its full
+coarse and fine candidate tables are retained and documented in
+[`lqr_closing_q_retuning_dt0p1.md`](lqr_closing_q_retuning_dt0p1.md). The
+supporting convergence analysis for the historical 1.0 s selection should
+still be described as a retrospective stability check of the selected
+controller's phase-level metrics, not as proof that all original candidate
+rankings had converged.
 
 The selected controllers should be frozen before the final evaluation. Use a
 non-overlapping seed range for the final claim, for example seeds 300--599.

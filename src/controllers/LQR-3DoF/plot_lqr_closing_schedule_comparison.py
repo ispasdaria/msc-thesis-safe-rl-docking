@@ -1,8 +1,9 @@
 """Plot a matched closing-phase rollout comparison with and without scheduling.
 
-The two nonlinear simulations use the same initial state, sampled P3 target,
-LQR gain, actuator limits, integration method, and time limit.  The only
-difference is the axial-velocity reference:
+By default, both nonlinear simulations use the nominal P2 initial state, the
+nominal P3 target, the final dt=0.1 s closing Q/R design, the corresponding
+fixed LQR gain, identical actuator limits, RK4 integration, and the same time
+limit.  The only difference is the axial-velocity reference:
 
 * fixed reference: ``vx_ref = vx_P3`` during the complete closing phase;
 * scheduled reference: the implemented distance-dependent closing reference.
@@ -156,6 +157,20 @@ def run_rollout(
         "termination_reason": str(info.get("termination_reason", "unknown")),
         "elapsed_time": float(env.time),
         "saturation_fraction": float(np.mean(saturation)),
+        "initial_axial_distance": float(distance[0]),
+        "final_axial_distance": float(distance[-1]),
+        "minimum_axial_distance": float(np.min(distance)),
+        "axial_progress": float(distance[0] - distance[-1]),
+        "mean_axial_progress_rate": float(
+            (distance[0] - distance[-1]) / max(env.time, env.dt)
+        ),
+        "terminal_axial_velocity": float(states[-1, 2]),
+        "terminal_axial_velocity_reference": float(reference_history[-1]),
+        "terminal_axial_velocity_error": float(
+            states[-1, 2] - reference_history[-1]
+        ),
+        "minimum_axial_velocity": float(np.min(states[:, 2])),
+        "maximum_axial_velocity": float(np.max(states[:, 2])),
     }
 
 
@@ -169,8 +184,11 @@ def assert_matched_cases(fixed: dict, scheduled: dict) -> None:
 
 def status_text(result: dict) -> str:
     if result["success"]:
-        return f"success at {result['elapsed_time']:.0f} s"
-    return f"{result['termination_reason'].replace('_', ' ')} at {result['elapsed_time']:.0f} s"
+        return f"success at {result['elapsed_time']:.1f} s"
+    return (
+        f"{result['termination_reason'].replace('_', ' ')} at "
+        f"{result['elapsed_time']:.1f} s"
+    )
 
 
 def moving_average(values: np.ndarray, window_samples: int) -> np.ndarray:
@@ -193,6 +211,7 @@ def plot_comparison(
     scheduled: dict,
     output_stem: Path,
     smoothing_window_s: float,
+    dt: float,
 ) -> None:
     """Create and save the standalone two-panel development comparison."""
     plt.rcParams.update(
@@ -209,7 +228,10 @@ def plot_comparison(
     fig, axes = plt.subplots(1, 2, figsize=(11.2, 4.4), constrained_layout=True)
     colors = {"fixed": "#777777", "scheduled": "#1769aa"}
 
-    fixed_label = f"Fixed $P_3$ reference ({status_text(fixed)})"
+    fixed_label = (
+        r"Unscheduled, $v_x^{\mathrm{ref}}=-0.03$ m/s "
+        f"({status_text(fixed)})"
+    )
     scheduled_label = f"Scheduled reference ({status_text(scheduled)})"
 
     ax = axes[0]
@@ -237,7 +259,7 @@ def plot_comparison(
     )
     ax.set_xlabel("Time, $t$ [s]")
     ax.set_ylabel(r"Remaining axial distance, $|r_x-r_{x,P_3}|$ [m]")
-    ax.set_title("(a) Progress toward the sampled $P_3$ target")
+    ax.set_title("(a) Remaining axial distance to $P_3$", loc="left")
     ax.set_xlim(left=0.0)
     ax.set_ylim(bottom=0.0)
     ax.grid(True, alpha=0.25)
@@ -253,40 +275,41 @@ def plot_comparison(
         scheduled["states"][:, 2], scheduled_window
     )
 
-    # Show the unsmoothed simulator histories faintly beneath the moving means.
-    ax.plot(
-        fixed["distance"],
-        fixed["states"][:, 2],
-        color=colors["fixed"],
-        linewidth=0.45,
-        alpha=0.16,
-        label="_nolegend_",
-    )
-    ax.plot(
-        scheduled["distance"],
-        scheduled["states"][:, 2],
-        color=colors["scheduled"],
-        linewidth=0.45,
-        alpha=0.16,
-        label="_nolegend_",
+    smoothing_applied = fixed_window > 1 or scheduled_window > 1
+    if smoothing_applied:
+        # Show the unsmoothed simulator histories faintly beneath the moving means.
+        ax.plot(
+            fixed["distance"],
+            fixed["states"][:, 2],
+            color=colors["fixed"],
+            linewidth=0.45,
+            alpha=0.16,
+            label="_nolegend_",
+        )
+        ax.plot(
+            scheduled["distance"],
+            scheduled["states"][:, 2],
+            color=colors["scheduled"],
+            linewidth=0.45,
+            alpha=0.16,
+            label="_nolegend_",
+        )
+    history_label = (
+        f"{smoothing_window_s:g} s mean" if smoothing_applied else "raw samples"
     )
     ax.plot(
         fixed["distance"],
         fixed_vx_mean,
         color=colors["fixed"],
         linewidth=2.0,
-        label=(
-            f"Without scheduled reference ({smoothing_window_s:g} s mean)"
-        ),
+        label=f"Without scheduled reference ({history_label})",
     )
     ax.plot(
         scheduled["distance"],
         scheduled_vx_mean,
         color=colors["scheduled"],
         linewidth=2.2,
-        label=(
-            f"With scheduled reference ({smoothing_window_s:g} s mean)"
-        ),
+        label=f"With scheduled reference ({history_label})",
     )
     ax.plot(
         fixed["distance"],
@@ -295,7 +318,7 @@ def plot_comparison(
         linewidth=1.3,
         linestyle="--",
         alpha=0.9,
-        label=r"$v_x^{\mathrm{ref}}=v_{x,P_3}$",
+        label=r"Constant $v_x^{\mathrm{ref}}=-0.03$ m/s",
     )
     ax.plot(
         scheduled["distance"],
@@ -308,13 +331,14 @@ def plot_comparison(
     )
     ax.set_xlabel(r"Remaining axial distance, $|r_x-r_{x,P_3}|$ [m]")
     ax.set_ylabel(r"Axial velocity, $v_x$ [m/s]")
-    ax.set_title("(b) Axial velocity over the closing distance")
+    ax.set_title("(b) Axial velocity and reference", loc="left")
     ax.invert_xaxis()
     ax.grid(True, alpha=0.25)
     ax.legend(loc="best", frameon=True)
 
     fig.suptitle(
-        "Closing-phase LQR development comparison on the nonlinear simulator",
+        r"Effect of axial-velocity scheduling in the closing-phase LQR "
+        rf"($\Delta t={dt:g}$ s)",
         fontsize=12,
     )
 
@@ -324,8 +348,43 @@ def plot_comparison(
     plt.close(fig)
 
 
-def save_summary(fixed: dict, scheduled: dict, output_stem: Path, args) -> None:
+def save_summary(
+    fixed: dict,
+    scheduled: dict,
+    output_stem: Path,
+    args,
+    gain: np.ndarray,
+    design_env: Docking3DoFEnv,
+) -> None:
     """Save the exact paired-run metadata used to generate the figure."""
+    Q = build_Q_closing(dt=args.dt)
+    R = build_R_closing(design_env)
+
+    def case_summary(result: dict) -> dict:
+        return {
+            "success": result["success"],
+            "termination_reason": result["termination_reason"],
+            "elapsed_time_s": result["elapsed_time"],
+            "initial_axial_distance_m": result["initial_axial_distance"],
+            "final_axial_distance_m": result["final_axial_distance"],
+            "minimum_axial_distance_m": result["minimum_axial_distance"],
+            "axial_progress_m": result["axial_progress"],
+            "mean_axial_progress_rate_mps": result["mean_axial_progress_rate"],
+            "terminal_axial_velocity_mps": result["terminal_axial_velocity"],
+            "terminal_axial_velocity_reference_mps": result[
+                "terminal_axial_velocity_reference"
+            ],
+            "terminal_axial_velocity_error_mps": result[
+                "terminal_axial_velocity_error"
+            ],
+            "observed_axial_velocity_range_mps": [
+                result["minimum_axial_velocity"],
+                result["maximum_axial_velocity"],
+            ],
+            "actuator_saturation_fraction": result["saturation_fraction"],
+        }
+
+    scheduled_controller = LQRClosingController(gain)
     summary = {
         "purpose": "illustrative controller-development comparison",
         "controlled_difference": {
@@ -338,22 +397,38 @@ def save_summary(fixed: dict, scheduled: dict, output_stem: Path, args) -> None:
         "max_time_s": args.max_time,
         "integrator": args.integrator,
         "velocity_plot_moving_average_window_s": args.smoothing_window,
+        "matched_controller_configuration": {
+            "Q_close": Q.tolist(),
+            "R_close": R.tolist(),
+            "K_close": np.asarray(gain, dtype=float).tolist(),
+            "control_update_interval_s": args.dt,
+            "actuator_limits": {
+                "ax_mps2": float(design_env.ax_max),
+                "ay_mps2": float(design_env.ay_max),
+                "alphaz_radps2": float(design_env.alphaz_max),
+            },
+            "p3_target_tolerance": np.asarray(
+                design_env.p3_target_tolerance, dtype=float
+            ).tolist(),
+        },
+        "scheduled_reference_parameters": {
+            "far_axial_velocity_mps": scheduled_controller.v_fast,
+            "far_distance_m": scheduled_controller.d_fast,
+            "slow_distance_m": scheduled_controller.d_slow,
+        },
         "initial_state": fixed["initial_state"].tolist(),
         "p3_target": fixed["p3_target"].tolist(),
-        "fixed": {
-            "success": fixed["success"],
-            "termination_reason": fixed["termination_reason"],
-            "elapsed_time_s": fixed["elapsed_time"],
-            "final_axial_distance_m": float(fixed["distance"][-1]),
-            "saturation_fraction": fixed["saturation_fraction"],
+        "matched_case_checks": {
+            "initial_states_identical": bool(
+                np.array_equal(fixed["initial_state"], scheduled["initial_state"])
+            ),
+            "p3_targets_identical": bool(
+                np.array_equal(fixed["p3_target"], scheduled["p3_target"])
+            ),
+            "only_controlled_difference": "axial-velocity reference",
         },
-        "scheduled": {
-            "success": scheduled["success"],
-            "termination_reason": scheduled["termination_reason"],
-            "elapsed_time_s": scheduled["elapsed_time"],
-            "final_axial_distance_m": float(scheduled["distance"][-1]),
-            "saturation_fraction": scheduled["saturation_fraction"],
-        },
+        "fixed": case_summary(fixed),
+        "scheduled": case_summary(scheduled),
     }
     output_stem.with_suffix(".json").write_text(
         json.dumps(summary, indent=2), encoding="utf-8"
@@ -373,7 +448,13 @@ def parse_args():
         choices=("nominal", "testing", "training"),
         default="nominal",
     )
-    parser.add_argument("--dt", type=float, default=1.0)
+    parser.add_argument(
+        "--dt",
+        type=float,
+        choices=(0.1, 1.0),
+        default=0.1,
+        help="Closing-controller interval (default: 0.1 s, the final design).",
+    )
     parser.add_argument("--max-time", type=float, default=12000.0)
     parser.add_argument("--integrator", choices=("euler", "rk4"), default="rk4")
     parser.add_argument(
@@ -433,8 +514,9 @@ def main() -> None:
         scheduled,
         output_stem,
         smoothing_window_s=args.smoothing_window,
+        dt=args.dt,
     )
-    save_summary(fixed, scheduled, output_stem, args)
+    save_summary(fixed, scheduled, output_stem, args, K, fixed_env)
 
     print(f"Fixed reference:    {status_text(fixed)}")
     print(f"Scheduled reference: {status_text(scheduled)}")

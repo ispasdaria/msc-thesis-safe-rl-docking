@@ -128,6 +128,7 @@ def resolve_models(args, config):
 def environment_kwargs(config):
     bounds = config["reference_residual_bounds"]
     reward = config["reward"]
+    residual_fade = config.get("terminal_residual_fade", {})
     return {
         "dt": float(config.get("dt_seconds", 1.0)),
         "reference_residual_bounds": (
@@ -137,15 +138,40 @@ def environment_kwargs(config):
         ),
         "progress_gamma": float(config["sac"]["gamma"]),
         "progress_weight": float(reward["progress_weight"]),
+        "goal_component_weights": tuple(
+            float(value)
+            for value in reward.get("goal_component_weights", [1.0] * 6)
+        ),
+        "worst_component_weight": float(
+            reward.get("worst_component_weight", 0.5)
+        ),
+        "lateral_constraint_progress_weight": float(
+            reward.get("lateral_constraint_progress_weight", 0.0)
+        ),
         "reference_magnitude_weight": float(reward["magnitude_weight"]),
         "reference_smoothness_weight": float(reward["smoothness_weight"]),
         "success_bonus": float(reward["success_bonus"]),
         "safety_failure_penalty": float(reward["failure_penalty"]),
         "timeout_penalty": float(reward["timeout_penalty"]),
+        "timeout_violation_weight": float(
+            reward.get("timeout_violation_weight", 0.0)
+        ),
         "time_scale_persistent_reward": bool(
             reward.get("persistent_terms_time_scaled", False)
         ),
         "reward_reference_dt": 1.0,
+        "time_consistent_smoothness_reward": bool(
+            reward.get("smoothness_is_action_rate_cost", False)
+        ),
+        "reward_design": str(reward.get("design", "v1")),
+        "terminal_residual_fade_full_ratio": (
+            residual_fade.get("full_authority_at_or_above_ratio")
+            if residual_fade.get("enabled", False)
+            else None
+        ),
+        "terminal_residual_fade_zero_ratio": float(
+            residual_fade.get("zero_authority_at_or_below_ratio", 1.0)
+        ),
         "terminate_on_success": bool(config["actual_p3_success_terminal"]),
     }
 

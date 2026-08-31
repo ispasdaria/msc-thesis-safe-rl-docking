@@ -21,6 +21,9 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from envs.docking3dof.goal_conditioned_closing_env import (
     GoalConditionedClosingV3Env,
 )
+from evaluate_sac_closing_reference_residual_no_her import (
+    environment_kwargs as evaluation_environment_kwargs,
+)
 from lqr_reference_residual_env import (
     ReferenceResidualLQRGoalConditionedClosingEnv,
 )
@@ -37,8 +40,12 @@ from train_sac_closing_reference_residual_lqr_no_her import (
 from train_sac_closing_reference_residual_lqr_pilot_e_dt01 import (
     DEFAULT_ARGUMENTS as PILOT_E_DT01_ARGUMENTS,
 )
+from train_sac_closing_reference_residual_lqr_pilot_g_dt01_reward_v2 import (
+    DEFAULT_ARGUMENTS as PILOT_G_DT01_ARGUMENTS,
+)
 from train_sac_closing_reference_residual_lqr_stratified import (
     build_parser as build_stratified_parser,
+    prepare_output_directories,
     validate_args as validate_stratified_args,
 )
 from zero_residual_constrained_sac import ZeroResidualConstrainedSAC
@@ -83,6 +90,194 @@ def test_pilot_e_dt01_defaults_are_physically_time_matched():
     assert args.train_freq == 40
     assert np.isclose(args.gamma, 0.9999**0.1)
     assert args.time_scale_persistent_reward is True
+
+
+def test_pilot_g_dt01_defaults_select_lateral_time_consistent_reward():
+    parser = build_stratified_parser()
+    args = parser.parse_args(PILOT_G_DT01_ARGUMENTS)
+    validate_stratified_args(parser, args)
+
+    assert args.pilot_label == "G"
+    assert args.dt == 0.1
+    assert args.reward_design == "dt01_lateral_v2"
+    assert args.goal_component_weights == [1.0, 4.0, 1.0, 2.0, 1.0, 1.0]
+    assert args.worst_component_weight == 0.75
+    assert args.lateral_constraint_progress_weight == 4.0
+    assert args.timeout_violation_weight == 2.0
+    assert args.time_scale_persistent_reward is True
+    assert args.time_consistent_smoothness_reward is True
+    assert args.buffer_size == 650_000
+
+
+def test_dt01_v2_rewards_reducing_lateral_constraint_violation():
+    env = ReferenceResidualLQRGoalConditionedClosingEnv(
+        mode="testing",
+        seed=712,
+        dt=0.1,
+        max_time=1.0,
+        progress_gamma=0.9999899995499715,
+        progress_weight=0.0,
+        lateral_constraint_progress_weight=4.0,
+        reference_magnitude_weight=0.0,
+        reference_smoothness_weight=0.0,
+        success_bonus=0.0,
+        safety_failure_penalty=0.0,
+        timeout_penalty=0.0,
+        goal_component_weights=(1.0, 4.0, 1.0, 2.0, 1.0, 1.0),
+        worst_component_weight=0.75,
+        reward_design="dt01_lateral_v2",
+    )
+    observation, _ = env.reset(seed=712)
+    target = env.core_env.p3_target.copy()
+    tolerance = env.core_env.p3_target_tolerance
+    previous_state = target.copy()
+    next_state = target.copy()
+    previous_state[1] += 2.0 * tolerance[1]
+    next_state[1] += 1.5 * tolerance[1]
+    info = {
+        "previous_achieved_goal": env._scale_state(previous_state),
+        "reference_residual_normalized_action": np.zeros(3),
+        "previous_reference_residual_normalized_action": np.zeros(3),
+    }
+
+    reward = env.compute_reward(
+        env._scale_state(next_state),
+        observation["desired_goal"],
+        info,
+    )
+
+    assert reward > 0.0
+    assert env.reward_scheme.endswith("dt01_lateral_v2")
+    env.close()
+
+
+def test_dt01_v2_smoothness_uses_action_rate_scaling():
+    env = ReferenceResidualLQRGoalConditionedClosingEnv(
+        mode="testing",
+        seed=713,
+        dt=0.1,
+        max_time=1.0,
+        time_scale_persistent_reward=True,
+        time_consistent_smoothness_reward=True,
+        reward_design="dt01_lateral_v2",
+    )
+    env.reset(seed=713)
+
+    _, _, _, _, info = env.step(np.zeros(3, dtype=np.float32))
+
+    assert np.isclose(info["persistent_reward_time_scale"], 0.1)
+    assert np.isclose(info["smoothness_reward_time_scale"], 10.0)
+    env.close()
+
+
+def test_dt01_v2_saved_reward_config_reconstructs_evaluation_environment():
+    config = {
+        "dt_seconds": 0.1,
+        "reference_residual_bounds": {
+            "vx_mps": 0.02,
+            "vy_mps": 0.01,
+            "attitude_deg": 1.0,
+        },
+        "sac": {"gamma": 0.9999899995499715},
+        "actual_p3_success_terminal": True,
+        "terminal_residual_fade": {
+            "enabled": True,
+            "full_authority_at_or_above_ratio": 1.2,
+            "zero_authority_at_or_below_ratio": 1.0,
+        },
+        "reward": {
+            "design": "dt01_lateral_v2",
+            "progress_weight": 2.0,
+            "goal_component_weights": [1.0, 4.0, 1.0, 2.0, 1.0, 1.0],
+            "worst_component_weight": 0.75,
+            "lateral_constraint_progress_weight": 4.0,
+            "magnitude_weight": 0.002,
+            "smoothness_weight": 0.001,
+            "success_bonus": 5.0,
+            "failure_penalty": 25.0,
+            "timeout_penalty": 2.0,
+            "timeout_violation_weight": 2.0,
+            "persistent_terms_time_scaled": True,
+            "smoothness_is_action_rate_cost": True,
+        },
+    }
+
+    kwargs = evaluation_environment_kwargs(config)
+    env = ReferenceResidualLQRGoalConditionedClosingEnv(
+        mode="testing",
+        seed=714,
+        max_time=1.0,
+        **kwargs,
+    )
+
+    assert env.reward_design == "dt01_lateral_v2"
+    assert env.lateral_constraint_progress_weight == 4.0
+    assert env.time_consistent_smoothness_reward is True
+    assert env.terminal_residual_fade_full_ratio == 1.2
+    assert env.terminal_residual_fade_zero_ratio == 1.0
+    np.testing.assert_allclose(
+        env.goal_component_weights,
+        [1.0, 4.0, 1.0, 2.0, 1.0, 1.0],
+    )
+    env.close()
+
+
+def test_terminal_residual_fade_scales_applied_reference_action():
+    env = ReferenceResidualLQRGoalConditionedClosingEnv(
+        mode="testing",
+        seed=715,
+        dt=0.1,
+        max_time=1.0,
+        terminal_residual_fade_full_ratio=1.2,
+        terminal_residual_fade_zero_ratio=1.0,
+    )
+    env.reset(seed=715)
+    target = np.asarray(env.core_env.p3_target, dtype=np.float64).copy()
+    state = target.copy()
+    state[1] += 1.1 * env.core_env.p3_target_tolerance[1]
+    env.core_env.state = state
+
+    authority, maximum_ratio = env.terminal_residual_authority()
+    action = np.asarray([0.8, -0.4, 0.6], dtype=np.float32)
+    _, _, _, _, info = env.step(action)
+
+    assert np.isclose(maximum_ratio, 1.1)
+    assert np.isclose(authority, 0.5)
+    assert np.isclose(info["terminal_residual_authority"], 0.5)
+    np.testing.assert_allclose(
+        info["reference_residual_commanded_action"],
+        action,
+    )
+    np.testing.assert_allclose(
+        info["reference_residual_normalized_action"],
+        0.5 * action,
+    )
+    np.testing.assert_allclose(
+        info["reference_residual_physical_offsets"],
+        env.reference_residual_bounds * 0.5 * action,
+    )
+    env.close()
+
+
+def test_stratified_overwrite_replaces_only_exact_experiment_dirs(tmp_path):
+    roots = tuple(tmp_path / name for name in ("models", "results", "logs"))
+    paths = tuple(root / "experiment" for root in roots)
+    for path in paths:
+        path.mkdir(parents=True)
+        (path / "stale.txt").write_text("stale", encoding="utf-8")
+
+    prepare_output_directories(paths, roots, overwrite=True)
+
+    assert all(path.is_dir() for path in paths)
+    assert all(not (path / "stale.txt").exists() for path in paths)
+
+
+def test_stratified_overwrite_rejects_output_root_itself(tmp_path):
+    root = tmp_path / "models"
+    root.mkdir()
+
+    with np.testing.assert_raises(ValueError):
+        prepare_output_directories((root,), (root,), overwrite=True)
 
 
 def test_zero_reference_residual_exactly_reproduces_closing_lqr_transition():

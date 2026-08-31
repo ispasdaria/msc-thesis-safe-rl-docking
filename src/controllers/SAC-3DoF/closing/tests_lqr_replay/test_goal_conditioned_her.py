@@ -30,6 +30,7 @@ from her_source_warmstart import (
 )
 from her_residual_env import ResidualV15GoalConditionedClosingEnv
 from her_closing_utils import (
+    _classify_rollout_outcome,
     evaluate_model,
     physical_goal_metrics,
     summarize_rollouts,
@@ -548,3 +549,15 @@ def test_evaluator_records_component_snapshots_and_summary():
         ),
         1.0,
     )
+
+
+def test_evaluator_accepts_core_success_when_wrapper_success_is_false():
+    success, failure, time_limit = _classify_rollout_outcome(
+        {"success": True, "is_success": False},
+        steps=37,
+        max_steps=100,
+    )
+
+    assert success is True
+    assert failure is False
+    assert time_limit is False

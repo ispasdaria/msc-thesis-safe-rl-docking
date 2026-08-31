@@ -246,7 +246,12 @@ def plot_comparison(
     ax.set_title("(a) Progress toward the docking interface")
     ax.set_xlim(left=0.0)
     ax.grid(True, which="both", alpha=0.25)
-    ax.legend(loc="upper right", frameon=True)
+    ax.legend(
+        loc="upper right",
+        bbox_to_anchor=(0.99, 0.82),
+        frameon=True,
+        framealpha=0.95,
+    )
 
     ax = axes[1]
     without_dt = float(np.median(np.diff(without_schedule["times"])))
@@ -260,36 +265,41 @@ def plot_comparison(
         with_schedule["port_velocity"][:, 0], with_window
     )
 
-    # Keep the raw nonlinear-simulator velocities faintly visible.
-    ax.plot(
-        without_schedule["axial_port_distance"],
-        without_schedule["port_velocity"][:, 0],
-        color=colors["without"],
-        linewidth=0.45,
-        alpha=0.16,
-        label="_nolegend_",
-    )
-    ax.plot(
-        with_schedule["axial_port_distance"],
-        with_schedule["port_velocity"][:, 0],
-        color=colors["with"],
-        linewidth=0.45,
-        alpha=0.16,
-        label="_nolegend_",
+    smoothing_applied = without_window > 1 or with_window > 1
+    if smoothing_applied:
+        # Keep the raw nonlinear-simulator velocities faintly visible.
+        ax.plot(
+            without_schedule["axial_port_distance"],
+            without_schedule["port_velocity"][:, 0],
+            color=colors["without"],
+            linewidth=0.45,
+            alpha=0.16,
+            label="_nolegend_",
+        )
+        ax.plot(
+            with_schedule["axial_port_distance"],
+            with_schedule["port_velocity"][:, 0],
+            color=colors["with"],
+            linewidth=0.45,
+            alpha=0.16,
+            label="_nolegend_",
+        )
+    history_label = (
+        f"{smoothing_window_s:g} s mean" if smoothing_applied else "raw samples"
     )
     ax.plot(
         without_schedule["axial_port_distance"],
         without_vpx_mean,
         color=colors["without"],
         linewidth=2.0,
-        label=f"Without scheduled reference ({smoothing_window_s:g} s mean)",
+        label=f"Without scheduled reference ({history_label})",
     )
     ax.plot(
         with_schedule["axial_port_distance"],
         with_vpx_mean,
         color=colors["with"],
         linewidth=2.2,
-        label=f"With scheduled reference ({smoothing_window_s:g} s mean)",
+        label=f"With scheduled reference ({history_label})",
     )
     ax.plot(
         without_schedule["axial_port_distance"],

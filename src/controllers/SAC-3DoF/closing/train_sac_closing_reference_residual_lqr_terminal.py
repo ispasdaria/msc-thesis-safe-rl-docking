@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import sys
 
+import numpy as np
+
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SRC_PATH = REPO_ROOT / "src"
@@ -29,6 +31,7 @@ from lqr_reference_residual_env import (
 from p3_stratified_dict_replay_buffer import P3StratifiedDictReplayBuffer
 from terminal_reference_residual_env import (
     EmpiricalTerminalReferenceResidualWrapper,
+    LateralTerminalCurriculumWrapper,
     load_terminal_reset_dataset,
 )
 from train_sac_closing_her import HerEvaluationCheckpointCallback
@@ -44,6 +47,7 @@ from train_sac_closing_reference_residual_lqr_no_her import (
 )
 from train_sac_closing_reference_residual_lqr_stratified import (
     build_parser as build_pilot_d_parser,
+    prepare_output_directories,
     validate_args as validate_pilot_d_args,
 )
 from zero_residual_constrained_sac import ZeroResidualConstrainedSAC
@@ -77,12 +81,55 @@ def build_parser():
     parser.add_argument("--terminal-maximum-ratio", type=float, default=2.0)
     parser.add_argument("--terminal-max-time", type=float, default=600.0)
     parser.add_argument("--oracle-study-dir", type=Path, default=DEFAULT_ORACLE_DIR)
+    parser.add_argument(
+        "--lateral-terminal-curriculum",
+        action="store_true",
+        help=(
+            "Restrict resets to lateral-limited states and expand the "
+            "maximum lateral ratio through an easy-to-hard curriculum."
+        ),
+    )
+    parser.add_argument(
+        "--curriculum-stage-maximum-ratios",
+        type=float,
+        nargs="+",
+        default=(1.25, 1.5, 2.0),
+    )
+    parser.add_argument(
+        "--curriculum-stage-boundaries",
+        type=float,
+        nargs="*",
+        default=(0.25, 0.60),
+    )
+    parser.add_argument(
+        "--terminal-prefill",
+        action="store_true",
+        help="Collect replay prefill from the terminal reset distribution.",
+    )
+    parser.add_argument(
+        "--terminal-residual-fade-full-ratio",
+        type=float,
+        default=None,
+        help=(
+            "Apply full SAC residual authority at or above this worst P3 "
+            "ratio and fade linearly below it. Disabled when omitted."
+        ),
+    )
+    parser.add_argument(
+        "--terminal-residual-fade-zero-ratio",
+        type=float,
+        default=1.0,
+        help="Force zero SAC residual authority at or below this P3 ratio.",
+    )
     return parser
 
 
 def validate_args(parser, args):
     validate_pilot_d_args(parser, args)
-    if args.zero_residual_actor_final_weight is not None:
+    if (
+        args.zero_residual_actor_final_weight is not None
+        and not args.lateral_terminal_curriculum
+    ):
         parser.error(
             "Pilot F keeps Pilot D's constant actor constraint; do not pass "
             "the Pilot E annealing arguments."
@@ -93,6 +140,41 @@ def validate_args(parser, args):
         parser.error("--terminal-max-time must be positive.")
     if args.terminal_max_time >= args.max_time:
         parser.error("terminal max time must be shorter than full closing max time.")
+    if args.terminal_residual_fade_zero_ratio < 0.0:
+        parser.error("terminal residual fade zero ratio must be non-negative.")
+    if (
+        args.terminal_residual_fade_full_ratio is not None
+        and args.terminal_residual_fade_full_ratio
+        <= args.terminal_residual_fade_zero_ratio
+    ):
+        parser.error(
+            "terminal residual fade full ratio must be above its zero ratio."
+        )
+    if args.lateral_terminal_curriculum:
+        maxima = args.curriculum_stage_maximum_ratios
+        boundaries = args.curriculum_stage_boundaries
+        if len(boundaries) != len(maxima) - 1:
+            parser.error(
+                "curriculum boundaries must contain one fewer value than "
+                "stage maximum ratios."
+            )
+        if not maxima or not (
+            1.0 < args.terminal_minimum_ratio < maxima[0]
+        ):
+            parser.error(
+                "terminal minimum ratio must be above one and below the "
+                "first curriculum maximum."
+            )
+        if any(b <= a for a, b in zip(maxima, maxima[1:])):
+            parser.error("curriculum stage maximum ratios must increase.")
+        if abs(maxima[-1] - args.terminal_maximum_ratio) > 1e-12:
+            parser.error(
+                "the final curriculum maximum must equal terminal maximum ratio."
+            )
+        if any(not 0.0 < value < 1.0 for value in boundaries) or any(
+            b <= a for a, b in zip(boundaries, boundaries[1:])
+        ):
+            parser.error("curriculum boundaries must increase within (0, 1).")
 
 
 def _dataset_audit(dataset, args):
@@ -132,6 +214,32 @@ def _load_oracle_audit(path):
         "summary": json.loads(summary_path.read_text(encoding="utf-8")),
         "config": json.loads(config_path.read_text(encoding="utf-8")),
     }
+
+
+def make_terminal_training_env(args, env_kwargs, *, seed, total_steps):
+    """Build the fixed terminal reset or lateral curriculum environment."""
+    base = make_her_env(
+        seed=seed,
+        mode="training",
+        max_time=args.terminal_max_time,
+        reward_version=REWARD_VERSION,
+        **env_kwargs,
+    )
+    if args.lateral_terminal_curriculum:
+        return LateralTerminalCurriculumWrapper(
+            base,
+            args.terminal_dataset,
+            minimum_lateral_ratio=args.terminal_minimum_ratio,
+            stage_maximum_ratios=args.curriculum_stage_maximum_ratios,
+            stage_boundaries=args.curriculum_stage_boundaries,
+            total_curriculum_steps=total_steps,
+        )
+    return EmpiricalTerminalReferenceResidualWrapper(
+        base,
+        args.terminal_dataset,
+        minimum_max_target_ratio=args.terminal_minimum_ratio,
+        maximum_max_target_ratio=args.terminal_maximum_ratio,
+    )
 
 
 def write_model_readme(
@@ -184,7 +292,73 @@ def write_model_readme(
     reward = config["reward"]
     sac = config["sac"]
     bounds = config["reference_residual_bounds"]
-    content = f"""# Pilot F terminal-reset reference-residual SAC model card
+    residual_fade = config.get("terminal_residual_fade", {"enabled": False})
+    if residual_fade.get("enabled", False):
+        experiment_text = f"""Pilot {config['pilot']} retains Pilot H's 10 Hz
+lateral-limited reset curriculum, reward, replay, and SAC configuration. It
+adds a terminal residual-authority fade based on the worst simultaneous P3
+tolerance ratio: full authority at ratio >=
+{residual_fade['full_authority_at_or_above_ratio']:g}, linear fade through the
+terminal band, and exact zero residual at ratio <=
+{residual_fade['zero_authority_at_or_below_ratio']:g}. The established LQR
+therefore performs the final tolerance crossing."""
+        exclusion_text = (
+            "There is no action hold, distance gate, HER, CBF, or safety-filter "
+            "signal. Full-closing validation uses the same residual fade."
+        )
+    elif config.get("curriculum_used", False):
+        experiment_text = f"""Pilot {config['pilot']} changes Pilot G's replay
+prefill and online start-state distribution. Every reset is an empirical state
+where lateral position is the worst P3 component. The maximum reset ratio
+expands through {terminal['stage_maximum_ratios']} at training fractions
+{terminal['stage_boundaries']}. Episodes last at most
+{terminal['max_time_seconds']:g} physical seconds."""
+        exclusion_text = (
+            "There is no action hold, distance gate, HER, CBF, or safety-filter "
+            "signal. Full-closing validation remains unchanged."
+        )
+    else:
+        experiment_text = f"""Pilot F changes Pilot D's **online episode start
+distribution**. Training episodes begin at empirical states recorded from
+ordinary zero-residual LQR closing trajectories with worst P3 tolerance ratio
+in `[{terminal['minimum_ratio']:g}, {terminal['maximum_ratio']:g}]`. Their
+horizon is {terminal['max_time_seconds']:g} seconds. This is a fixed terminal
+distribution, not a curriculum."""
+        exclusion_text = (
+            "There is no action hold, distance gate, HER, CBF, safety-filter "
+            "signal, or curriculum."
+        )
+    if reward.get("design") == "dt01_lateral_v2":
+        reward_text = f"""reward = {reward['progress_weight']:.3f} * weighted_P3_progress
+         + {reward['lateral_constraint_progress_weight']:.3f} * lateral_violation_progress
+         + {reward['success_bonus']:.3f} * exact_P3_success
+         - {reward['failure_penalty']:.3f} * hard_failure
+         - {reward['timeout_penalty']:.3f} * severity_scaled_timeout
+         - dt * {reward['magnitude_weight']:.3f} * ||a||^2
+         - (1 / dt) * {reward['smoothness_weight']:.3f} * ||a-a_previous||^2"""
+    else:
+        reward_text = f"""reward = {reward['progress_weight']:.3f} * (J(previous) - gamma * J(next))
+         + {reward['success_bonus']:.3f} * exact_P3_success
+         - {reward['failure_penalty']:.3f} * hard_failure
+         - {reward['timeout_penalty']:.3f} * unsuccessful_timeout
+         - {reward['magnitude_weight']:.3f} * ||a||^2
+         - {reward['smoothness_weight']:.3f} * ||a-a_previous||^2"""
+    fade = config.get("terminal_residual_fade", {"enabled": False})
+    if fade.get("enabled", False):
+        residual_equation = f"""g(r) = clip((r - {fade['zero_authority_at_or_below_ratio']:.3f}) /
+            ({fade['full_authority_at_or_above_ratio']:.3f} - {fade['zero_authority_at_or_below_ratio']:.3f}), 0, 1)
+delta_reference = g(max_P3_ratio) * [
+    {bounds['vx_mps']:.3f} * a[0] m/s,
+    {bounds['vy_mps']:.3f} * a[1] m/s,
+    {bounds['attitude_deg']:.3f} * a[2] deg,
+]"""
+    else:
+        residual_equation = f"""delta_reference = [
+    {bounds['vx_mps']:.3f} * a[0] m/s,
+    {bounds['vy_mps']:.3f} * a[1] m/s,
+    {bounds['attitude_deg']:.3f} * a[2] deg,
+]"""
+    content = f"""# Pilot {config['pilot']} terminal-reset reference-residual SAC model card
 
 Run: `{config['experiment_name']}`  
 Status: **{status}**  
@@ -192,12 +366,7 @@ Selected best checkpoint: **{int(best_checkpoint):,} SAC decisions**
 
 ## Experimental change
 
-Pilot F changes Pilot D's **online episode start distribution**. Training
-episodes begin at empirical states recorded from ordinary zero-residual LQR
-closing trajectories with worst P3 tolerance ratio in
-`[{terminal['minimum_ratio']:g}, {terminal['maximum_ratio']:g}]`. Their horizon
-is {terminal['max_time_seconds']:g} seconds. This is a fixed terminal
-distribution, not a curriculum.
+{experiment_text}
 
 The bank contains {audit['eligible_snapshots']:,} eligible snapshots from
 {audit['eligible_source_episodes']:,} source episodes. Snapshot provenance is
@@ -205,10 +374,10 @@ success/failure/timeout = {audit['eligible_source_success_snapshots']:,}/
 {audit['eligible_source_failure_snapshots']:,}/
 {audit['eligible_source_timeout_snapshots']:,}.
 
-Full LQR trajectories still provide the {config['source_transition_count_requested']:,}
-transition replay prefill. Replay remains 50% global, 25% ratio <= 5, and 25%
-ratio <= 2. Model selection and all reported checkpoint results below use the
-original full closing reset and {config['max_eval_steps']:,}-second horizon.
+The {config['source_transition_count_requested']:,}-transition replay prefill
+uses `{config['source_prefill_distribution']}`. Replay remains 50% global,
+25% ratio <= 5, and 25% ratio <= 2. Model selection and all reported
+checkpoint results below use the original full-closing reset.
 
 ## Oracle controllability diagnostic
 
@@ -217,28 +386,17 @@ original full closing reset and {config['max_eval_steps']:,}-second horizon.
 ## Controller and exclusions
 
 ```text
-delta_reference = [
-    {bounds['vx_mps']:.3f} * a[0] m/s,
-    {bounds['vy_mps']:.3f} * a[1] m/s,
-    {bounds['attitude_deg']:.3f} * a[2] deg,
-]
+{residual_equation}
 u = LQR(state, scheduled_P3_reference + delta_reference)
 ```
 
-SAC and LQR update every second. Zero SAC action exactly reproduces LQR. There
-is no action hold, distance gate, HER, CBF, safety-filter signal, or curriculum.
-The actor is initialized at zero and retains Pilot D's constant zero-residual
-penalty.
+SAC and LQR update every {config['dt_seconds']:g} seconds. Zero SAC action
+exactly reproduces LQR. {exclusion_text}
 
-## Reward (unchanged)
+## Reward
 
 ```text
-reward = {reward['progress_weight']:.3f} * (J(previous) - gamma * J(next))
-         + {reward['success_bonus']:.3f} * exact_P3_success
-         - {reward['failure_penalty']:.3f} * hard_failure
-         - {reward['timeout_penalty']:.3f} * unsuccessful_timeout
-         - {reward['magnitude_weight']:.3f} * ||a||^2
-         - {reward['smoothness_weight']:.3f} * ||a-a_previous||^2
+{reward_text}
 ```
 
 `J` equally combines the mean and maximum of the six log-transformed P3
@@ -256,7 +414,7 @@ tolerance ratios.
 | Zero-residual actor weight | {config['zero_residual_actor_weight']:.3g} |
 | Batch size | {sac['batch_size']} |
 | Train frequency / gradient steps | {sac['train_freq']} / {sac['gradient_steps']} |
-| Discount factor | {sac['gamma']:.4f} |
+| Discount factor | {sac['gamma']:.8f} |
 | Target smoothing | {sac['tau']:.4f} |
 | Entropy coefficient | `{sac['ent_coef']}` |
 | Target entropy | {sac['target_entropy']:.1f} |
@@ -300,6 +458,43 @@ def main(argv=None):
     if args.total_timesteps not in checkpoints:
         checkpoints.append(args.total_timesteps)
     env_kwargs = environment_kwargs(args)
+    env_kwargs.update(
+        {
+            "terminal_residual_fade_full_ratio": (
+                args.terminal_residual_fade_full_ratio
+            ),
+            "terminal_residual_fade_zero_ratio": (
+                args.terminal_residual_fade_zero_ratio
+            ),
+        }
+    )
+    if args.lateral_terminal_curriculum:
+        audit_env = make_terminal_training_env(
+            args,
+            env_kwargs,
+            seed=args.training_seed,
+            total_steps=args.total_timesteps,
+        )
+        try:
+            dataset_audit.update(
+                {
+                    "lateral_limited_stage_snapshot_counts": [
+                        int(len(indices))
+                        for indices in audit_env.stage_eligible_indices
+                    ],
+                    "lateral_limited_source_episodes": int(
+                        len(
+                            np.unique(
+                                audit_env.dataset["source_seeds"][
+                                    audit_env.eligible_indices
+                                ]
+                            )
+                        )
+                    ),
+                }
+            )
+        finally:
+            audit_env.close()
     replay_kwargs = {
         "outer_buffer_size": args.outer_replay_size,
         "inner_buffer_size": args.inner_replay_size,
@@ -311,41 +506,98 @@ def main(argv=None):
     }
     config = {
         "experiment_name": args.experiment_name,
-        "pilot": "F",
-        "method": "fixed empirical terminal resets with Pilot D SAC/replay",
+        "pilot": args.pilot_label if args.lateral_terminal_curriculum else "F",
+        "method": (
+            "10 Hz lateral-limited near-P3 reset curriculum"
+            if args.lateral_terminal_curriculum
+            else "fixed empirical terminal resets with Pilot D SAC/replay"
+        ),
         "reward_version": REWARD_VERSION,
-        "reward_scheme": ReferenceResidualLQRGoalConditionedClosingEnv.reward_scheme,
+        "reward_scheme": (
+            ReferenceResidualLQRGoalConditionedClosingEnv.reward_scheme
+            if args.reward_design == "v1"
+            else (
+                "goal_conditioned_p3_reference_residual_lqr_"
+                "dt01_lateral_v2"
+            )
+        ),
         "reference_residual_components": ["vx", "vy", "attitude"],
         "reference_residual_bounds": {
             "vx_mps": args.vx_reference_bound,
             "vy_mps": args.vy_reference_bound,
             "attitude_deg": args.attitude_reference_bound_deg,
         },
-        "sac_decision_interval_seconds": 1.0,
-        "lqr_update_interval_seconds": 1.0,
+        "dt_seconds": args.dt,
+        "control_frequency_hz": 1.0 / args.dt,
+        "sac_decision_interval_seconds": args.dt,
+        "lqr_update_interval_seconds": args.dt,
         "residual_hold_steps": 1,
         "distance_gate_used": False,
+        "terminal_residual_fade": {
+            "enabled": args.terminal_residual_fade_full_ratio is not None,
+            "ratio_definition": "maximum of six physical P3 tolerance ratios",
+            "interpolation": "linear",
+            "full_authority_at_or_above_ratio": (
+                args.terminal_residual_fade_full_ratio
+            ),
+            "zero_authority_at_or_below_ratio": (
+                args.terminal_residual_fade_zero_ratio
+            ),
+        },
         "her_used": False,
         "actual_p3_success_terminal": True,
         "cbf_filter_used_during_training": False,
         "cbf_signal_in_observation_or_reward": False,
-        "curriculum_used": False,
+        "curriculum_used": bool(args.lateral_terminal_curriculum),
         "terminal_training_distribution": {
-            "type": "fixed empirical LQR trajectory snapshots",
+            "type": (
+                "easy-to-hard lateral-limited empirical LQR snapshots"
+                if args.lateral_terminal_curriculum
+                else "fixed empirical LQR trajectory snapshots"
+            ),
             "minimum_ratio": args.terminal_minimum_ratio,
             "maximum_ratio": args.terminal_maximum_ratio,
             "max_time_seconds": args.terminal_max_time,
+            "stage_maximum_ratios": (
+                list(args.curriculum_stage_maximum_ratios)
+                if args.lateral_terminal_curriculum
+                else None
+            ),
+            "stage_boundaries": (
+                list(args.curriculum_stage_boundaries)
+                if args.lateral_terminal_curriculum
+                else None
+            ),
+            "limiting_component": (
+                "lateral" if args.lateral_terminal_curriculum else "any"
+            ),
             "dataset_audit": dataset_audit,
         },
         "oracle_controllability_study": _load_oracle_audit(args.oracle_study_dir),
         "reward": {
+            "design": args.reward_design,
             "progress_weight": args.progress_weight,
             "progress_form": "J(previous) - gamma * J(next)",
+            "goal_component_weights": list(args.goal_component_weights),
+            "worst_component_weight": args.worst_component_weight,
+            "lateral_constraint_progress_weight": (
+                args.lateral_constraint_progress_weight
+            ),
             "success_bonus": args.success_bonus,
             "failure_penalty": args.failure_penalty,
             "timeout_penalty": args.timeout_penalty,
+            "timeout_violation_weight": args.timeout_violation_weight,
             "magnitude_weight": args.reference_magnitude_weight,
             "smoothness_weight": args.reference_smoothness_weight,
+            "persistent_terms_time_scaled": bool(
+                args.time_scale_persistent_reward
+            ),
+            "persistent_time_scale": (
+                args.dt if args.time_scale_persistent_reward else 1.0
+            ),
+            "smoothness_is_action_rate_cost": bool(
+                args.time_consistent_smoothness_reward
+            ),
         },
         "replay_distribution": {
             "global_fraction": args.global_batch_fraction,
@@ -365,8 +617,24 @@ def main(argv=None):
         "source_transition_count_requested": args.source_transition_count,
         "source_seed_start": args.source_seed_start,
         "source_max_episodes": args.source_max_episodes,
+        "source_prefill_distribution": (
+            "terminal curriculum"
+            if args.terminal_prefill
+            else "ordinary full closing"
+        ),
         "critic_warmup_steps": args.critic_warmup_steps,
         "zero_residual_actor_weight": args.zero_residual_actor_weight,
+        "actor_constraint": {
+            "schedule_used": args.zero_residual_actor_final_weight is not None,
+            "initial_weight": args.zero_residual_actor_weight,
+            "final_weight": (
+                args.zero_residual_actor_weight
+                if args.zero_residual_actor_final_weight is None
+                else args.zero_residual_actor_final_weight
+            ),
+            "anneal_start_step": args.critic_warmup_steps,
+            "anneal_end_step": args.zero_residual_actor_anneal_end_step,
+        },
         "actor_learning_rate_scale": args.actor_learning_rate_scale,
         "sac": {
             "learning_rate": args.learning_rate,
@@ -389,41 +657,46 @@ def main(argv=None):
     model_dir = MODEL_ROOT / args.experiment_name
     result_dir = RESULT_ROOT / args.experiment_name
     log_dir = LOG_ROOT / args.experiment_name
-    for path in (model_dir, result_dir, log_dir):
-        if path.exists():
-            raise FileExistsError(f"Refusing to reuse output directory: {path}")
-    for path in (model_dir, result_dir, log_dir):
-        path.mkdir(parents=True)
+    prepare_output_directories(
+        (model_dir, result_dir, log_dir),
+        (MODEL_ROOT, RESULT_ROOT, LOG_ROOT),
+        overwrite=args.overwrite,
+    )
     write_json(result_dir / "experiment_config.json", config)
 
+    prefill_env_factory = None
+    prefill_max_steps = args.max_time
+    if args.terminal_prefill:
+        prefill_max_steps = args.terminal_max_time
+        prefill_env_factory = lambda seed: make_terminal_training_env(
+            args,
+            env_kwargs,
+            seed=seed,
+            total_steps=args.source_transition_count,
+        )
     transitions, source_rows = collect_reference_residual_trajectories(
         minimum_transitions=args.source_transition_count,
         seed_start=args.source_seed_start,
         max_episodes=args.source_max_episodes,
-        max_steps=args.max_time,
+        max_steps=prefill_max_steps,
         env_kwargs=env_kwargs,
         residual_std=args.prefill_residual_std,
         residual_clip=args.prefill_residual_clip,
         zero_episode_fraction=args.prefill_zero_episode_fraction,
         random_seed=args.prefill_random_seed,
         retain_failure_episodes=args.retain_failure_prefill,
+        residual_hold_steps=args.prefill_residual_hold_steps,
+        env_factory=prefill_env_factory,
     )
     write_csv(result_dir / "source_episode_collection.csv", source_rows)
 
     def make_training_env():
-        base = make_her_env(
-            seed=args.training_seed,
-            mode="training",
-            max_time=args.terminal_max_time,
-            reward_version=REWARD_VERSION,
-            **env_kwargs,
-        )
         return Monitor(
-            EmpiricalTerminalReferenceResidualWrapper(
-                base,
-                args.terminal_dataset,
-                minimum_max_target_ratio=args.terminal_minimum_ratio,
-                maximum_max_target_ratio=args.terminal_maximum_ratio,
+            make_terminal_training_env(
+                args,
+                env_kwargs,
+                seed=args.training_seed,
+                total_steps=args.total_timesteps,
             )
         )
 
@@ -445,6 +718,12 @@ def main(argv=None):
         replay_buffer_kwargs=replay_kwargs,
         critic_warmup_steps=args.critic_warmup_steps,
         zero_residual_actor_weight=args.zero_residual_actor_weight,
+        zero_residual_actor_final_weight=(
+            args.zero_residual_actor_final_weight
+        ),
+        zero_residual_actor_anneal_end_step=(
+            args.zero_residual_actor_anneal_end_step
+        ),
         actor_learning_rate_scale=args.actor_learning_rate_scale,
         verbose=1,
         seed=args.training_seed,
@@ -508,7 +787,14 @@ def main(argv=None):
     )
     callback._save_tables()
     print(f"Experiment:          {args.experiment_name}")
-    print("Training reset:      empirical terminal LQR states")
+    print(
+        "Training reset:      "
+        + (
+            "lateral-limited terminal curriculum"
+            if args.lateral_terminal_curriculum
+            else "empirical terminal LQR states"
+        )
+    )
     print(
         f"Training ratio band: {args.terminal_minimum_ratio:g}--"
         f"{args.terminal_maximum_ratio:g}"

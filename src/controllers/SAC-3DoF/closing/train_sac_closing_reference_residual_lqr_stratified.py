@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
 import sys
 
 
@@ -67,7 +68,19 @@ def build_parser():
     parser.add_argument("--inner-batch-fraction", type=float, default=0.25)
     parser.add_argument("--outer-ratio-limit", type=float, default=5.0)
     parser.add_argument("--inner-ratio-limit", type=float, default=2.0)
-    parser.add_argument("--pilot-label", choices=("D", "E"), default="D")
+    parser.add_argument(
+        "--pilot-label",
+        choices=("D", "E", "G", "H", "I"),
+        default="D",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help=(
+            "Delete and recreate this experiment's existing model, result, "
+            "and log directories."
+        ),
+    )
     parser.add_argument(
         "--zero-residual-actor-final-weight",
         type=float,
@@ -79,6 +92,35 @@ def build_parser():
         default=None,
     )
     return parser
+
+
+def prepare_output_directories(paths, roots, overwrite=False):
+    """Create experiment directories, optionally replacing exact targets."""
+    paths = tuple(Path(path) for path in paths)
+    roots = tuple(Path(root) for root in roots)
+    if len(paths) != len(roots):
+        raise ValueError("Each output path must have a matching output root.")
+
+    for path, root in zip(paths, roots):
+        resolved_path = path.resolve()
+        resolved_root = root.resolve()
+        if resolved_path == resolved_root or resolved_path.parent != resolved_root:
+            raise ValueError(
+                f"Unsafe experiment output path outside its exact root: {path}"
+            )
+        if path.exists() and not overwrite:
+            raise FileExistsError(
+                f"Refusing to reuse output directory: {path}. "
+                "Pass --overwrite to replace this experiment."
+            )
+
+    if overwrite:
+        for path in paths:
+            if path.exists():
+                shutil.rmtree(path)
+                print(f"Removed existing experiment directory: {path}")
+    for path in paths:
+        path.mkdir(parents=True)
 
 
 def validate_args(parser, args):
@@ -175,7 +217,13 @@ def write_model_readme(
         )
     )
     if actor_constraint["schedule_used"]:
-        if float(config["dt_seconds"]) == 1.0:
+        if reward.get("design") == "dt01_lateral_v2":
+            transfer_description = (
+                "Pilot G changes only the reward from the 10 Hz Pilot E "
+                "ablation. The retuned LQR, replay distribution, seeds, "
+                "interaction counts, and SAC optimizer are unchanged."
+            )
+        elif float(config["dt_seconds"]) == 1.0:
             transfer_description = (
                 "The controller, reward, replay distribution, seeds, "
                 "initialization, and all other SAC settings are unchanged."
@@ -207,6 +255,32 @@ distribution. The controller, fixed P3 goal, reward,
 {config['sac_decision_interval_seconds']:.3g}-second SAC/LQR cadence,
 zero-residual actor prior, and no-HER setup are unchanged."""
         actor_weight_description = f"{actor_constraint['initial_weight']:.3g}"
+    if reward.get("design") == "dt01_lateral_v2":
+        reward_equation = f"""reward = {reward['progress_weight']:.3f} * (Jw(previous) - gamma * Jw(next))
+         + {reward['lateral_constraint_progress_weight']:.3f} * (L(previous) - gamma * L(next))
+         + {reward['success_bonus']:.3f} * exact_P3_success
+         - {reward['failure_penalty']:.3f} * hard_failure
+         - {reward['timeout_penalty']:.3f} * severity_scaled_timeout
+         - dt * {reward['magnitude_weight']:.3f} * ||a||^2
+         - (1 / dt) * {reward['smoothness_weight']:.3f} * ||a - a_previous||^2"""
+        goal_description = (
+            "`Jw` uses component weights "
+            f"{reward['goal_component_weights']} and gives the worst component "
+            f"weight {reward['worst_component_weight']:.2f}. `L` is the "
+            "log-scaled excess of the lateral-position ratio above one. "
+            "Timeout severity uses the remaining worst P3 violation."
+        )
+    else:
+        reward_equation = f"""reward = {reward['progress_weight']:.3f} * (J(previous) - gamma * J(next))
+         + {reward['success_bonus']:.3f} * exact_P3_success
+         - {reward['failure_penalty']:.3f} * hard_failure
+         - {reward['timeout_penalty']:.3f} * unsuccessful_timeout
+         - {reward['magnitude_weight']:.3f} * ||a||^2
+         - {reward['smoothness_weight']:.3f} * ||a - a_previous||^2"""
+        goal_description = (
+            "`J` equally combines the mean and maximum of the six "
+            "log-transformed, normalized P3 tolerance ratios."
+        )
     content = f"""# Pilot {config['pilot']} P3-stratified reference-residual SAC model card
 
 Run: `{config['experiment_name']}`  
@@ -253,17 +327,11 @@ distance gate, CBF signal, HER relabeling, or safety filtering in training.
 ## Reward
 
 ```text
-reward = {reward['progress_weight']:.3f} * (J(previous) - gamma * J(next))
-         + {reward['success_bonus']:.3f} * exact_P3_success
-         - {reward['failure_penalty']:.3f} * hard_failure
-         - {reward['timeout_penalty']:.3f} * unsuccessful_timeout
-         - {reward['magnitude_weight']:.3f} * ||a||^2
-         - {reward['smoothness_weight']:.3f} * ||a - a_previous||^2
+{reward_equation}
 ```
 
-`J` equally combines the mean and maximum of the six log-transformed,
-normalized P3 tolerance ratios. The replay strata use the maximum untransformed
-ratio from the actual next state and actual fixed P3 target.
+{goal_description} The replay strata use the maximum untransformed ratio from
+the actual next state and actual fixed P3 target.
 
 ## SAC configuration
 
@@ -331,12 +399,23 @@ def main(argv=None):
         "experiment_name": args.experiment_name,
         "pilot": args.pilot_label,
         "method": (
-            "Pilot D with annealed zero-residual actor constraint"
-            if args.zero_residual_actor_final_weight is not None
-            else "Pilot C with P3-stratified fixed-goal replay"
+            "Pilot G 10 Hz lateral/time-consistent reward ablation"
+            if args.reward_design == "dt01_lateral_v2"
+            else (
+                "Pilot D with annealed zero-residual actor constraint"
+                if args.zero_residual_actor_final_weight is not None
+                else "Pilot C with P3-stratified fixed-goal replay"
+            )
         ),
         "reward_version": REWARD_VERSION,
-        "reward_scheme": ReferenceResidualLQRGoalConditionedClosingEnv.reward_scheme,
+        "reward_scheme": (
+            ReferenceResidualLQRGoalConditionedClosingEnv.reward_scheme
+            if args.reward_design == "v1"
+            else (
+                "goal_conditioned_p3_reference_residual_lqr_"
+                "dt01_lateral_v2"
+            )
+        ),
         "reference_residual_components": ["vx", "vy", "attitude"],
         "reference_residual_bounds": {
             "vx_mps": args.vx_reference_bound,
@@ -354,13 +433,23 @@ def main(argv=None):
         "cbf_filter_used_during_training": False,
         "cbf_signal_in_observation_or_reward": False,
         "reward": {
+            "design": args.reward_design,
             "progress_weight": args.progress_weight,
             "progress_form": "J(previous) - gamma * J(next)",
+            "goal_component_weights": list(args.goal_component_weights),
+            "worst_component_weight": args.worst_component_weight,
+            "lateral_constraint_progress_weight": (
+                args.lateral_constraint_progress_weight
+            ),
             "success_bonus": args.success_bonus,
             "failure_penalty": args.failure_penalty,
             "timeout_penalty": args.timeout_penalty,
+            "timeout_violation_weight": args.timeout_violation_weight,
             "magnitude_weight": args.reference_magnitude_weight,
             "smoothness_weight": args.reference_smoothness_weight,
+            "smoothness_is_action_rate_cost": bool(
+                args.time_consistent_smoothness_reward
+            ),
             "persistent_terms_time_scaled": bool(
                 args.time_scale_persistent_reward
             ),
@@ -455,11 +544,11 @@ def main(argv=None):
     model_dir = MODEL_ROOT / args.experiment_name
     result_dir = RESULT_ROOT / args.experiment_name
     log_dir = LOG_ROOT / args.experiment_name
-    for path in (model_dir, result_dir, log_dir):
-        if path.exists():
-            raise FileExistsError(f"Refusing to reuse output directory: {path}")
-    for path in (model_dir, result_dir, log_dir):
-        path.mkdir(parents=True)
+    prepare_output_directories(
+        (model_dir, result_dir, log_dir),
+        (MODEL_ROOT, RESULT_ROOT, LOG_ROOT),
+        overwrite=args.overwrite,
+    )
     write_json(result_dir / "experiment_config.json", config)
 
     transitions, source_rows = collect_reference_residual_trajectories(

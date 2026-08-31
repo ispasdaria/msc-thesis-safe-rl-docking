@@ -1,0 +1,179 @@
+{
+  "actor_constraint": {
+    "anneal_end_step": 300000,
+    "anneal_start_step": 100000,
+    "final_weight": 0.1,
+    "initial_weight": 1.0,
+    "schedule_used": true
+  },
+  "actor_learning_rate_scale": 0.25,
+  "actual_p3_success_terminal": true,
+  "cbf_filter_used_during_training": false,
+  "cbf_signal_in_observation_or_reward": false,
+  "checkpoint_steps": [
+    0,
+    100000,
+    250000,
+    500000
+  ],
+  "control_frequency_hz": 10.0,
+  "critic_warmup_steps": 100000,
+  "curriculum_used": true,
+  "distance_gate_used": false,
+  "dt_seconds": 0.1,
+  "experiment_name": "sac_closing_lqr_reference_residual_pilot_i_dt0p1_terminal_fade_500k_seed0",
+  "her_used": false,
+  "lqr_update_interval_seconds": 0.1,
+  "max_eval_steps": 120000,
+  "max_time": 12000.0,
+  "method": "10 Hz lateral-limited near-P3 reset curriculum",
+  "oracle_controllability_study": {
+    "available": true,
+    "config": {
+      "action_levels": [
+        -1.0,
+        0.0,
+        1.0
+      ],
+      "candidate_count": 27,
+      "dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_oracle_seeds400_449.npz",
+      "interpretation_limit": "Success demonstrates useful bounded residual action authority. Failure does not prove mathematical uncontrollability because the oracle uses a finite grid and constant-action lookahead.",
+      "lookahead_steps": 1,
+      "n_states": 20,
+      "nonsuccess_fraction_requested": 0.5,
+      "rollout_horizon": 1500,
+      "sample_seed": 91000
+    },
+    "path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\lqr_reference_residual_terminal\\oracle_study_n20_h1",
+    "summary": {
+      "baseline_success_rate": 0.5,
+      "baseline_successes": 10,
+      "mean_baseline_best_ratio": 1.0807284326401927,
+      "mean_oracle_best_ratio": 1.0765626730422257,
+      "mean_oracle_nonzero_action_fraction": 0.44390095251506345,
+      "oracle_losses": 3,
+      "oracle_rescues": 2,
+      "oracle_success_rate": 0.45,
+      "oracle_successes": 9,
+      "state_count": 20
+    }
+  },
+  "pilot": "I",
+  "reference_residual_bounds": {
+    "attitude_deg": 1.0,
+    "vx_mps": 0.02,
+    "vy_mps": 0.01
+  },
+  "reference_residual_components": [
+    "vx",
+    "vy",
+    "attitude"
+  ],
+  "replay_distribution": {
+    "global_fraction": 0.5,
+    "inner_buffer_size": 50000,
+    "inner_fraction": 0.25,
+    "inner_ratio_limit": 2.0,
+    "outer_buffer_size": 150000,
+    "outer_fraction": 0.25,
+    "outer_ratio_limit": 5.0
+  },
+  "residual_hold_steps": 1,
+  "reward": {
+    "design": "dt01_lateral_v2",
+    "failure_penalty": 25.0,
+    "goal_component_weights": [
+      1.0,
+      4.0,
+      1.0,
+      2.0,
+      1.0,
+      1.0
+    ],
+    "lateral_constraint_progress_weight": 4.0,
+    "magnitude_weight": 0.002,
+    "persistent_terms_time_scaled": true,
+    "persistent_time_scale": 0.1,
+    "progress_form": "J(previous) - gamma * J(next)",
+    "progress_weight": 2.0,
+    "smoothness_is_action_rate_cost": true,
+    "smoothness_weight": 0.001,
+    "success_bonus": 5.0,
+    "timeout_penalty": 2.0,
+    "timeout_violation_weight": 2.0,
+    "worst_component_weight": 0.75
+  },
+  "reward_scheme": "goal_conditioned_p3_reference_residual_lqr_dt01_lateral_v2",
+  "reward_version": "lqr_reference_residual",
+  "sac": {
+    "batch_size": 256,
+    "buffer_size": 650000,
+    "ent_coef": "auto_0.01",
+    "gamma": 0.9999899995499715,
+    "gradient_steps": 1,
+    "learning_rate": 0.0001,
+    "replay_buffer": "P3StratifiedDictReplayBuffer",
+    "target_entropy": -3.0,
+    "tau": 0.005,
+    "train_freq": 40,
+    "update_to_data_ratio": 0.025
+  },
+  "sac_decision_interval_seconds": 0.1,
+  "source_max_episodes": 50,
+  "source_prefill_distribution": "terminal curriculum",
+  "source_seed_start": 0,
+  "source_transition_count_requested": 100000,
+  "terminal_residual_fade": {
+    "enabled": true,
+    "full_authority_at_or_above_ratio": 1.2,
+    "interpolation": "linear",
+    "ratio_definition": "maximum of six physical P3 tolerance ratios",
+    "zero_authority_at_or_below_ratio": 1.0
+  },
+  "terminal_training_distribution": {
+    "dataset_audit": {
+      "eligible_snapshots": 1885,
+      "eligible_source_episodes": 100,
+      "eligible_source_failure_snapshots": 0,
+      "eligible_source_success_snapshots": 1110,
+      "eligible_source_timeout_snapshots": 775,
+      "lateral_limited_source_episodes": 14,
+      "lateral_limited_stage_snapshot_counts": [
+        145,
+        337,
+        425
+      ],
+      "path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_training_bank.npz",
+      "total_snapshots": 5120
+    },
+    "limiting_component": "lateral",
+    "max_time_seconds": 600.0,
+    "maximum_ratio": 2.0,
+    "minimum_ratio": 1.05,
+    "stage_boundaries": [
+      0.25,
+      0.6
+    ],
+    "stage_maximum_ratios": [
+      1.25,
+      1.5,
+      2.0
+    ],
+    "type": "easy-to-hard lateral-limited empirical LQR snapshots"
+  },
+  "total_timesteps": 500000,
+  "training_seed": 0,
+  "validation_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "zero_residual_actor_weight": 1.0
+}

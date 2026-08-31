@@ -88,6 +88,10 @@ class EmpiricalTerminalReferenceResidualWrapper(gym.Wrapper):
             raise ValueError("No terminal reset states satisfy the requested filters.")
         self.current_dataset_index = None
 
+    def _candidate_indices(self):
+        """Return reset candidates; subclasses may implement a curriculum."""
+        return self.eligible_indices
+
     @property
     def core_env(self):
         return self.env.unwrapped.core_env
@@ -132,7 +136,7 @@ class EmpiricalTerminalReferenceResidualWrapper(gym.Wrapper):
         # P2 state is discarded and replaced by one empirical state/P3 pair.
         self.env.reset(seed=seed, options=options)
         rng = self.core_env.rng
-        index = int(rng.choice(self.eligible_indices))
+        index = int(rng.choice(self._candidate_indices()))
         mode = (options or {}).get("mode", self.env.unwrapped.mode)
         observation, info = self.env.reset(
             options={
@@ -166,3 +170,139 @@ class EmpiricalTerminalReferenceResidualWrapper(gym.Wrapper):
             truncated,
             self._annotate(info, self.current_dataset_index, source),
         )
+
+
+class LateralTerminalCurriculumWrapper(
+    EmpiricalTerminalReferenceResidualWrapper
+):
+    """Easy-to-hard reset curriculum for lateral-limited near-P3 states."""
+
+    def __init__(
+        self,
+        env,
+        dataset_path,
+        *,
+        minimum_lateral_ratio=1.05,
+        stage_maximum_ratios=(1.25, 1.5, 2.0),
+        stage_boundaries=(0.25, 0.60),
+        total_curriculum_steps=500_000,
+        include_source_outcomes=("success", "time_limit"),
+    ):
+        stage_maximum_ratios = tuple(
+            float(value) for value in stage_maximum_ratios
+        )
+        stage_boundaries = tuple(float(value) for value in stage_boundaries)
+        if not stage_maximum_ratios:
+            raise ValueError("At least one curriculum stage is required.")
+        if len(stage_boundaries) != len(stage_maximum_ratios) - 1:
+            raise ValueError(
+                "Curriculum boundaries must contain one fewer value than "
+                "stage maximum ratios."
+            )
+        if not 1.0 < float(minimum_lateral_ratio) < stage_maximum_ratios[0]:
+            raise ValueError(
+                "minimum_lateral_ratio must lie in (1, first stage maximum)."
+            )
+        if any(
+            current <= previous
+            for previous, current in zip(
+                stage_maximum_ratios,
+                stage_maximum_ratios[1:],
+            )
+        ):
+            raise ValueError("Curriculum stage maximum ratios must increase.")
+        if any(not 0.0 < value < 1.0 for value in stage_boundaries) or any(
+            current <= previous
+            for previous, current in zip(
+                stage_boundaries,
+                stage_boundaries[1:],
+            )
+        ):
+            raise ValueError(
+                "Curriculum stage boundaries must increase within (0, 1)."
+            )
+        if int(total_curriculum_steps) <= 0:
+            raise ValueError("total_curriculum_steps must be positive.")
+
+        super().__init__(
+            env,
+            dataset_path,
+            minimum_max_target_ratio=minimum_lateral_ratio,
+            maximum_max_target_ratio=stage_maximum_ratios[-1],
+            include_source_outcomes=include_source_outcomes,
+        )
+        self.minimum_lateral_ratio = float(minimum_lateral_ratio)
+        self.stage_maximum_ratios = stage_maximum_ratios
+        self.stage_boundaries = stage_boundaries
+        self.total_curriculum_steps = int(total_curriculum_steps)
+        self.curriculum_steps_elapsed = 0
+        self.current_curriculum_stage = 0
+
+        states = np.asarray(self.dataset["states"], dtype=np.float64)
+        targets = np.asarray(self.dataset["p3_targets"], dtype=np.float64)
+        errors = states - targets
+        errors[:, 4] = np.arctan2(
+            np.sin(errors[:, 4]),
+            np.cos(errors[:, 4]),
+        )
+        tolerance = np.asarray(
+            self.core_env.p3_target_tolerance,
+            dtype=np.float64,
+        )
+        component_ratios = np.abs(errors) / np.maximum(tolerance, 1e-12)
+        lateral_ratios = component_ratios[:, 1]
+        lateral_is_limiting = np.argmax(component_ratios, axis=1) == 1
+        outcomes = np.asarray(self.dataset["source_outcomes"]).astype(str)
+        common = (
+            lateral_is_limiting
+            & (lateral_ratios >= self.minimum_lateral_ratio)
+            & np.isin(outcomes, self.include_source_outcomes)
+        )
+        self.lateral_ratios = lateral_ratios
+        self.stage_eligible_indices = tuple(
+            np.flatnonzero(common & (lateral_ratios <= maximum))
+            for maximum in self.stage_maximum_ratios
+        )
+        if any(indices.size == 0 for indices in self.stage_eligible_indices):
+            raise ValueError(
+                "At least one lateral curriculum stage has no eligible resets."
+            )
+        self.eligible_indices = self.stage_eligible_indices[-1]
+
+    def _stage_for_elapsed_steps(self):
+        progress = min(
+            self.curriculum_steps_elapsed / self.total_curriculum_steps,
+            1.0,
+        )
+        return int(np.searchsorted(self.stage_boundaries, progress, side="right"))
+
+    def _candidate_indices(self):
+        self.current_curriculum_stage = self._stage_for_elapsed_steps()
+        return self.stage_eligible_indices[self.current_curriculum_stage]
+
+    def _annotate(self, info, index, source):
+        result = super()._annotate(info, index, source)
+        result.update(
+            {
+                "terminal_reset_lateral_curriculum": True,
+                "terminal_reset_curriculum_stage": int(
+                    self.current_curriculum_stage
+                ),
+                "terminal_reset_curriculum_stage_maximum_ratio": float(
+                    self.stage_maximum_ratios[self.current_curriculum_stage]
+                ),
+                "terminal_reset_curriculum_steps_elapsed": int(
+                    self.curriculum_steps_elapsed
+                ),
+            }
+        )
+        if index is not None:
+            result["terminal_reset_initial_lateral_ratio"] = float(
+                self.lateral_ratios[index]
+            )
+        return result
+
+    def step(self, action):
+        result = super().step(action)
+        self.curriculum_steps_elapsed += 1
+        return result

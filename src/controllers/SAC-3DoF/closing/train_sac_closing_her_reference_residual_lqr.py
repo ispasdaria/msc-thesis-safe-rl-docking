@@ -100,6 +100,7 @@ def collect_reference_residual_trajectories(
     random_seed,
     retain_failure_episodes,
     residual_hold_steps=1,
+    env_factory=None,
 ):
     """Collect complete LQR episodes with reference-residual probes."""
     if minimum_transitions <= 0:
@@ -107,12 +108,16 @@ def collect_reference_residual_trajectories(
     if residual_hold_steps <= 0:
         raise ValueError("residual_hold_steps must be positive.")
     rng = np.random.default_rng(random_seed)
-    env = make_her_env(
-        seed=seed_start,
-        mode="training",
-        max_time=max_steps,
-        reward_version=REWARD_VERSION,
-        **env_kwargs,
+    env = (
+        env_factory(seed_start)
+        if env_factory is not None
+        else make_her_env(
+            seed=seed_start,
+            mode="training",
+            max_time=max_steps,
+            reward_version=REWARD_VERSION,
+            **env_kwargs,
+        )
     )
     transitions = []
     summaries = []

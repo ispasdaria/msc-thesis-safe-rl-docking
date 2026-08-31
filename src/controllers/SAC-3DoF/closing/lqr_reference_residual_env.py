@@ -54,7 +54,15 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
         safety_failure_penalty=1000.0,
         timeout_penalty=100.0,
         time_scale_persistent_reward=False,
+        time_consistent_smoothness_reward=False,
         reward_reference_dt=1.0,
+        goal_component_weights=(1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+        worst_component_weight=0.5,
+        lateral_constraint_progress_weight=0.0,
+        timeout_violation_weight=0.0,
+        reward_design="v1",
+        terminal_residual_fade_full_ratio=None,
+        terminal_residual_fade_zero_ratio=1.0,
         lqr_controller=None,
         **kwargs,
     ):
@@ -75,6 +83,10 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
             "success_bonus": success_bonus,
             "safety_failure_penalty": safety_failure_penalty,
             "timeout_penalty": timeout_penalty,
+            "lateral_constraint_progress_weight": (
+                lateral_constraint_progress_weight
+            ),
+            "timeout_violation_weight": timeout_violation_weight,
         }
         for name, value in nonnegative.items():
             if not np.isfinite(float(value)) or float(value) < 0.0:
@@ -91,12 +103,69 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
         self.time_scale_persistent_reward = bool(
             time_scale_persistent_reward
         )
+        self.time_consistent_smoothness_reward = bool(
+            time_consistent_smoothness_reward
+        )
         self.reward_reference_dt = float(reward_reference_dt)
         if (
             not np.isfinite(self.reward_reference_dt)
             or self.reward_reference_dt <= 0.0
         ):
             raise ValueError("reward_reference_dt must be finite and positive.")
+        component_weights = np.asarray(
+            goal_component_weights,
+            dtype=np.float64,
+        )
+        if (
+            component_weights.shape != (6,)
+            or not np.all(np.isfinite(component_weights))
+            or np.any(component_weights <= 0.0)
+        ):
+            raise ValueError(
+                "goal_component_weights must contain six finite positive "
+                "values."
+            )
+        if not 0.0 <= float(worst_component_weight) <= 1.0:
+            raise ValueError("worst_component_weight must lie in [0, 1].")
+        if reward_design not in {"v1", "dt01_lateral_v2"}:
+            raise ValueError(
+                "reward_design must be 'v1' or 'dt01_lateral_v2'."
+            )
+        self.goal_component_weights = component_weights
+        self.worst_component_weight = float(worst_component_weight)
+        self.lateral_constraint_progress_weight = float(
+            lateral_constraint_progress_weight
+        )
+        self.timeout_violation_weight = float(timeout_violation_weight)
+        self.reward_design = str(reward_design)
+        if self.reward_design == "dt01_lateral_v2":
+            self.reward_scheme = (
+                "goal_conditioned_p3_reference_residual_lqr_dt01_lateral_v2"
+            )
+        self.terminal_residual_fade_full_ratio = (
+            None
+            if terminal_residual_fade_full_ratio is None
+            else float(terminal_residual_fade_full_ratio)
+        )
+        self.terminal_residual_fade_zero_ratio = float(
+            terminal_residual_fade_zero_ratio
+        )
+        if not np.isfinite(self.terminal_residual_fade_zero_ratio) or (
+            self.terminal_residual_fade_zero_ratio < 0.0
+        ):
+            raise ValueError(
+                "terminal_residual_fade_zero_ratio must be finite and "
+                "non-negative."
+            )
+        if self.terminal_residual_fade_full_ratio is not None and (
+            not np.isfinite(self.terminal_residual_fade_full_ratio)
+            or self.terminal_residual_fade_full_ratio
+            <= self.terminal_residual_fade_zero_ratio
+        ):
+            raise ValueError(
+                "terminal_residual_fade_full_ratio must be finite and above "
+                "terminal_residual_fade_zero_ratio."
+            )
         self.previous_reference_residual_action = np.zeros(3, dtype=np.float32)
 
         if lqr_controller is None:
@@ -140,10 +209,32 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
         normalized = np.log1p(ratios) / np.log1p(
             self.goal_log_reference_ratio
         )
-        return 0.5 * np.mean(normalized, axis=-1) + 0.5 * np.max(
-            normalized,
+        weighted_mean = np.sum(
+            normalized * self.goal_component_weights,
             axis=-1,
+        ) / np.sum(self.goal_component_weights)
+        return (
+            (1.0 - self.worst_component_weight) * weighted_mean
+            + self.worst_component_weight * np.max(normalized, axis=-1)
         )
+
+    @staticmethod
+    def _lateral_constraint_cost(ratios):
+        """Smoothly measure only lateral-position target-set violation."""
+        lateral_excess = np.maximum(
+            np.asarray(ratios, dtype=np.float64)[..., 1] - 1.0,
+            0.0,
+        )
+        return np.log1p(lateral_excess) / np.log(2.0)
+
+    @staticmethod
+    def _worst_constraint_cost(ratios):
+        """Smoothly measure the worst violation outside the exact P3 set."""
+        worst_excess = np.maximum(
+            np.max(np.asarray(ratios, dtype=np.float64), axis=-1) - 1.0,
+            0.0,
+        )
+        return np.log1p(worst_excess) / np.log(2.0)
 
     def compute_reward(self, achieved_goal, desired_goal, info):
         """Compute relabelable P3 progress and reference-control costs."""
@@ -158,6 +249,10 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
         next_cost = self._goal_cost(achieved_goal, desired_goal)
         previous_cost = self._goal_cost(previous_achieved, desired_goal)
         ratios = self.goal_error_ratios(achieved_goal, desired_goal)
+        previous_ratios = self.goal_error_ratios(
+            previous_achieved,
+            desired_goal,
+        )
         success = np.all(ratios <= 1.0, axis=-1).astype(np.float64)
         failure = self._failure_mask(info, leading_shape)
         time_limit = self._time_limit_mask(info, leading_shape)
@@ -175,19 +270,39 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
         )
         magnitude_cost = np.sum(np.square(action), axis=-1)
         smoothness_cost = np.sum(np.square(action - previous_action), axis=-1)
-        persistent_scale = (
+        magnitude_scale = (
             float(self.core_env.dt) / self.reward_reference_dt
             if self.time_scale_persistent_reward
             else 1.0
         )
+        smoothness_scale = (
+            self.reward_reference_dt / float(self.core_env.dt)
+            if self.time_consistent_smoothness_reward
+            else magnitude_scale
+        )
         progress = previous_cost - self.progress_gamma * next_cost
+        lateral_progress = (
+            self._lateral_constraint_cost(previous_ratios)
+            - self.progress_gamma * self._lateral_constraint_cost(ratios)
+        )
+        timeout_multiplier = (
+            1.0
+            + self.timeout_violation_weight
+            * self._worst_constraint_cost(ratios)
+        )
         reward = (
             self.progress_weight * progress
+            + self.lateral_constraint_progress_weight * lateral_progress
             + self.success_bonus * success
             - self.safety_failure_penalty * failure
-            - self.timeout_penalty * time_limit * (1.0 - success)
-            - persistent_scale * self.reference_magnitude_weight * magnitude_cost
-            - persistent_scale * self.reference_smoothness_weight * smoothness_cost
+            - self.timeout_penalty
+            * timeout_multiplier
+            * time_limit
+            * (1.0 - success)
+            - magnitude_scale * self.reference_magnitude_weight * magnitude_cost
+            - smoothness_scale
+            * self.reference_smoothness_weight
+            * smoothness_cost
         )
         reward = np.asarray(reward, dtype=np.float32)
         if reward.ndim == 0:
@@ -250,18 +365,54 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
     def source_action(self):
         return np.zeros(3, dtype=np.float32)
 
+    def terminal_residual_authority(self):
+        """Return residual authority and the current worst P3 error ratio."""
+        state = np.asarray(self.core_env.state, dtype=np.float64)
+        target = np.asarray(self.core_env.p3_target, dtype=np.float64)
+        error = state - target
+        error[4] = self.core_env.wrap_to_pi(error[4])
+        tolerance = np.asarray(
+            self.core_env.p3_target_tolerance,
+            dtype=np.float64,
+        )
+        maximum_ratio = float(
+            np.max(np.abs(error) / np.maximum(tolerance, 1e-12))
+        )
+        full_ratio = self.terminal_residual_fade_full_ratio
+        if full_ratio is None:
+            return 1.0, maximum_ratio
+        zero_ratio = self.terminal_residual_fade_zero_ratio
+        authority = np.clip(
+            (maximum_ratio - zero_ratio) / (full_ratio - zero_ratio),
+            0.0,
+            1.0,
+        )
+        return float(authority), maximum_ratio
+
     def reset(self, seed=None, options=None):
         observation, info = super().reset(seed=seed, options=options)
         self.previous_reference_residual_action = np.zeros(3, dtype=np.float32)
         return observation, info
 
     def step(self, action):
-        residual_action = np.asarray(action, dtype=np.float32).reshape(-1)
-        if residual_action.shape != (3,):
+        commanded_residual_action = np.asarray(
+            action, dtype=np.float32
+        ).reshape(-1)
+        if commanded_residual_action.shape != (3,):
             raise ValueError("Reference residual action must have shape (3,).")
-        if not np.all(np.isfinite(residual_action)):
+        if not np.all(np.isfinite(commanded_residual_action)):
             raise ValueError("Reference residual action must be finite.")
-        residual_action = np.clip(residual_action, -1.0, 1.0)
+        commanded_residual_action = np.clip(
+            commanded_residual_action,
+            -1.0,
+            1.0,
+        )
+        residual_authority, pre_step_max_target_ratio = (
+            self.terminal_residual_authority()
+        )
+        residual_action = (
+            commanded_residual_action * residual_authority
+        ).astype(np.float32)
         previous_achieved_goal = self._scale_state(self.core_env.state)
         previous_residual_action = self.previous_reference_residual_action.copy()
         (
@@ -282,11 +433,27 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
                 "reference_residual_controller_enabled": True,
                 "reference_residual_components": ("vx", "vy", "attitude"),
                 "reference_residual_bounds": self.reference_residual_bounds.copy(),
+                "reference_residual_commanded_action": (
+                    commanded_residual_action.copy()
+                ),
                 "reference_residual_normalized_action": residual_action.copy(),
                 "previous_reference_residual_normalized_action": (
                     previous_residual_action
                 ),
                 "reference_residual_physical_offsets": offsets.copy(),
+                "terminal_residual_fade_enabled": bool(
+                    self.terminal_residual_fade_full_ratio is not None
+                ),
+                "terminal_residual_authority": float(residual_authority),
+                "terminal_residual_pre_step_max_target_ratio": float(
+                    pre_step_max_target_ratio
+                ),
+                "terminal_residual_fade_full_ratio": (
+                    self.terminal_residual_fade_full_ratio
+                ),
+                "terminal_residual_fade_zero_ratio": float(
+                    self.terminal_residual_fade_zero_ratio
+                ),
                 "previous_achieved_goal": previous_achieved_goal.copy(),
                 "nominal_lqr_reference": nominal_reference.copy(),
                 "modified_lqr_reference": modified_reference.copy(),
@@ -303,6 +470,16 @@ class ReferenceResidualLQRGoalConditionedClosingEnv(
                     if self.time_scale_persistent_reward
                     else 1.0
                 ),
+                "smoothness_reward_time_scale": float(
+                    self.reward_reference_dt / self.core_env.dt
+                    if self.time_consistent_smoothness_reward
+                    else (
+                        self.core_env.dt / self.reward_reference_dt
+                        if self.time_scale_persistent_reward
+                        else 1.0
+                    )
+                ),
+                "reward_design": self.reward_design,
                 "cbf_filter_applied": False,
             }
         )

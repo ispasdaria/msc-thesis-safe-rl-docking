@@ -1,0 +1,5 @@
+training_seed,episode,timestep,episode_length,episode_return,rolling_mean_return,termination_reason,is_best_checkpoint
+0,1,35059,35059,-11868.48069,-11868.48069,timeout,0
+0,2,56731,21672,656.628591,-5605.9260495,timeout,0
+0,3,62731,6000,-6934.983003,-6048.945034,near_p3_training_timeout,0
+0,4,77594,14863,-27566.283081,-11428.27954575,safety_violation,0

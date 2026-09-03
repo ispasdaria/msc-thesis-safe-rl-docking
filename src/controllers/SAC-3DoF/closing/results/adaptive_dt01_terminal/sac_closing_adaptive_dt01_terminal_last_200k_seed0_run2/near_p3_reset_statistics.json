@@ -1,0 +1,12 @@
+{
+  "configured_near_p3_fraction": 0.35,
+  "deterministic_mixture": true,
+  "maximum_target_ratio": 6.0,
+  "minimum_target_ratio": 1.05,
+  "near_p3_resets": 3,
+  "near_p3_sampling_failures": 0,
+  "other_component_max_ratio": 0.75,
+  "realized_near_p3_fraction": 0.3333333333333333,
+  "standard_resets": 6,
+  "total_resets": 9
+}

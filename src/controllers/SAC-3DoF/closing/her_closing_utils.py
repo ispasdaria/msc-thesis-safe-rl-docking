@@ -15,9 +15,16 @@ from envs.docking3dof.goal_conditioned_closing_env import (
 )
 from her_residual_env import ResidualV15GoalConditionedClosingEnv
 from lqr_residual_env import ResidualLQRGoalConditionedClosingEnv
+from lqr_residual_lateral_env import (
+    LateralProgressResidualLQRGoalConditionedClosingEnv,
+)
+from lqr_residual_terminal_fade_env import (
+    TerminalFadeLateralResidualLQRGoalConditionedClosingEnv,
+)
 from lqr_reference_residual_env import (
     ReferenceResidualLQRGoalConditionedClosingEnv,
 )
+from residual_lqr_config import resolve_environment_dt
 
 
 HER_ENV_CLASSES = {
@@ -26,6 +33,10 @@ HER_ENV_CLASSES = {
     "v3": GoalConditionedClosingV3Env,
     "v4": ResidualV15GoalConditionedClosingEnv,
     "lqr_residual": ResidualLQRGoalConditionedClosingEnv,
+    "lqr_residual_lateral": LateralProgressResidualLQRGoalConditionedClosingEnv,
+    "lqr_residual_terminal_fade": (
+        TerminalFadeLateralResidualLQRGoalConditionedClosingEnv
+    ),
     "lqr_reference_residual": ReferenceResidualLQRGoalConditionedClosingEnv,
 }
 
@@ -37,7 +48,7 @@ def make_her_env(
     mode,
     max_time=12_000.0,
     reward_version="v1",
-    dt=1.0,
+    dt=None,
     **env_kwargs,
 ):
     try:
@@ -47,9 +58,18 @@ def make_her_env(
             f"Unknown HER reward version {reward_version!r}; expected one of "
             f"{sorted(HER_ENV_CLASSES)}."
         ) from exc
+    timing_reward_version = (
+        "lqr_residual"
+        if reward_version in {
+            "lqr_residual_lateral",
+            "lqr_residual_terminal_fade",
+        }
+        else reward_version
+    )
+    environment_dt = resolve_environment_dt(timing_reward_version, dt)
     return env_class(
         mode=mode,
-        dt=float(dt),
+        dt=environment_dt,
         max_time=max_time,
         integrator="rk4",
         normalize_action=True,
@@ -136,7 +156,10 @@ def evaluate_model(
     rows = []
     for seed in seeds:
         environment_options = dict(env_kwargs or {})
-        environment_dt = float(environment_options.pop("dt", 1.0))
+        environment_dt = resolve_environment_dt(
+            reward_version,
+            environment_options.pop("dt", None),
+        )
         env = make_her_env(
             seed=int(seed),
             mode=mode,

@@ -56,17 +56,26 @@ RESULTS_ROOT = SCRIPT_DIR / "results" / "lqr_replay"
 DEFAULT_VALIDATION_SEEDS = list(range(1000, 1020))
 
 
-def make_closing_env(mode, seed, reward_version, monitor=False):
+def make_closing_env(
+    mode,
+    seed,
+    reward_version,
+    monitor=False,
+    dt=1.0,
+    max_time=None,
+    action_hold_steps=1,
+):
     """Construct either the single-reward or versioned Gym API safely."""
 
     kwargs = {
         "phase": "closing",
         "mode": mode,
-        "dt": 1.0,
-        "max_time": None,
+        "dt": float(dt),
+        "max_time": max_time,
         "integrator": "rk4",
         "normalize_action": True,
         "seed": seed,
+        "action_hold_steps": int(action_hold_steps),
     }
     parameters = inspect.signature(Docking3DoFGymEnv.__init__).parameters
     if "closing_reward_version" in parameters:
@@ -331,6 +340,9 @@ def evaluate_full_closing_policy(
     seeds,
     max_steps,
     reward_version,
+    dt=1.0,
+    max_time=None,
+    action_hold_steps=1,
 ):
     """Evaluate deterministically on raw full-closing testing episodes."""
 
@@ -341,6 +353,9 @@ def evaluate_full_closing_policy(
             seed=seed,
             reward_version=reward_version,
             monitor=False,
+            dt=dt,
+            max_time=max_time,
+            action_hold_steps=action_hold_steps,
         )
         try:
             observation, _ = env.reset(seed=seed)

@@ -58,7 +58,7 @@ def build_parser():
     parser.set_defaults(
         experiment_name=(
             "sac_closing_lqr_reference_residual_"
-            "pilot_d_stratified_1hz_50k_seed0"
+            "dt0p1_stratified_50k_seed0"
         )
     )
     parser.add_argument("--outer-replay-size", type=int, default=100_000)

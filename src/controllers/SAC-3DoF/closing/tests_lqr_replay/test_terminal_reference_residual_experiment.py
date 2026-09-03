@@ -25,12 +25,6 @@ from terminal_reference_residual_env import (
     LateralTerminalCurriculumWrapper,
     load_terminal_reset_dataset,
 )
-from train_sac_closing_reference_residual_lqr_pilot_h_dt01_lateral_curriculum import (
-    DEFAULT_ARGUMENTS as PILOT_H_ARGUMENTS,
-)
-from train_sac_closing_reference_residual_lqr_pilot_i_dt01_terminal_fade import (
-    DEFAULT_ARGUMENTS as PILOT_I_ARGUMENTS,
-)
 from train_sac_closing_her_reference_residual_lqr import (
     collect_reference_residual_trajectories,
 )
@@ -137,38 +131,6 @@ def test_lateral_terminal_curriculum_expands_reset_difficulty(tmp_path):
     assert hard_info["terminal_reset_curriculum_stage"] == 2
     assert hard_info["terminal_reset_initial_lateral_ratio"] <= 2.0
     env.close()
-
-
-def test_pilot_h_defaults_define_physically_matched_lateral_curriculum():
-    parser = build_terminal_parser()
-    args = parser.parse_args(PILOT_H_ARGUMENTS)
-    validate_terminal_args(parser, args)
-
-    assert args.pilot_label == "H"
-    assert args.dt == 0.1
-    assert args.total_timesteps == 500_000
-    assert args.terminal_prefill is True
-    assert args.lateral_terminal_curriculum is True
-    assert args.curriculum_stage_maximum_ratios == [1.25, 1.5, 2.0]
-    assert args.curriculum_stage_boundaries == [0.25, 0.60]
-    assert args.terminal_max_time == 600.0
-    assert args.reward_design == "dt01_lateral_v2"
-    assert args.time_consistent_smoothness_reward is True
-    assert np.isclose(args.gamma, 0.9999**0.1)
-
-
-def test_pilot_i_retains_pilot_h_and_enables_terminal_residual_fade():
-    parser = build_terminal_parser()
-    args = parser.parse_args(PILOT_I_ARGUMENTS)
-    validate_terminal_args(parser, args)
-
-    assert args.pilot_label == "I"
-    assert args.dt == 0.1
-    assert args.total_timesteps == 500_000
-    assert args.lateral_terminal_curriculum is True
-    assert args.reward_design == "dt01_lateral_v2"
-    assert args.terminal_residual_fade_full_ratio == 1.2
-    assert args.terminal_residual_fade_zero_ratio == 1.0
 
 
 def test_terminal_curriculum_can_supply_replay_prefill(tmp_path):

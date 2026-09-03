@@ -1,0 +1,90 @@
+{
+  "completed_episodes": 20,
+  "completed_stratum_episodes": {
+    "approach_gt_10": 10,
+    "target_2_to_5": 13,
+    "target_5_to_10": 14,
+    "target_le_2": 9
+  },
+  "episode_balanced_sample_calls": 0,
+  "episode_balancing_active": true,
+  "global_buffer_capacity": 300000,
+  "global_buffer_size": 300000,
+  "historical_completed_stratum_episodes": {
+    "approach_gt_10": 10,
+    "target_2_to_5": 13,
+    "target_5_to_10": 14,
+    "target_le_2": 9
+  },
+  "last_sample_counts": {
+    "approach_gt_10": 0,
+    "target_2_to_5": 0,
+    "target_5_to_10": 0,
+    "target_le_2": 0
+  },
+  "minimum_completed_episodes": 20,
+  "minimum_near_p3_episodes": 16,
+  "minimum_standard_episodes": 4,
+  "minimum_stratum_episodes": {
+    "approach_gt_10": 4,
+    "target_2_to_5": 8,
+    "target_5_to_10": 4,
+    "target_le_2": 0
+  },
+  "near_p3_episodes": 16,
+  "ready_for_critic_pretraining": true,
+  "realized_stratum_sample_fractions": {
+    "approach_gt_10": 0.0,
+    "target_2_to_5": 0.0,
+    "target_5_to_10": 0.0,
+    "target_le_2": 0.0
+  },
+  "replay_ready": true,
+  "reset_statistics": {
+    "configured_near_p3_fraction": 0.8,
+    "deterministic_mixture": true,
+    "maximum_target_ratio": 6.0,
+    "minimum_target_ratio": 1.05,
+    "near_p3_resets": 16,
+    "near_p3_sampling_failures": 0,
+    "other_component_max_ratio": 0.75,
+    "realized_near_p3_fraction": 0.7619047619047619,
+    "standard_resets": 5,
+    "total_resets": 21
+  },
+  "reward_rms_mean": -205.08126792302744,
+  "reward_rms_variance": 164291.67139175622,
+  "sample_calls": 0,
+  "sampled_stratum_transitions": {
+    "approach_gt_10": 0,
+    "target_2_to_5": 0,
+    "target_5_to_10": 0,
+    "target_le_2": 0
+  },
+  "sampling_fraction_targets": {
+    "approach_gt_10": 0.35,
+    "target_2_to_5": 0.3,
+    "target_5_to_10": 0.25,
+    "target_le_2": 0.1
+  },
+  "standard_episodes": 4,
+  "stratum_capacities": {
+    "approach_gt_10": 400000,
+    "target_2_to_5": 75000,
+    "target_5_to_10": 75000,
+    "target_le_2": 25000
+  },
+  "stratum_sizes": {
+    "approach_gt_10": 400000,
+    "target_2_to_5": 31292,
+    "target_5_to_10": 33541,
+    "target_le_2": 450
+  },
+  "total_stratum_transitions_seen": {
+    "approach_gt_10": 486847,
+    "target_2_to_5": 31292,
+    "target_5_to_10": 33541,
+    "target_le_2": 450
+  },
+  "warmup_interaction_steps": 552131
+}

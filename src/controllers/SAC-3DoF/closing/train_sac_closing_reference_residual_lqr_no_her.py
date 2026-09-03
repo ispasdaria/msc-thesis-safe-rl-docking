@@ -28,6 +28,14 @@ from her_closing_utils import (
 from lqr_reference_residual_env import (
     ReferenceResidualLQRGoalConditionedClosingEnv,
 )
+from residual_lqr_config import (
+    CLOSING_LQR_CONTROL_HZ,
+    CLOSING_LQR_DT_SECONDS,
+    REWARD_REFERENCE_DT_SECONDS,
+    discount_for_dt,
+    require_residual_lqr_dt,
+    steps_for_duration,
+)
 from train_sac_closing_her import HerEvaluationCheckpointCallback
 from train_sac_closing_her_reference_residual_lqr import (
     collect_reference_residual_trajectories,
@@ -53,7 +61,7 @@ def build_parser():
         "--experiment-name",
         default=(
             "sac_closing_lqr_reference_residual_"
-            "pilot_c_no_her_1hz_50k_seed0"
+            "dt0p1_no_her_50k_seed0"
         ),
     )
     parser.add_argument("--total-timesteps", type=int, default=50_000)
@@ -74,8 +82,18 @@ def build_parser():
     parser.add_argument("--source-seed-start", type=int, default=0)
     parser.add_argument("--source-max-episodes", type=int, default=12)
     parser.add_argument("--max-time", type=float, default=12_000.0)
-    parser.add_argument("--max-eval-steps", type=int, default=12_000)
-    parser.add_argument("--dt", type=float, choices=(0.1, 1.0), default=1.0)
+    parser.add_argument(
+        "--max-eval-steps",
+        type=int,
+        default=steps_for_duration(12_000.0),
+    )
+    parser.add_argument(
+        "--dt",
+        type=float,
+        choices=(CLOSING_LQR_DT_SECONDS,),
+        default=CLOSING_LQR_DT_SECONDS,
+        help="Fixed controller period for the canonical closing LQR.",
+    )
     parser.add_argument("--vx-reference-bound", type=float, default=0.02)
     parser.add_argument("--vy-reference-bound", type=float, default=0.01)
     parser.add_argument(
@@ -142,7 +160,12 @@ def build_parser():
     parser.add_argument("--buffer-size", type=int, default=300_000)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
-    parser.add_argument("--gamma", type=float, default=0.9999)
+    parser.add_argument(
+        "--gamma",
+        type=float,
+        default=discount_for_dt(0.9999),
+        help="Per-step discount preserving gamma=0.9999 per second.",
+    )
     parser.add_argument("--tau", type=float, default=0.005)
     parser.add_argument("--train-freq", type=int, default=4)
     parser.add_argument("--gradient-steps", type=int, default=1)
@@ -158,6 +181,10 @@ def build_parser():
 
 
 def validate_args(parser, args):
+    try:
+        require_residual_lqr_dt(args.dt)
+    except ValueError as exc:
+        parser.error(str(exc))
     positive = (
         "total_timesteps",
         "source_transition_count",
@@ -238,7 +265,7 @@ def environment_kwargs(args):
         "time_consistent_smoothness_reward": (
             args.time_consistent_smoothness_reward
         ),
-        "reward_reference_dt": 1.0,
+        "reward_reference_dt": REWARD_REFERENCE_DT_SECONDS,
         "reward_design": args.reward_design,
         "terminate_on_success": True,
     }
@@ -320,7 +347,7 @@ Selected best checkpoint: **{int(best_checkpoint):,} SAC decisions**
 
 ## What changed from Pilot B
 
-Pilot C retains the same 1 Hz SAC reference residual and unchanged closing
+This run uses the 10 Hz SAC reference residual and unchanged dt=0.1 s closing
 LQR, but removes HER completely. Every replay transition keeps the real fixed
 P3 target. Exact P3 success terminates an episode. The task reward was divided
 by 100 so critic values and the actor residual prior operate at comparable
@@ -412,7 +439,7 @@ def main(argv=None):
     env_kwargs = environment_kwargs(args)
     config = {
         "experiment_name": args.experiment_name,
-        "method": "fixed-P3 1 Hz SAC reference residual around closing LQR",
+        "method": "fixed-P3 10 Hz SAC reference residual around closing LQR",
         "reward_version": REWARD_VERSION,
         "reward_scheme": (
             ReferenceResidualLQRGoalConditionedClosingEnv.reward_scheme
@@ -428,8 +455,10 @@ def main(argv=None):
             "vy_mps": args.vy_reference_bound,
             "attitude_deg": args.attitude_reference_bound_deg,
         },
-        "sac_decision_interval_seconds": 1.0,
-        "lqr_update_interval_seconds": 1.0,
+        "dt_seconds": CLOSING_LQR_DT_SECONDS,
+        "control_frequency_hz": CLOSING_LQR_CONTROL_HZ,
+        "sac_decision_interval_seconds": CLOSING_LQR_DT_SECONDS,
+        "lqr_update_interval_seconds": CLOSING_LQR_DT_SECONDS,
         "residual_hold_steps": 1,
         "distance_gate_used": False,
         "her_used": False,
@@ -612,7 +641,10 @@ def main(argv=None):
     print(f"Experiment:       {args.experiment_name}")
     print("HER in training:  no")
     print("CBF in training:  no")
-    print("SAC/LQR cadence:  1 Hz / 1 Hz")
+    print(
+        f"SAC/LQR cadence:  {CLOSING_LQR_CONTROL_HZ:g} Hz / "
+        f"{CLOSING_LQR_CONTROL_HZ:g} Hz"
+    )
     print(f"Online steps:     {args.total_timesteps:,}")
     model.learn(
         total_timesteps=args.total_timesteps,

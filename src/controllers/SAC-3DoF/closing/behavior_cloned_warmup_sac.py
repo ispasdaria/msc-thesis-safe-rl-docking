@@ -23,12 +23,48 @@ class BehaviorClonedWarmupSAC(SAC):
     to the unmodified Stable-Baselines3 SAC implementation.
     """
 
-    def __init__(self, *args, critic_warmup_steps=50_000, **kwargs):
+    def __init__(
+        self,
+        *args,
+        critic_warmup_steps=50_000,
+        critic_loss_type="mse",
+        max_critic_grad_norm=None,
+        **kwargs,
+    ):
         if int(critic_warmup_steps) < 0:
             raise ValueError("critic_warmup_steps must be non-negative.")
+        if critic_loss_type not in {"mse", "huber"}:
+            raise ValueError("critic_loss_type must be 'mse' or 'huber'.")
+        if max_critic_grad_norm is not None and float(max_critic_grad_norm) <= 0:
+            raise ValueError("max_critic_grad_norm must be positive when set.")
         self.critic_warmup_steps = int(critic_warmup_steps)
+        self.critic_loss_type = str(critic_loss_type)
+        self.max_critic_grad_norm = (
+            None
+            if max_critic_grad_norm is None
+            else float(max_critic_grad_norm)
+        )
         self.critic_warmup_gradient_updates = 0
         super().__init__(*args, **kwargs)
+
+    def critic_regression_loss(self, current_q_values, target_q_values):
+        """Return the configured two-critic regression objective."""
+        loss_type = getattr(self, "critic_loss_type", "mse")
+        loss_function = F.smooth_l1_loss if loss_type == "huber" else F.mse_loss
+        return 0.5 * sum(
+            loss_function(current_q, target_q_values)
+            for current_q in current_q_values
+        )
+
+    def clip_critic_gradients(self):
+        """Apply the optional global critic gradient-norm guard."""
+        maximum_norm = getattr(self, "max_critic_grad_norm", None)
+        if maximum_norm is None:
+            return None
+        return th.nn.utils.clip_grad_norm_(
+            self.critic.parameters(),
+            maximum_norm,
+        )
 
     @property
     def in_critic_warmup(self):
@@ -118,13 +154,14 @@ class BehaviorClonedWarmupSAC(SAC):
                 replay_data.observations,
                 replay_data.actions,
             )
-            critic_loss = 0.5 * sum(
-                F.mse_loss(current_q, target_q_values)
-                for current_q in current_q_values
+            critic_loss = self.critic_regression_loss(
+                current_q_values,
+                target_q_values,
             )
             critic_losses.append(float(critic_loss.item()))
             self.critic.optimizer.zero_grad()
             critic_loss.backward()
+            self.clip_critic_gradients()
             self.critic.optimizer.step()
 
             if gradient_step % self.target_update_interval == 0:

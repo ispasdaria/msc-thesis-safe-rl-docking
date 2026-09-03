@@ -72,7 +72,7 @@ def build_parser():
     parser.set_defaults(
         experiment_name=(
             "sac_closing_lqr_reference_residual_"
-            "pilot_f_terminal_r2_h600_1hz_50k_seed0"
+            "dt0p1_terminal_r2_h600_50k_seed0"
         ),
         pilot_label="D",
     )
@@ -294,10 +294,9 @@ def write_model_readme(
     bounds = config["reference_residual_bounds"]
     residual_fade = config.get("terminal_residual_fade", {"enabled": False})
     if residual_fade.get("enabled", False):
-        experiment_text = f"""Pilot {config['pilot']} retains Pilot H's 10 Hz
-lateral-limited reset curriculum, reward, replay, and SAC configuration. It
-adds a terminal residual-authority fade based on the worst simultaneous P3
-tolerance ratio: full authority at ratio >=
+        experiment_text = f"""Pilot {config['pilot']} uses a terminal
+residual-authority fade based on the worst simultaneous P3 tolerance ratio:
+full authority at ratio >=
 {residual_fade['full_authority_at_or_above_ratio']:g}, linear fade through the
 terminal band, and exact zero residual at ratio <=
 {residual_fade['zero_authority_at_or_below_ratio']:g}. The established LQR
@@ -307,8 +306,8 @@ therefore performs the final tolerance crossing."""
             "signal. Full-closing validation uses the same residual fade."
         )
     elif config.get("curriculum_used", False):
-        experiment_text = f"""Pilot {config['pilot']} changes Pilot G's replay
-prefill and online start-state distribution. Every reset is an empirical state
+        experiment_text = f"""Pilot {config['pilot']} uses an empirical replay
+prefill and online start-state distribution. Every reset is a state
 where lateral position is the worst P3 component. The maximum reset ratio
 expands through {terminal['stage_maximum_ratios']} at training fractions
 {terminal['stage_boundaries']}. Episodes last at most

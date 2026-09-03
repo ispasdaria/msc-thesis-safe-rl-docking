@@ -1,4 +1,4 @@
-"""Train 1 Hz SAC reference residuals around the closing LQR, without CBF."""
+"""Train 10 Hz SAC reference residuals around the dt=0.1 s closing LQR."""
 
 from __future__ import annotations
 
@@ -30,6 +30,12 @@ from her_closing_utils import (
 from her_source_warmstart import prefill_her_replay_buffer
 from lqr_reference_residual_env import (
     ReferenceResidualLQRGoalConditionedClosingEnv,
+)
+from residual_lqr_config import (
+    CLOSING_LQR_CONTROL_HZ,
+    CLOSING_LQR_DT_SECONDS,
+    discount_for_dt,
+    steps_for_duration,
 )
 from train_sac_closing_her import HerEvaluationCheckpointCallback
 from train_sac_closing_her_v4_residual_v15 import (
@@ -72,6 +78,7 @@ def _compact_info(info, truncated):
 
 def reference_env_kwargs(args):
     return {
+        "dt": CLOSING_LQR_DT_SECONDS,
         "reference_residual_bounds": (
             args.vx_reference_bound,
             args.vy_reference_bound,
@@ -122,7 +129,9 @@ def collect_reference_residual_trajectories(
     transitions = []
     summaries = []
     accepted_episode_id = 0
-    environment_dt = float(env_kwargs.get("dt", 1.0))
+    # Read the resolved period from the environment. Residual-LQR factories
+    # default to the canonical 0.1 s period even when callers omit ``dt``.
+    environment_dt = float(env.core_env.dt)
     maximum_control_steps = int(np.ceil(float(max_steps) / environment_dt))
     try:
         for attempt in range(max_episodes):
@@ -219,7 +228,7 @@ def build_parser():
         "--experiment-name",
         default=(
             "sac_closing_goal_her_lqr_reference_residual_"
-            "pilot_b_1hz_50k_seed0"
+            "dt0p1_her_50k_seed0"
         ),
     )
     parser.add_argument("--total-timesteps", type=int, default=50_000)
@@ -240,7 +249,11 @@ def build_parser():
     parser.add_argument("--source-seed-start", type=int, default=0)
     parser.add_argument("--source-max-episodes", type=int, default=12)
     parser.add_argument("--max-time", type=float, default=12_000.0)
-    parser.add_argument("--max-eval-steps", type=int, default=12_000)
+    parser.add_argument(
+        "--max-eval-steps",
+        type=int,
+        default=steps_for_duration(12_000.0),
+    )
     parser.add_argument("--vx-reference-bound", type=float, default=0.02)
     parser.add_argument("--vy-reference-bound", type=float, default=0.01)
     parser.add_argument(
@@ -269,7 +282,12 @@ def build_parser():
     parser.add_argument("--buffer-size", type=int, default=300_000)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
-    parser.add_argument("--gamma", type=float, default=0.9999)
+    parser.add_argument(
+        "--gamma",
+        type=float,
+        default=discount_for_dt(0.9999),
+        help="Per-step discount preserving gamma=0.9999 per second.",
+    )
     parser.add_argument("--tau", type=float, default=0.005)
     parser.add_argument("--train-freq", type=int, default=4)
     parser.add_argument("--gradient-steps", type=int, default=1)
@@ -472,7 +490,7 @@ def main(argv=None):
     env_kwargs = reference_env_kwargs(args)
     config = {
         "experiment_name": args.experiment_name,
-        "method": "1 Hz SAC reference residual around closing LQR",
+        "method": "10 Hz SAC reference residual around closing LQR",
         "reward_version": REWARD_VERSION,
         "reward_scheme": (
             ReferenceResidualLQRGoalConditionedClosingEnv.reward_scheme
@@ -483,8 +501,10 @@ def main(argv=None):
             "vy_mps": args.vy_reference_bound,
             "attitude_deg": args.attitude_reference_bound_deg,
         },
-        "sac_decision_interval_seconds": 1.0,
-        "lqr_update_interval_seconds": 1.0,
+        "dt_seconds": CLOSING_LQR_DT_SECONDS,
+        "control_frequency_hz": CLOSING_LQR_CONTROL_HZ,
+        "sac_decision_interval_seconds": CLOSING_LQR_DT_SECONDS,
+        "lqr_update_interval_seconds": CLOSING_LQR_DT_SECONDS,
         "residual_hold_steps": 1,
         "distance_gate_used": False,
         "cbf_filter_used_during_training": False,
@@ -512,7 +532,7 @@ def main(argv=None):
             "residual_std": args.prefill_residual_std,
             "residual_clip": args.prefill_residual_clip,
             "zero_episode_fraction": args.prefill_zero_episode_fraction,
-            "decision_interval_seconds": 1.0,
+            "decision_interval_seconds": CLOSING_LQR_DT_SECONDS,
             "random_seed": args.prefill_random_seed,
             "retain_failure_episodes": args.retain_failure_prefill,
         },
@@ -660,7 +680,10 @@ def main(argv=None):
     callback._save_tables()
     print(f"Experiment:       {args.experiment_name}")
     print("CBF in training:  no")
-    print("SAC/LQR cadence:  1 Hz / 1 Hz")
+    print(
+        f"SAC/LQR cadence:  {CLOSING_LQR_CONTROL_HZ:g} Hz / "
+        f"{CLOSING_LQR_CONTROL_HZ:g} Hz"
+    )
     print(f"Online steps:     {args.total_timesteps:,}")
     model.learn(
         total_timesteps=args.total_timesteps,

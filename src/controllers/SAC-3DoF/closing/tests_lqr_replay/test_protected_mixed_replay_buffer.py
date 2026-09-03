@@ -123,6 +123,37 @@ def test_demo_only_fallback_before_online_data_exists():
     assert buffer.last_sample_online_count == 0
 
 
+def test_behavior_cloning_pool_is_separate_from_critic_replay_pool():
+    buffer = ProtectedMixedReplayBuffer(
+        buffer_size=8,
+        observation_space=spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(12,),
+            dtype=np.float32,
+        ),
+        action_space=spaces.Box(
+            low=-1.0,
+            high=1.0,
+            shape=(3,),
+            dtype=np.float32,
+        ),
+        device="cpu",
+    )
+    replay = demonstration_dataset(count=5)
+    bc = demonstration_dataset(count=9)
+    bc["observations"][:] = 777.0
+    buffer.set_demonstrations(replay)
+    buffer.set_behavior_cloning_demonstrations(bc)
+
+    observations, actions = buffer._get_behavior_cloning_samples(7)
+    assert observations.shape == (7, 12)
+    assert actions.shape == (7, 3)
+    assert np.allclose(observations.cpu().numpy(), 777.0)
+    assert buffer.demonstration_count == 5
+    assert buffer.behavior_cloning_count == 9
+
+
 def test_online_buffer_capacity_is_independent_of_demonstration_count():
     assert resolve_online_buffer_size(None, 600_000, 50_000) == 700_000
     assert resolve_online_buffer_size(None, 300_000, 0) == 300_000

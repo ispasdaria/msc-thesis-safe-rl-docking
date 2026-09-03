@@ -1,0 +1,1180 @@
+{
+  "configuration": {
+    "method": "continuous-time CARE redesign with exact-ZOH sampled check",
+    "q_scale_factors": [
+      0.8,
+      1.0,
+      1.2
+    ],
+    "r_scale_factors": [
+      0.8,
+      1.0,
+      1.2
+    ],
+    "closing_control_interval_seconds": 0.1,
+    "final_control_interval_seconds": 1.0,
+    "continuous_stability_criterion": "max(real(eig(A-BK))) < 0",
+    "sampled_stability_criterion": "spectral_radius(Ad-BdK) < 1"
+  },
+  "summary": {
+    "num_cases": 18,
+    "num_continuous_stable": 18,
+    "num_sampled_data_stable": 18,
+    "num_both_stable": 18,
+    "all_cases_both_stable": true
+  },
+  "records": [
+    {
+      "phase": "closing",
+      "control_interval_seconds": 0.1,
+      "q_scale": 0.8,
+      "r_scale": 0.8,
+      "nominal": false,
+      "max_continuous_real_part": -7.48331477122384e-05,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9999925167132285,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -12.712444219271857,
+          "imag": 0.0
+        },
+        {
+          "real": -9.5606615876936,
+          "imag": 0.0
+        },
+        {
+          "real": -1.8450173823100955,
+          "imag": 0.0
+        },
+        {
+          "real": -0.1001472065798597,
+          "imag": 0.0
+        },
+        {
+          "real": -0.0030678600706753227,
+          "imag": 0.0
+        },
+        {
+          "real": -7.48331477122384e-05,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.2714394726788196,
+          "imag": 0.0
+        },
+        {
+          "real": 0.04393026393063608,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8145216646832846,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9900380097430714,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9996932610571129,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9999925167132285,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "closing",
+      "control_interval_seconds": 0.1,
+      "q_scale": 0.8,
+      "r_scale": 1.0,
+      "nominal": false,
+      "max_continuous_real_part": -7.483314764986912e-05,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9999925167132354,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -11.370355668495973,
+          "imag": 0.0
+        },
+        {
+          "real": -8.551315687916075,
+          "imag": 0.0
+        },
+        {
+          "real": -1.6496235934182988,
+          "imag": 0.0
+        },
+        {
+          "real": -0.10018424650395104,
+          "imag": 0.0
+        },
+        {
+          "real": -0.003067860099499198,
+          "imag": 0.0
+        },
+        {
+          "real": -7.483314764986912e-05,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.13721003119136002,
+          "imag": 0.0
+        },
+        {
+          "real": 0.14486523157104508,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8341581814669784,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9900347030571883,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9996932610557546,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9999925167132354,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "closing",
+      "control_interval_seconds": 0.1,
+      "q_scale": 0.8,
+      "r_scale": 1.2,
+      "nominal": false,
+      "max_continuous_real_part": -7.483314773285952e-05,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9999925167132261,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -10.37966704803662,
+          "imag": 0.0
+        },
+        {
+          "real": -7.806247497639314,
+          "imag": 0.0
+        },
+        {
+          "real": -1.5053354256720568,
+          "imag": 0.0
+        },
+        {
+          "real": -0.10022138274085986,
+          "imag": 0.0
+        },
+        {
+          "real": -0.003067860128319771,
+          "imag": 0.0
+        },
+        {
+          "real": -7.483314773285952e-05,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.038125972889223765,
+          "imag": 0.0
+        },
+        {
+          "real": 0.2193723293777069,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8486586272611348,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9900313579083244,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9996932610542507,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9999925167132261,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "closing",
+      "control_interval_seconds": 0.1,
+      "q_scale": 1.0,
+      "r_scale": 0.8,
+      "nominal": false,
+      "max_continuous_real_part": -7.483314773349081e-05,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.999992516713227,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -14.21294482252352,
+          "imag": 0.0
+        },
+        {
+          "real": -10.68914461004245,
+          "imag": 0.0
+        },
+        {
+          "real": -2.0634012485331708,
+          "imag": 0.0
+        },
+        {
+          "real": -0.10011764364761154,
+          "imag": 0.0
+        },
+        {
+          "real": -0.0030678600476193277,
+          "imag": 0.0
+        },
+        {
+          "real": -7.483314773349081e-05,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.42151254931026744,
+          "imag": 0.0
+        },
+        {
+          "real": -0.0689184605439338,
+          "imag": 0.0
+        },
+        {
+          "real": 0.7925745769034722,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9900406195239358,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9996932610580564,
+          "imag": 0.0
+        },
+        {
+          "real": 0.999992516713227,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "closing",
+      "control_interval_seconds": 0.1,
+      "q_scale": 1.0,
+      "r_scale": 1.0,
+      "nominal": true,
+      "max_continuous_real_part": -7.483314773846906e-05,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9999925167132262,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -12.712444219271866,
+          "imag": 0.0
+        },
+        {
+          "real": -9.560661587693634,
+          "imag": 0.0
+        },
+        {
+          "real": -1.8450173823100973,
+          "imag": 0.0
+        },
+        {
+          "real": -0.1001472065799253,
+          "imag": 0.0
+        },
+        {
+          "real": -0.003067860070676941,
+          "imag": 0.0
+        },
+        {
+          "real": -7.483314773846906e-05,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.27143947267881696,
+          "imag": 0.0
+        },
+        {
+          "real": 0.043930263930630584,
+          "imag": 0.0
+        },
+        {
+          "real": 0.814521664683283,
+          "imag": 0.0
+        },
+        {
+          "real": 0.990038009743065,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9996932610571125,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9999925167132262,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "closing",
+      "control_interval_seconds": 0.1,
+      "q_scale": 1.0,
+      "r_scale": 1.2,
+      "nominal": false,
+      "max_continuous_real_part": -7.483314781522967e-05,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9999925167132188,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -11.604820680566156,
+          "imag": 0.0
+        },
+        {
+          "real": -8.727650027034766,
+          "imag": 0.0
+        },
+        {
+          "real": -1.683764662666355,
+          "imag": 0.0
+        },
+        {
+          "real": -0.10017683083034609,
+          "imag": 0.0
+        },
+        {
+          "real": -0.003067860093733532,
+          "imag": 0.0
+        },
+        {
+          "real": -7.483314781522967e-05,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.1606601288770011,
+          "imag": 0.0
+        },
+        {
+          "real": 0.12723173168089974,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8307271118458167,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9900353677656635,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9996932610560398,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9999925167132188,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "closing",
+      "control_interval_seconds": 0.1,
+      "q_scale": 1.2,
+      "r_scale": 0.8,
+      "nominal": false,
+      "max_continuous_real_part": -7.483314776606319e-05,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9999925167132235,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -15.569501052638065,
+          "imag": 0.0
+        },
+        {
+          "real": -11.709371246757868,
+          "imag": 0.0
+        },
+        {
+          "real": -2.2607870980319262,
+          "imag": 0.0
+        },
+        {
+          "real": -0.10009796896466808,
+          "imag": 0.0
+        },
+        {
+          "real": -0.003067860032247715,
+          "imag": 0.0
+        },
+        {
+          "real": -7.483314776606319e-05,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.5571889806533878,
+          "imag": 0.0
+        },
+        {
+          "real": -0.17094150594933105,
+          "imag": 0.0
+        },
+        {
+          "real": 0.7727376558999652,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9900423364165023,
+          "imag": 0.0
+        },
+        {
+          "real": 0.999693261058588,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9999925167132235,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "closing",
+      "control_interval_seconds": 0.1,
+      "q_scale": 1.2,
+      "r_scale": 1.0,
+      "nominal": false,
+      "max_continuous_real_part": -7.483314773540459e-05,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9999925167132264,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -13.925785005811957,
+          "imag": 0.0
+        },
+        {
+          "real": -10.473180032559329,
+          "imag": 0.0
+        },
+        {
+          "real": -2.0216126722201335,
+          "imag": 0.0
+        },
+        {
+          "real": -0.10012256655548067,
+          "imag": 0.0
+        },
+        {
+          "real": -0.0030678600514617094,
+          "imag": 0.0
+        },
+        {
+          "real": -7.483314773540459e-05,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.39279216287024127,
+          "imag": 0.0
+        },
+        {
+          "real": -0.04732192198907685,
+          "imag": 0.0
+        },
+        {
+          "real": 0.7967742436970882,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9900401871787317,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9996932610579097,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9999925167132264,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "closing",
+      "control_interval_seconds": 0.1,
+      "q_scale": 1.2,
+      "r_scale": 1.2,
+      "nominal": false,
+      "max_continuous_real_part": -7.483314774081387e-05,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9999925167132261,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -12.712444219271879,
+          "imag": 0.0
+        },
+        {
+          "real": -9.560661587693629,
+          "imag": 0.0
+        },
+        {
+          "real": -1.8450173823100144,
+          "imag": 0.0
+        },
+        {
+          "real": -0.10014720657988253,
+          "imag": 0.0
+        },
+        {
+          "real": -0.003067860070675998,
+          "imag": 0.0
+        },
+        {
+          "real": -7.483314774081387e-05,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.27143947267881885,
+          "imag": 0.0
+        },
+        {
+          "real": 0.04393026393063135,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8145216646832922,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9900380097430689,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9996932610571123,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9999925167132261,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "final",
+      "control_interval_seconds": 1.0,
+      "q_scale": 0.8,
+      "r_scale": 0.8,
+      "nominal": false,
+      "max_continuous_real_part": -0.00020412428383704306,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9997958965716829,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -0.976762503407379,
+          "imag": 0.0
+        },
+        {
+          "real": -0.17527109953805095,
+          "imag": 0.0
+        },
+        {
+          "real": -0.15690466752298501,
+          "imag": -0.039400447389110124
+        },
+        {
+          "real": -0.15690466752298501,
+          "imag": 0.039400447389110124
+        },
+        {
+          "real": -0.0026666895877719876,
+          "imag": 0.0
+        },
+        {
+          "real": -0.00020412428383704306,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": 0.019097344304286334,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8151527608826484,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8247109910625948,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8588246227764323,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9973368742214798,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9997958965716829,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "final",
+      "control_interval_seconds": 1.0,
+      "q_scale": 0.8,
+      "r_scale": 1.0,
+      "nominal": false,
+      "max_continuous_real_part": -0.00020412431814539889,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9997958965402512,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -0.8735853488311183,
+          "imag": 0.0
+        },
+        {
+          "real": -0.15676721064450516,
+          "imag": 0.0
+        },
+        {
+          "real": -0.1447630119440434,
+          "imag": -0.04953421899619976
+        },
+        {
+          "real": -0.1447630119440434,
+          "imag": 0.04953421899619976
+        },
+        {
+          "real": -0.002666695318227003,
+          "imag": 0.0
+        },
+        {
+          "real": -0.00020412431814539889,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": 0.12263615800700248,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8432167684971081,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8497954378746129,
+          "imag": -0.027909562567055856
+        },
+        {
+          "real": 0.8497954378746129,
+          "imag": 0.027909562567055856
+        },
+        {
+          "real": 0.9973368701111608,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9997958965402512,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "final",
+      "control_interval_seconds": 1.0,
+      "q_scale": 0.8,
+      "r_scale": 1.2,
+      "nominal": false,
+      "max_continuous_real_part": -0.00020412435294711682,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9997958965080516,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -0.7974180961741644,
+          "imag": 0.0
+        },
+        {
+          "real": -0.1431082049822645,
+          "imag": 0.0
+        },
+        {
+          "real": -0.13570495706062413,
+          "imag": -0.05436734655175373
+        },
+        {
+          "real": -0.13570495706062413,
+          "imag": 0.05436734655175373
+        },
+        {
+          "real": -0.002666701048750935,
+          "imag": 0.0
+        },
+        {
+          "real": -0.00020412435294711682,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": 0.1990722691379524,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8568771682218641,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8593442306586225,
+          "imag": -0.039018524331814505
+        },
+        {
+          "real": 0.8593442306586225,
+          "imag": 0.039018524331814505
+        },
+        {
+          "real": 0.9973368658531674,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9997958965080516,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "final",
+      "control_interval_seconds": 1.0,
+      "q_scale": 1.0,
+      "r_scale": 0.8,
+      "nominal": false,
+      "max_continuous_real_part": -0.00020412425597471362,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.999795896596973,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -1.0921112734512737,
+          "imag": 0.0
+        },
+        {
+          "real": -0.19595907310782845,
+          "imag": 0.0
+        },
+        {
+          "real": -0.17033901180423094,
+          "imag": -0.0156115333757476
+        },
+        {
+          "real": -0.17033901180423094,
+          "imag": 0.0156115333757476
+        },
+        {
+          "real": -0.002666685003460253,
+          "imag": 0.0
+        },
+        {
+          "real": -0.00020412425597471362,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.09665299966502672,
+          "imag": 0.0
+        },
+        {
+          "real": 0.7757016896453713,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8040209060392245,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8699192264743438,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9973368773647592,
+          "imag": 0.0
+        },
+        {
+          "real": 0.999795896596973,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "final",
+      "control_interval_seconds": 1.0,
+      "q_scale": 1.0,
+      "r_scale": 1.0,
+      "nominal": true,
+      "max_continuous_real_part": -0.0002041242834915352,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.999795896572028,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -0.9767625034075094,
+          "imag": 0.0
+        },
+        {
+          "real": -0.17527109953802275,
+          "imag": 0.0
+        },
+        {
+          "real": -0.15690466752297885,
+          "imag": -0.03940044738911458
+        },
+        {
+          "real": -0.15690466752297885,
+          "imag": 0.03940044738911458
+        },
+        {
+          "real": -0.0026666895877733993,
+          "imag": 0.0
+        },
+        {
+          "real": -0.0002041242834915352,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": 0.01909734430415655,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8151527608826675,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8247109910626523,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8588246227764256,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9973368742214782,
+          "imag": 0.0
+        },
+        {
+          "real": 0.999795896572028,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "final",
+      "control_interval_seconds": 1.0,
+      "q_scale": 1.0,
+      "r_scale": 1.2,
+      "nominal": false,
+      "max_continuous_real_part": -0.0002041243113207747,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9997958965465248,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -0.8916110690706721,
+          "imag": 0.0
+        },
+        {
+          "real": -0.15999986979137318,
+          "imag": 0.0
+        },
+        {
+          "real": -0.14689409458568986,
+          "imag": -0.04810944819128071
+        },
+        {
+          "real": -0.14689409458568986,
+          "imag": 0.04810944819128071
+        },
+        {
+          "real": -0.002666694172130007,
+          "imag": 0.0
+        },
+        {
+          "real": -0.0002041243113207747,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": 0.10454705903609707,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8399837794191658,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8475481844197458,
+          "imag": -0.024086808591437837
+        },
+        {
+          "real": 0.8475481844197458,
+          "imag": 0.024086808591437837
+        },
+        {
+          "real": 0.9973368709464903,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9997958965465248,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "final",
+      "control_interval_seconds": 1.0,
+      "q_scale": 1.2,
+      "r_scale": 0.8,
+      "nominal": false,
+      "max_continuous_real_part": -0.00020412423751647868,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9997958966135339,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -1.1963900227674862,
+          "imag": 0.0
+        },
+        {
+          "real": -0.21721129314664453,
+          "imag": 0.0
+        },
+        {
+          "real": -0.21466242878833777,
+          "imag": 0.0
+        },
+        {
+          "real": -0.14755515470525096,
+          "imag": 0.0
+        },
+        {
+          "real": -0.0026666819472781563,
+          "imag": 0.0
+        },
+        {
+          "real": -0.00020412423751647868,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.2012928049933358,
+          "imag": 0.0
+        },
+        {
+          "real": 0.7460470323371917,
+          "imag": 0.0
+        },
+        {
+          "real": 0.7853156414583128,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8741399976020499,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9973368793623307,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9997958966135339,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "final",
+      "control_interval_seconds": 1.0,
+      "q_scale": 1.2,
+      "r_scale": 1.0,
+      "nominal": false,
+      "max_continuous_real_part": -0.00020412426059912558,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9997958965927971,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -1.0700367394375812,
+          "imag": 0.0
+        },
+        {
+          "real": -0.19199989149290633,
+          "imag": 0.0
+        },
+        {
+          "real": -0.16777790747186772,
+          "imag": -0.02277636497189523
+        },
+        {
+          "real": -0.16777790747186772,
+          "imag": 0.02277636497189523
+        },
+        {
+          "real": -0.0026666857675115715,
+          "imag": 0.0
+        },
+        {
+          "real": -0.00020412426059912558,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": -0.07450180919728688,
+          "imag": 0.0
+        },
+        {
+          "real": 0.7824078481290354,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8079804917357544,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8686200422695189,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9973368768518931,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9997958965927971,
+          "imag": 0.0
+        }
+      ]
+    },
+    {
+      "phase": "final",
+      "control_interval_seconds": 1.0,
+      "q_scale": 1.2,
+      "r_scale": 1.2,
+      "nominal": false,
+      "max_continuous_real_part": -0.00020412428372754143,
+      "continuous_stable": true,
+      "sampled_spectral_radius": 0.9997958965717931,
+      "sampled_data_stable": true,
+      "both_stable": true,
+      "continuous_closed_loop_eigenvalues": [
+        {
+          "real": -0.9767625034074546,
+          "imag": 0.0
+        },
+        {
+          "real": -0.1752710995380433,
+          "imag": 0.0
+        },
+        {
+          "real": -0.15690466752297252,
+          "imag": -0.039400447389124654
+        },
+        {
+          "real": -0.15690466752297252,
+          "imag": 0.039400447389124654
+        },
+        {
+          "real": -0.0026666895877705214,
+          "imag": 0.0
+        },
+        {
+          "real": -0.00020412428372754143,
+          "imag": 0.0
+        }
+      ],
+      "sampled_closed_loop_eigenvalues": [
+        {
+          "real": 0.019097344304217067,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8151527608826938,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8247109910626119,
+          "imag": 0.0
+        },
+        {
+          "real": 0.8588246227764105,
+          "imag": 0.0
+        },
+        {
+          "real": 0.997336874221481,
+          "imag": 0.0
+        },
+        {
+          "real": 0.9997958965717931,
+          "imag": 0.0
+        }
+      ]
+    }
+  ]
+}

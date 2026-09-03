@@ -1,0 +1,2 @@
+attempt,seed,steps,accepted,zero_residual_episode,success,failure,time_limit,lqr_saturation_fraction,residual_rms_ax,residual_rms_ay,residual_rms_alpha,residual_max_ax,residual_max_ay,residual_max_alpha,termination_reason,violated_constraints
+1,0,120000,1,0,0,0,1,0.0021333333333333334,0.24951252281427425,0.24972047375338544,0.2493101731247376,0.75,0.75,0.75,timeout,[]

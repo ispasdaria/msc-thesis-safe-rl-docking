@@ -1,0 +1,147 @@
+{
+  "configuration": {
+    "control_frequency_hz": 10.0,
+    "dt_seconds": 0.1,
+    "max_steps": 120000,
+    "max_time_seconds": 12000.0,
+    "mode": "testing",
+    "reference_metric_atol": 1e-05,
+    "rollouts": 10,
+    "seed_end": 109,
+    "seed_start": 100,
+    "state_atol": 1e-10
+  },
+  "controller": {
+    "K": [
+      [
+        0.0007154544010696028,
+        -1.0060411740247322e-16,
+        9.560736420841378,
+        -1.3058620688047695e-16,
+        1.7206011681704606e-15,
+        3.0182834894298077e-14
+      ],
+      [
+        -5.030795293948753e-16,
+        0.038998719952888165,
+        -1.3058620688047695e-16,
+        12.715512079342535,
+        -2.388952449675377e-13,
+        -3.879690116419293e-13
+      ],
+      [
+        -9.461739198809785e-17,
+        -1.3789679141455467e-15,
+        4.2926698516335044e-16,
+        -5.517781498907439e-15,
+        0.18477333692976236,
+        1.9451645888900249
+      ]
+    ],
+    "Q": [
+      [
+        0.002275,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        6.76,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        406250.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        718249.9999999999,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        10669.120637538168,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1066912.0637538168
+      ]
+    ],
+    "R": [
+      [
+        4444.444444444444,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        4444.444444444444,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        312500.0
+      ]
+    ],
+    "control_frequency_hz": 10.0,
+    "controller": "LQRClosingController",
+    "dt_seconds": 0.1,
+    "integrator": "rk4",
+    "normalize_action": true,
+    "numeric_fingerprint_sha256": "1b9f2e69911af7ad5499fb9f64be06b272126be18155c2f50e867d792be28931",
+    "physical_action_limits": [
+      0.01,
+      0.01,
+      0.003
+    ],
+    "schedule": {
+      "d_fast_m": 100.0,
+      "d_slow_m": 10.0,
+      "v_fast_mps": -0.08
+    },
+    "source_sha256": {
+      "src\\controllers\\LQR-3DoF\\lqr_3dof_closing.py": "78300c8454e7e31ef930412e21079dc997c7b733880da8d48db5e4502d600ec1",
+      "src\\controllers\\SAC-3DoF\\closing\\lqr_reference_residual_env.py": "94816894c92e912c17e3f1f8c5dbae955df1f845e0fecb2a91d94ce4f46397df",
+      "src\\controllers\\SAC-3DoF\\closing\\lqr_residual_env.py": "9818cc217a5e04efdb26586c90eeb2a09191672e11ed73f4b5fedf5ed31307b0",
+      "src\\controllers\\SAC-3DoF\\closing\\residual_lqr_config.py": "7e7ffdeaa4b0a531671864d76dadd1912010356dcdf5c2afdc94079f916bcc77"
+    }
+  },
+  "purpose": "canonical dt=0.1 residual-SAC zero-residual baseline gate",
+  "reference": {
+    "csv": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\LQR-3DoF\\results\\lqr_closing\\residual_sac_dt0p1\\lqr_dt0p1_validation_seeds100_109.csv",
+    "sha256": "990a949f75d284d2c147dbe95056b3b88136122cdc5159af735c11d44763248e"
+  },
+  "schema_version": 1,
+  "summary": {
+    "baseline_gate_passed": true,
+    "direct_failures": 0,
+    "direct_successes": 4,
+    "direct_timeouts": 6,
+    "maximum_wrapper_action_abs_difference": 0.0,
+    "maximum_wrapper_state_abs_difference": 0.0,
+    "pure_lqr_equivalence_passed": true,
+    "wrapper_equivalence_passed": true
+  }
+}

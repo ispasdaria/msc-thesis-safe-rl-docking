@@ -7,7 +7,8 @@ successful missions, reruns only those seeds with the frozen campaign
 configuration, and caches compact state histories before making:
 
 1. full-mission docking-port x-y trajectories; and
-2. representative full-mission position and velocity time histories.
+2. representative full-mission position and velocity time histories for two
+   successful seeds.
 
 Both PNG and PDF versions are written.  Subsequent runs reuse the cache.
 """
@@ -51,11 +52,12 @@ CAMPAIGN_DIR = (
 DEFAULT_CSV = CAMPAIGN_DIR / "full_mission_rollouts.csv"
 DEFAULT_CACHE_DIR = CAMPAIGN_DIR / "representative_histories"
 DEFAULT_OUTPUT_DIR = CAMPAIGN_DIR / "figures"
+DEFAULT_ADDITIONAL_TIME_HISTORY_SEED = 306
 
 CHASER_PORT_BODY = np.array([4.1, 0.0])
 TARGET_PORT_ORBITAL = np.array([20.0, 0.0])
 PHASE_COLORS = {"closing": "#0072B2", "final": "#D55E00"}
-TRAJECTORY_COLORS = ("#0072B2", "#D55E00", "#009E73")
+TRAJECTORY_COLORS = ("#0072B2", "#D55E00", "#CC79A7")
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,6 +70,15 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=3,
         help="Number of successful missions in the geometry-spanning subset.",
+    )
+    parser.add_argument(
+        "--additional-time-history-seed",
+        type=int,
+        default=DEFAULT_ADDITIONAL_TIME_HISTORY_SEED,
+        help=(
+            "Successful campaign seed for the additional time-history figure "
+            f"(default: {DEFAULT_ADDITIONAL_TIME_HISTORY_SEED})."
+        ),
     )
     parser.add_argument(
         "--force-rerun",
@@ -93,8 +104,17 @@ def port_position(states: np.ndarray) -> np.ndarray:
     """Return vectorized chaser-port position relative to the target port."""
     states = np.asarray(states, dtype=float)
     psi = states[:, 4]
+    chaser_x, chaser_y = CHASER_PORT_BODY
+    cos_psi = np.cos(psi)
+    sin_psi = np.sin(psi)
+
+    # Match Docking3DoFEnv.rotation_body_to_orbital_2d. At psi = 0,
+    # the chaser body +x axis points opposite to the orbital +x axis.
     chaser_offset = np.column_stack(
-        (CHASER_PORT_BODY[0] * np.cos(psi), CHASER_PORT_BODY[0] * np.sin(psi))
+        (
+            -cos_psi * chaser_x + sin_psi * chaser_y,
+            -sin_psi * chaser_x - cos_psi * chaser_y,
+        )
     )
     return states[:, :2] + chaser_offset - TARGET_PORT_ORBITAL
 
@@ -104,8 +124,11 @@ def port_velocity(states: np.ndarray) -> np.ndarray:
     states = np.asarray(states, dtype=float)
     psi = states[:, 4]
     omega = states[:, 5]
-    offset_x = CHASER_PORT_BODY[0] * np.cos(psi)
-    offset_y = CHASER_PORT_BODY[0] * np.sin(psi)
+    chaser_x, chaser_y = CHASER_PORT_BODY
+    cos_psi = np.cos(psi)
+    sin_psi = np.sin(psi)
+    offset_x = -cos_psi * chaser_x + sin_psi * chaser_y
+    offset_y = -sin_psi * chaser_x - cos_psi * chaser_y
     rotational_velocity = np.column_stack((-omega * offset_y, omega * offset_x))
     return states[:, 2:4] + rotational_velocity
 
@@ -282,13 +305,16 @@ def make_xy_figure(histories: list[dict[str, object]], total_successes: int) -> 
     ax.set_xlabel("Axial docking-port position, $x_p$ [m]")
     ax.set_ylabel("Lateral docking-port position, $y_p$ [m]")
     fig.suptitle(
-        f"Successful full-mission trajectories: {len(histories)}-mission representative subset "
-        f"of {total_successes}",
+        f"{len(histories)} representative successful full-mission trajectories",
         y=0.975,
     )
     ax.margins(x=0.035, y=0.10)
+    # Present the mission in the natural reading direction: approach from the
+    # left and converge on the docking point at the right.  Keep the physical
+    # axial coordinate unchanged; only reverse its display direction.
+    ax.invert_xaxis()
 
-    inset.set_xlim(-15.0, 350.0)
+    inset.set_xlim(350.0, -15.0)
     inset.set_ylim(-6.0, 6.0)
     inset.text(
         0.03,
@@ -304,13 +330,23 @@ def make_xy_figure(histories: list[dict[str, object]], total_successes: int) -> 
     inset.set_xlabel("$x_p$ [m]", fontsize=8)
     inset.set_ylabel("$y_p$ [m]", fontsize=8)
 
-    legend_handles = [
+    seed_handles = [
+        Line2D(
+            [],
+            [],
+            color=color,
+            linewidth=2.2,
+            label=f"Seed {int(history['metadata']['seed'])}",
+        )
+        for color, history in zip(colors, histories)
+    ]
+    marker_handles = [
         Line2D([], [], marker="o", linestyle="None", color="0.25", markerfacecolor="0.25", markersize=6, label="$P_2$ initial state"),
         Line2D([], [], marker="D", linestyle="None", color="0.25", markerfacecolor="none", markersize=6, label="$P_3$ reference"),
         Line2D([], [], marker="^", linestyle="None", color="0.25", markerfacecolor="0.25", markersize=6, label="Controller transition"),
         Line2D([], [], marker="*", linestyle="None", color="#CC3311", markersize=10, label="Docking point"),
     ]
-    ax.legend(handles=legend_handles, loc="upper left", framealpha=0.95)
+    ax.legend(handles=seed_handles + marker_handles, loc="lower right", framealpha=0.95)
     return fig
 
 
@@ -337,10 +373,30 @@ def make_time_history_figure(history: dict[str, object]) -> plt.Figure:
         gridspec_kw={"height_ratios": [1.0, 1.25]},
     )
     series = (
-        (closing_position[:, 0], final_position[:, 0], "a) Axial position", "$x_p$ [m]"),
-        (closing_position[:, 1], final_position[:, 1], "b) Lateral position", "$y_p$ [m]"),
-        (closing_velocity[:, 0], final_velocity[:, 0], "c) Axial velocity", "$v_{p,x}$ [m/s]"),
-        (closing_velocity[:, 1], final_velocity[:, 1], "d) Lateral velocity", "$v_{p,y}$ [m/s]"),
+        (
+            closing_position[:, 0],
+            final_position[:, 0],
+            "a) Axial position",
+            "Axial docking-port position, $x_p$ [m]",
+        ),
+        (
+            closing_position[:, 1],
+            final_position[:, 1],
+            "b) Lateral position",
+            "Lateral docking-port position, $y_p$ [m]",
+        ),
+        (
+            closing_velocity[:, 0],
+            final_velocity[:, 0],
+            "c) Axial velocity",
+            "Axial docking-port velocity, $v_{p,x}$ [m/s]",
+        ),
+        (
+            closing_velocity[:, 1],
+            final_velocity[:, 1],
+            "d) Lateral velocity",
+            "Lateral docking-port velocity, $v_{p,y}$ [m/s]",
+        ),
     )
 
     for axis, (closing_values, final_values, title, ylabel) in zip(axes.flat, series):
@@ -451,17 +507,37 @@ def main() -> None:
         success_records, args.num_trajectories
     )
     selected_seeds = [int(record["seed"]) for record in selected_records]
+    success_record_by_seed = {
+        int(record["seed"]): record for record in success_records
+    }
+    additional_seed = args.additional_time_history_seed
+    if additional_seed not in success_record_by_seed:
+        raise ValueError(
+            "--additional-time-history-seed must identify a successful mission "
+            f"in {args.campaign_csv}; got seed {additional_seed}."
+        )
+    if additional_seed == representative_seed:
+        raise ValueError(
+            "--additional-time-history-seed must differ from the representative "
+            f"seed {representative_seed}."
+        )
+
     print(f"successful missions in campaign: {len(success_records)}")
     print(f"selected representative seeds: {selected_seeds}")
     print(f"time-history representative seed: {representative_seed}")
+    print(f"additional time-history seed: {additional_seed}")
 
-    paths = ensure_histories(selected_records, args.cache_dir, args.force_rerun)
+    history_records = list(selected_records)
+    if additional_seed not in selected_seeds:
+        history_records.append(success_record_by_seed[additional_seed])
+    paths = ensure_histories(history_records, args.cache_dir, args.force_rerun)
     histories = [load_history(path) for path in paths]
     history_by_seed = {
         int(history["metadata"]["seed"]): history for history in histories
     }
 
-    xy_figure = make_xy_figure(histories, len(success_records))
+    xy_histories = [history_by_seed[seed] for seed in selected_seeds]
+    xy_figure = make_xy_figure(xy_histories, len(success_records))
     save_figure(
         xy_figure, args.output_dir / "full_mission_xy_trajectories"
     )
@@ -470,6 +546,15 @@ def main() -> None:
     save_figure(
         time_figure,
         args.output_dir / "representative_full_mission_time_histories",
+    )
+
+    additional_time_figure = make_time_history_figure(
+        history_by_seed[additional_seed]
+    )
+    save_figure(
+        additional_time_figure,
+        args.output_dir
+        / f"representative_full_mission_time_histories_seed{additional_seed:04d}",
     )
 
 

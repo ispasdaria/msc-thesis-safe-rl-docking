@@ -173,8 +173,8 @@
     "axial_progress_m": 1380.0014172321194,
     "mean_axial_progress_rate_mps": 0.1215271381470855,
     "terminal_axial_velocity_mps": -0.037053756616575895,
-    "terminal_axial_velocity_reference_mps": -0.035556826811302705,
-    "terminal_axial_velocity_error_mps": -0.0014969298052731894,
+    "terminal_axial_velocity_reference_mps": -0.0355547682043781,
+    "terminal_axial_velocity_error_mps": -0.0014989884121977964,
     "observed_axial_velocity_range_mps": [
       -0.1846737027711153,
       -0.037053756616575895

@@ -1,0 +1,97 @@
+{
+  "actor_gradient_updates": 2500,
+  "actor_initialization": "exact source actor weight copy",
+  "actor_protection": {
+    "actor_learning_rate": 5e-07,
+    "actor_update_interval": 20,
+    "critic_learning_rate": 1e-05,
+    "critic_pretrain_updates": 20000,
+    "frozen_during_critic_pretraining": true,
+    "frozen_during_replay_warmup": true
+  },
+  "actual_gradient_training_steps": 200000,
+  "actual_replay_warmup_steps": 552131,
+  "checkpoint_selection": "success, safety, best simultaneous target ratio, 2x-target occupancy/dwell, final target ratio, safety score, return",
+  "checkpoint_steps": [
+    0,
+    10000,
+    25000,
+    50000,
+    100000,
+    150000,
+    200000
+  ],
+  "critic_gradient_updates": 70000,
+  "critic_initialization": "fresh random twin critics and target critics",
+  "device": "cpu",
+  "dynamics": {
+    "action_hold_steps": 1,
+    "decision_interval_seconds": 0.1,
+    "gamma": 0.99899547129175,
+    "gamma_definition": "0.99 ** 0.1",
+    "integration_dt_seconds": 0.1,
+    "mixed_duration_transitions": false
+  },
+  "early_stop_reason": null,
+  "early_stop_triggered": false,
+  "episode_gates": {
+    "maximum_warmup_interactions": 800000,
+    "minimum_approach_episodes": 4,
+    "minimum_completed_episodes": 20,
+    "minimum_near_p3_episodes": 16,
+    "minimum_standard_episodes": 4,
+    "minimum_target_2_to_5_episodes": 8,
+    "minimum_target_5_to_10_episodes": 4,
+    "minimum_target_le_2_episodes": 0
+  },
+  "experiment_name": "sac_closing_uniform_dt01_actor_only_seed0",
+  "method": "uniform-0.1-s actor-only transfer with protected SAC",
+  "optimizer_initialization": "fresh actor and critic optimizers",
+  "overwrite_requested": true,
+  "replay": {
+    "fractions": {
+      "approach_gt_10": 0.35,
+      "ratio_2_to_5": 0.3,
+      "ratio_5_to_10": 0.25,
+      "ratio_le_2": 0.1
+    },
+    "sampling_unit": "episode first, transition second",
+    "strata": [
+      "ratio <= 2",
+      "2 < ratio <= 5",
+      "5 < ratio <= 10",
+      "ratio > 10"
+    ],
+    "unavailable_stratum_policy": "redistribute its batch share proportionally across available strata"
+  },
+  "replay_initialization": "fresh episode-aware ratio-stratified replay",
+  "replay_ready_after_warmup": true,
+  "reset_augmentation": {
+    "maximum_target_ratio": 6.0,
+    "minimum_target_ratio": 1.05,
+    "near_p3_fraction": 0.8,
+    "near_p3_time_limit_seconds": 600.0,
+    "other_component_max_ratio": 0.75,
+    "validation_uses_augmented_resets": false
+  },
+  "reward": {
+    "observation_statistics": "copied from source and frozen",
+    "reward_statistics": "freshly fitted during replay warmup then frozen",
+    "version": "v15_dt"
+  },
+  "source_critic_loaded": false,
+  "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
+  "source_model_num_timesteps": 100000,
+  "source_model_sha256": "d633e22933e04621cb0eb5ae5b346522d7d01b834a13944789656a801247f1b7",
+  "source_optimizer_loaded": false,
+  "source_role": "actor weights and frozen observation statistics only; selected as the strongest audited non-LQR closing checkpoint",
+  "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
+  "source_vecnormalize_sha256": "565b52f5eca81380facd8bc79f8a103a4d178613bc737309e63c054c7eb40cd9",
+  "training_seed": 0,
+  "training_timesteps": 200000,
+  "validation_seeds": [
+    100,
+    101,
+    102
+  ]
+}

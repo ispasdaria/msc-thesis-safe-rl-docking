@@ -1,0 +1,8 @@
+{
+  "complete": false,
+  "target_successes": 200,
+  "last_attempted_seed": 20999,
+  "successful_episodes": 78,
+  "transition_count": 8641259,
+  "partial_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_dt_dt0p1_200successes.partial.npz"
+}

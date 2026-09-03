@@ -1,0 +1,10 @@
+training_seed,episode,timestep,episode_length,episode_return,rolling_mean_return,termination_reason,is_best_checkpoint
+0,1,6000,6000,-3665.273899,-3665.273899,near_p3_training_timeout,0
+0,2,12000,6000,-5103.884951,-4384.579425,near_p3_training_timeout,0
+0,3,18000,6000,-3534.506102,-4101.221650666666,near_p3_training_timeout,0
+0,4,24000,6000,-6013.711785,-4579.34418425,near_p3_training_timeout,0
+0,5,144000,120000,-66802.775166,-17024.0303806,timeout,0
+0,6,150000,6000,-6681.236422,-15300.231387500002,near_p3_training_timeout,0
+0,7,156000,6000,-6888.32969,-14098.531145,near_p3_training_timeout,0
+0,8,162000,6000,-6815.455323,-13188.146667250001,near_p3_training_timeout,0
+0,9,162044,44,951.438875,-11617.081607,success_P3_target,0

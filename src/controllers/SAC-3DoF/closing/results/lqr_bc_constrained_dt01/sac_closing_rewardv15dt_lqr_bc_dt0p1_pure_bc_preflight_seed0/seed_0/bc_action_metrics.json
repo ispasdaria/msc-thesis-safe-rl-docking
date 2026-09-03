@@ -1,0 +1,18 @@
+{
+  "best_epoch": 1,
+  "epochs_completed": 6,
+  "training": {
+    "action_mae": 0.0073120965948415785,
+    "action_mae_alpha": 0.005726630624401809,
+    "action_mae_ax": 0.00909461139080647,
+    "action_mae_ay": 0.007115047769316457,
+    "action_mse": 0.0003439166264863229
+  },
+  "validation": {
+    "action_mae": 0.010033023883372152,
+    "action_mae_alpha": 0.00935429935111294,
+    "action_mae_ax": 0.011839694053307972,
+    "action_mae_ay": 0.008905078245695544,
+    "action_mse": 0.0003492778204350977
+  }
+}

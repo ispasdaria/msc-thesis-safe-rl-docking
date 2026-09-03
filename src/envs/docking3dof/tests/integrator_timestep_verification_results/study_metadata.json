@@ -1,0 +1,117 @@
+{
+  "reference_method": "DOP853",
+  "reference_rtol": 1e-12,
+  "reference_atol": 1e-14,
+  "reference_function_evaluations": {
+    "closing_zero_rotation": 92,
+    "closing_nonzero_rotation": 92,
+    "final_zero_rotation": 77,
+    "final_nonzero_rotation": 77
+  },
+  "fixed_step_integrators": [
+    "euler",
+    "rk4"
+  ],
+  "timesteps_s": [
+    4.0,
+    2.0,
+    1.0,
+    0.5,
+    0.25,
+    0.1
+  ],
+  "docking_tolerances": {
+    "position_m": 0.1,
+    "velocity_m_s": 0.1,
+    "attitude_deg": 4.0,
+    "angular_rate_deg_s": 0.2
+  },
+  "closing_interval_selection": "dt_close=0.1 s was selected for sampled-data LQR closed-loop stability; this numerical study only verifies RK4 accuracy.",
+  "constant_action_body": {
+    "ax_m_s2": 0.0002,
+    "ay_m_s2": 0.0001,
+    "alpha_rad_s2": 1.7453292519943296e-06,
+    "alpha_deg_s2": 0.0001
+  },
+  "scenarios": [
+    {
+      "name": "closing_zero_rotation",
+      "phase": "closing",
+      "rotational_case": "zero",
+      "duration_s": 200.0,
+      "initial_state": [
+        1700.0,
+        20.0,
+        -0.1,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "closing_nonzero_rotation",
+      "phase": "closing",
+      "rotational_case": "nonzero",
+      "duration_s": 200.0,
+      "initial_state": [
+        1700.0,
+        20.0,
+        -0.1,
+        0.0,
+        0.05235987755982989,
+        0.0008726646259971648
+      ]
+    },
+    {
+      "name": "final_zero_rotation",
+      "phase": "final",
+      "rotational_case": "zero",
+      "duration_s": 100.0,
+      "initial_state": [
+        300.0,
+        2.0,
+        -0.03,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "final_nonzero_rotation",
+      "phase": "final",
+      "rotational_case": "nonzero",
+      "duration_s": 100.0,
+      "initial_state": [
+        300.0,
+        2.0,
+        -0.03,
+        0.0,
+        0.017453292519943295,
+        0.00034906585039886593
+      ]
+    }
+  ],
+  "terminal_event_case": {
+    "initial_state": [
+      24.25,
+      0.0,
+      -0.1,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "initial_axial_separation_m": 0.15,
+    "initial_closing_speed_m_s": 0.1,
+    "action": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "software": {
+    "python": "3.12.10",
+    "numpy": "2.5.1",
+    "scipy": "1.17.1",
+    "platform": "Windows-11-10.0.26200-SP0"
+  }
+}

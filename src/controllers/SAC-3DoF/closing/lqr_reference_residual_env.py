@@ -38,7 +38,7 @@ from lqr_3dof_closing import (  # noqa: E402
 class ReferenceResidualLQRGoalConditionedClosingEnv(
     GoalConditionedClosingV3Env
 ):
-    """Let SAC adjust three references tracked by the closing LQR at 1 Hz."""
+    """Let SAC adjust three references tracked by the configured closing LQR."""
 
     reward_scheme = "goal_conditioned_p3_reference_residual_lqr_v1"
 

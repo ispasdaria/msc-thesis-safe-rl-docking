@@ -27,6 +27,7 @@ class BehaviorClonedConstrainedSAC(BehaviorClonedWarmupSAC):
         bc_finetune_decay_steps=250_000,
         bc_finetune_batch_size=None,
         bc_action_clip=0.999,
+        bc_action_loss_scales=None,
         bc_log_std_target=-3.0,
         bc_log_std_weight=0.01,
         actor_learning_rate_scale=0.1,
@@ -47,6 +48,20 @@ class BehaviorClonedConstrainedSAC(BehaviorClonedWarmupSAC):
             raise ValueError("bc_finetune_batch_size must be positive when set.")
         if not 0.0 < float(bc_action_clip) < 1.0:
             raise ValueError("bc_action_clip must lie strictly between zero and one.")
+        if bc_action_loss_scales is None:
+            bc_action_loss_scales = np.ones(3, dtype=np.float32)
+        bc_action_loss_scales = np.asarray(
+            bc_action_loss_scales,
+            dtype=np.float32,
+        )
+        if (
+            bc_action_loss_scales.shape != (3,)
+            or np.any(~np.isfinite(bc_action_loss_scales))
+            or np.any(bc_action_loss_scales <= 0.0)
+        ):
+            raise ValueError(
+                "bc_action_loss_scales must contain three positive finite values."
+            )
         if int(deterministic_finetune_steps) < 0:
             raise ValueError("deterministic_finetune_steps must be non-negative.")
 
@@ -59,6 +74,7 @@ class BehaviorClonedConstrainedSAC(BehaviorClonedWarmupSAC):
             else int(bc_finetune_batch_size)
         )
         self.bc_action_clip = float(bc_action_clip)
+        self.bc_action_loss_scales = bc_action_loss_scales
         self.bc_log_std_target = float(bc_log_std_target)
         self.bc_log_std_weight = float(bc_log_std_weight)
         self.actor_learning_rate_scale = float(actor_learning_rate_scale)
@@ -110,26 +126,42 @@ class BehaviorClonedConstrainedSAC(BehaviorClonedWarmupSAC):
 
     def _demonstration_bc_loss(self, batch_size):
         replay_buffer = self.replay_buffer
-        sampler = getattr(replay_buffer, "_get_demonstration_samples", None)
-        if sampler is None:
-            raise TypeError(
-                "BehaviorClonedConstrainedSAC requires a replay buffer with "
-                "protected demonstration sampling."
-            )
-        demonstration_data = sampler(
-            batch_size,
-            env=self._vec_normalize_env,
+        sampler = getattr(
+            replay_buffer,
+            "_get_behavior_cloning_samples",
+            None,
         )
+        if sampler is None:
+            demonstration_data = replay_buffer._get_demonstration_samples(
+                batch_size,
+                env=self._vec_normalize_env,
+            )
+            observations = demonstration_data.observations
+            actions = demonstration_data.actions
+        else:
+            observations, actions = sampler(
+                batch_size,
+                env=self._vec_normalize_env,
+            )
         mean_actions, log_std, _ = self.actor.get_action_dist_params(
-            demonstration_data.observations
+            observations
         )
         clipped_targets = th.clamp(
-            demonstration_data.actions,
+            actions,
             -self.bc_action_clip,
             self.bc_action_clip,
         )
         latent_targets = th.atanh(clipped_targets)
-        mean_loss = F.smooth_l1_loss(mean_actions, latent_targets)
+        action_scales = th.as_tensor(
+            self.bc_action_loss_scales,
+            dtype=mean_actions.dtype,
+            device=mean_actions.device,
+        )
+        scaled_error = (mean_actions - latent_targets) / action_scales
+        mean_loss = F.smooth_l1_loss(
+            scaled_error,
+            th.zeros_like(scaled_error),
+        )
         target_log_std = th.full_like(log_std, self.bc_log_std_target)
         log_std_loss = F.mse_loss(log_std, target_log_std)
         total_loss = mean_loss + self.bc_log_std_weight * log_std_loss

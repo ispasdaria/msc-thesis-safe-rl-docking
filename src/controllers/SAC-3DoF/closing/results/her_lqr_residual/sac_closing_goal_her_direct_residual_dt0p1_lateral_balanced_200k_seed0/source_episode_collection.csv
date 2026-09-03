@@ -1,0 +1,3 @@
+attempt,seed,steps,accepted,zero_residual_episode,prefill_role,success,failure,time_limit,lqr_saturation_fraction,residual_rms_ax,residual_rms_ay,residual_rms_alpha,residual_max_ax,residual_max_ay,residual_max_alpha,termination_reason,violated_constraints
+1,10,120000,1,1,required_zero,0,0,1,0.002533333333333333,0.0,0.0,0.0,0.0,0.0,0.0,timeout,[]
+2,11,120000,1,0,required_exploratory,1,0,0,0.0006666666666666666,0.24796562262824454,0.24925901775487513,0.2509740669821036,0.75,0.75,0.75,success_P3_target,[]

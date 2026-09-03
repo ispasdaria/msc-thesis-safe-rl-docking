@@ -26,6 +26,7 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
         zero_residual_actor_final_weight=None,
         zero_residual_actor_anneal_end_step=None,
         actor_learning_rate_scale=0.1,
+        max_actor_grad_norm=None,
         **kwargs,
     ):
         if float(zero_residual_actor_weight) < 0.0:
@@ -46,6 +47,8 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
             )
         if float(actor_learning_rate_scale) < 0.0:
             raise ValueError("actor_learning_rate_scale must be non-negative.")
+        if max_actor_grad_norm is not None and float(max_actor_grad_norm) <= 0:
+            raise ValueError("max_actor_grad_norm must be positive when set.")
         self.zero_residual_actor_weight = float(zero_residual_actor_weight)
         self.zero_residual_actor_final_weight = (
             self.zero_residual_actor_weight
@@ -58,6 +61,9 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
             else int(zero_residual_actor_anneal_end_step)
         )
         self.actor_learning_rate_scale = float(actor_learning_rate_scale)
+        self.max_actor_grad_norm = (
+            None if max_actor_grad_norm is None else float(max_actor_grad_norm)
+        )
         self.constrained_actor_gradient_updates = 0
         super().__init__(*args, **kwargs)
         if (
@@ -121,6 +127,10 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
         residual_prior_losses = []
         total_actor_losses = []
         critic_losses = []
+        target_q_means = []
+        target_q_abs_maxima = []
+        current_q_means = []
+        current_q_abs_maxima = []
 
         for gradient_step in range(gradient_steps):
             replay_data = self.replay_buffer.sample(
@@ -185,13 +195,21 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
                 replay_data.observations,
                 replay_data.actions,
             )
-            critic_loss = 0.5 * sum(
-                th.nn.functional.mse_loss(current_q, target_q_values)
-                for current_q in current_q_values
+            critic_loss = self.critic_regression_loss(
+                current_q_values,
+                target_q_values,
             )
             critic_losses.append(float(critic_loss.item()))
+            target_q_means.append(float(target_q_values.mean().item()))
+            target_q_abs_maxima.append(float(target_q_values.abs().max().item()))
+            current_q_tensor = th.cat(current_q_values, dim=1)
+            current_q_means.append(float(current_q_tensor.mean().item()))
+            current_q_abs_maxima.append(
+                float(current_q_tensor.abs().max().item())
+            )
             self.critic.optimizer.zero_grad()
             critic_loss.backward()
+            self.clip_critic_gradients()
             self.critic.optimizer.step()
 
             q_values_pi = th.cat(
@@ -214,6 +232,12 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
             total_actor_losses.append(float(total_actor_loss.item()))
             self.actor.optimizer.zero_grad()
             total_actor_loss.backward()
+            maximum_actor_norm = getattr(self, "max_actor_grad_norm", None)
+            if maximum_actor_norm is not None:
+                th.nn.utils.clip_grad_norm_(
+                    self.actor.parameters(),
+                    maximum_actor_norm,
+                )
             self.actor.optimizer.step()
             self.constrained_actor_gradient_updates += 1
 
@@ -244,6 +268,16 @@ class ZeroResidualConstrainedSAC(BehaviorClonedWarmupSAC):
         )
         self.logger.record("train/actor_learning_rate", actor_learning_rate)
         self.logger.record("train/critic_loss", np.mean(critic_losses))
+        self.logger.record("train/target_q_mean", np.mean(target_q_means))
+        self.logger.record(
+            "train/target_q_abs_max",
+            np.max(target_q_abs_maxima),
+        )
+        self.logger.record("train/current_q_mean", np.mean(current_q_means))
+        self.logger.record(
+            "train/current_q_abs_max",
+            np.max(current_q_abs_maxima),
+        )
         self.logger.record("train/phase_critic_warmup", 0.0)
         if entropy_losses:
             self.logger.record("train/ent_coef_loss", np.mean(entropy_losses))

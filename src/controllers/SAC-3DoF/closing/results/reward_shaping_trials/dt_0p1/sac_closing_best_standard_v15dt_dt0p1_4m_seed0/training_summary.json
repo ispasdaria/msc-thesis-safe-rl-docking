@@ -1,0 +1,19 @@
+{
+  "experiment_name": "sac_closing_best_standard_v15dt_dt0p1_4m_seed0",
+  "completed": true,
+  "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0_final.zip",
+  "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0_final_vecnormalize.pkl",
+  "best_checkpoint": {
+    "timestep": 3500000,
+    "completed_episodes": 264,
+    "rollouts": 5,
+    "success_rate": 0.0,
+    "safety_failure_rate": 0.6,
+    "timeout_rate": 0.4,
+    "mean_final_max_target_ratio": 179.11423235763127,
+    "mean_final_position_error_m": 712.4232991381538,
+    "mean_return": -64362.307786474135,
+    "mean_steps": 90409.4,
+    "mean_elapsed_time_seconds": 9040.940000015358
+  }
+}

@@ -36,7 +36,7 @@ class ResidualLQRGoalConditionedClosingEnv(GoalConditionedClosingV3Env):
     from an actuator boundary even when the unconstrained LQR is saturated.
     """
 
-    reward_scheme = "goal_conditioned_p3_residual_lqr_v1"
+    reward_scheme = "goal_conditioned_p3_residual_lqr_dt01_v2"
 
     def __init__(
         self,
@@ -45,6 +45,8 @@ class ResidualLQRGoalConditionedClosingEnv(GoalConditionedClosingV3Env):
         residual_zero_distance=None,
         residual_full_distance=None,
         residual_hold_steps=1,
+        reward_reference_dt=1.0,
+        time_scale_persistent_reward=True,
         lqr_controller=None,
         **kwargs,
     ):
@@ -61,6 +63,10 @@ class ResidualLQRGoalConditionedClosingEnv(GoalConditionedClosingV3Env):
         ):
             raise ValueError("residual_hold_steps must be a positive integer.")
         self.residual_hold_steps = int(residual_hold_steps)
+        self.reward_reference_dt = float(reward_reference_dt)
+        if not np.isfinite(self.reward_reference_dt) or self.reward_reference_dt <= 0.0:
+            raise ValueError("reward_reference_dt must be finite and positive.")
+        self.time_scale_persistent_reward = bool(time_scale_persistent_reward)
         if (residual_zero_distance is None) != (residual_full_distance is None):
             raise ValueError(
                 "residual_zero_distance and residual_full_distance must be "
@@ -95,6 +101,41 @@ class ResidualLQRGoalConditionedClosingEnv(GoalConditionedClosingV3Env):
             K, _ = compute_lqr_gain(A=A, B=B, Q=Q, R=R)
             lqr_controller = LQRClosingController(K)
         self.lqr_controller = lqr_controller
+
+    def compute_reward(self, achieved_goal, desired_goal, info):
+        """Scale persistent V3 shaping by elapsed physical time.
+
+        Goal-error and warning costs were designed at a one-second reference
+        interval.  At 10 Hz they are multiplied by ``dt / reference_dt`` so
+        their approximate cost per physical second is unchanged.  Terminal
+        success, hard-failure, and timeout terms remain one-shot events.
+        """
+        base_reward = np.asarray(
+            super().compute_reward(achieved_goal, desired_goal, info),
+            dtype=np.float64,
+        )
+        ratios = self.goal_error_ratios(achieved_goal, desired_goal)
+        leading_shape = np.shape(base_reward)
+        success = np.all(ratios <= 1.0, axis=-1).astype(np.float64)
+        failure = self._failure_mask(info, leading_shape)
+        time_limit = self._time_limit_mask(info, leading_shape)
+        terminal_reward = (
+            self.success_bonus * success
+            - self.safety_failure_penalty * failure
+            - self.timeout_penalty * time_limit * (1.0 - success)
+        )
+        persistent_scale = (
+            float(self.core_env.dt) / self.reward_reference_dt
+            if self.time_scale_persistent_reward
+            else 1.0
+        )
+        reward = terminal_reward + persistent_scale * (
+            base_reward - terminal_reward
+        )
+        reward = np.asarray(reward, dtype=np.float32)
+        if reward.ndim == 0:
+            return np.float32(reward)
+        return reward
 
     def lqr_action(self):
         """Return raw physical, clipped physical, and normalized LQR actions."""
@@ -155,6 +196,12 @@ class ResidualLQRGoalConditionedClosingEnv(GoalConditionedClosingV3Env):
                 "residual_gate": residual_gate,
                 "residual_zero_distance": self.residual_zero_distance,
                 "residual_full_distance": self.residual_full_distance,
+                "persistent_reward_time_scale": float(
+                    self.core_env.dt / self.reward_reference_dt
+                    if self.time_scale_persistent_reward
+                    else 1.0
+                ),
+                "reward_reference_dt": self.reward_reference_dt,
                 "lqr_raw_physical_action": raw_physical.copy(),
                 "lqr_clipped_physical_action": clipped_physical.copy(),
                 "lqr_saturated": bool(

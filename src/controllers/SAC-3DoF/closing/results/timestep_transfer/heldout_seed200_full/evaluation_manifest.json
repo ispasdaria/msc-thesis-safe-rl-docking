@@ -1,0 +1,52 @@
+{
+  "deterministic": true,
+  "device": "cpu",
+  "max_time_seconds": 12000.0,
+  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
+  "model_sha256": "d633e22933e04621cb0eb5ae5b346522d7d01b834a13944789656a801247f1b7",
+  "output_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\timestep_transfer\\heldout_seed200_full",
+  "purpose": "isolate simulator integration timestep from deterministic SAC policy decision cadence",
+  "return_comparison_warning": "Native uses V15 while 0.1 s variants use time-scaled V15-dt. Compare task, safety, and state-error metrics; do not rank variants by episode return.",
+  "seeds": [
+    200
+  ],
+  "source_artifacts_modified": false,
+  "source_checkpoint": "model_0100000_steps",
+  "source_experiment": "sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0",
+  "testing_distribution": true,
+  "training_performed": false,
+  "variants": [
+    {
+      "action_hold_steps": 1,
+      "decision_interval_seconds": 1.0,
+      "description": "Native 1 s integration and native 1 Hz policy cadence.",
+      "integration_dt_seconds": 1.0,
+      "integration_frequency_hz": 1.0,
+      "name": "native_1hz",
+      "policy_frequency_hz": 1.0,
+      "reward_version": "v15"
+    },
+    {
+      "action_hold_steps": 10,
+      "decision_interval_seconds": 1.0,
+      "description": "0.1 s integration with one deterministic policy action held for ten simulator steps.",
+      "integration_dt_seconds": 0.1,
+      "integration_frequency_hz": 10.0,
+      "name": "dt0p1_hold_1s",
+      "policy_frequency_hz": 1.0,
+      "reward_version": "v15_dt"
+    },
+    {
+      "action_hold_steps": 1,
+      "decision_interval_seconds": 0.1,
+      "description": "0.1 s integration with a new deterministic policy action computed after every simulator step.",
+      "integration_dt_seconds": 0.1,
+      "integration_frequency_hz": 10.0,
+      "name": "dt0p1_recompute_10hz",
+      "policy_frequency_hz": 10.0,
+      "reward_version": "v15_dt"
+    }
+  ],
+  "vecnormalize_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
+  "vecnormalize_sha256": "565b52f5eca81380facd8bc79f8a103a4d178613bc737309e63c054c7eb40cd9"
+}

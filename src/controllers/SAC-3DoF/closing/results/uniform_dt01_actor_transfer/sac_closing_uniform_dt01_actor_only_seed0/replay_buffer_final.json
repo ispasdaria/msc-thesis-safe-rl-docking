@@ -1,0 +1,74 @@
+{
+  "completed_episodes": 29,
+  "completed_stratum_episodes": {
+    "approach_gt_10": 9,
+    "target_2_to_5": 21,
+    "target_5_to_10": 18,
+    "target_le_2": 15
+  },
+  "episode_balanced_sample_calls": 70000,
+  "episode_balancing_active": true,
+  "global_buffer_capacity": 300000,
+  "global_buffer_size": 300000,
+  "historical_completed_stratum_episodes": {
+    "approach_gt_10": 11,
+    "target_2_to_5": 22,
+    "target_5_to_10": 18,
+    "target_le_2": 15
+  },
+  "last_sample_counts": {
+    "approach_gt_10": 179,
+    "target_2_to_5": 154,
+    "target_5_to_10": 128,
+    "target_le_2": 51
+  },
+  "minimum_completed_episodes": 20,
+  "minimum_near_p3_episodes": 16,
+  "minimum_standard_episodes": 4,
+  "minimum_stratum_episodes": {
+    "approach_gt_10": 4,
+    "target_2_to_5": 8,
+    "target_5_to_10": 4,
+    "target_le_2": 0
+  },
+  "near_p3_episodes": 24,
+  "realized_stratum_sample_fractions": {
+    "approach_gt_10": 0.349609375,
+    "target_2_to_5": 0.30078125,
+    "target_5_to_10": 0.25,
+    "target_le_2": 0.099609375
+  },
+  "replay_ready": true,
+  "sample_calls": 70000,
+  "sampled_stratum_transitions": {
+    "approach_gt_10": 12530000,
+    "target_2_to_5": 10780000,
+    "target_5_to_10": 8960000,
+    "target_le_2": 3570000
+  },
+  "sampling_fraction_targets": {
+    "approach_gt_10": 0.35,
+    "target_2_to_5": 0.3,
+    "target_5_to_10": 0.25,
+    "target_le_2": 0.1
+  },
+  "standard_episodes": 5,
+  "stratum_capacities": {
+    "approach_gt_10": 400000,
+    "target_2_to_5": 75000,
+    "target_5_to_10": 75000,
+    "target_le_2": 25000
+  },
+  "stratum_sizes": {
+    "approach_gt_10": 400000,
+    "target_2_to_5": 75000,
+    "target_5_to_10": 39967,
+    "target_le_2": 7317
+  },
+  "total_stratum_transitions_seen": {
+    "approach_gt_10": 609971,
+    "target_2_to_5": 94875,
+    "target_5_to_10": 39967,
+    "target_le_2": 7317
+  }
+}

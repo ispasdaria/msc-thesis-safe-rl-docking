@@ -1,0 +1,108 @@
+{
+  "actual_gradient_training_steps": 100000,
+  "actual_replay_warmup_steps": 70296,
+  "anchor_frozen_at_size": 64295,
+  "cbf_used": false,
+  "checkpoint_selection": "success, safety, best simultaneous target ratio, 2x-target occupancy/dwell, final target ratio, safety score, return",
+  "checkpoint_steps": [
+    0,
+    25000,
+    50000,
+    100000,
+    150000,
+    200000
+  ],
+  "device": "cpu",
+  "discount": {
+    "adaptive_macro_step_caveat": "SB3 uses one fixed gamma; the selected value is physically matched in the terminal 10 Hz region and deliberately gives the far one-second macro-MDP a longer planning horizon.",
+    "base_gamma_per_second": 0.99,
+    "gamma": 0.99899547129175,
+    "near_ten_hz_conversion": "base_gamma_per_second ** 0.1"
+  },
+  "dynamics_and_cadence": {
+    "adaptive_switch_distance_m": 200.0,
+    "far_action_hold_steps": 10,
+    "far_decision_interval_seconds": 1.0,
+    "integration_dt_seconds": 0.1,
+    "maximum_physical_episode_time_seconds": 12000.0,
+    "near_decision_interval_seconds": 0.1,
+    "warning_forces_ten_hz_control": true
+  },
+  "early_stop_reason": "simultaneous target error regressed for 2 evaluations",
+  "early_stop_triggered": true,
+  "early_stopping": {
+    "active_after_steps": 50000,
+    "failure_evaluations": 1,
+    "regression_evaluations": 2,
+    "regression_fraction": 0.15
+  },
+  "experiment_name": "sac_closing_adaptive_dt01_terminal_last_200k_seed0_run2",
+  "lqr_actions_or_transitions_used": false,
+  "maximum_replay_warmup_steps": 100000,
+  "method": "warm-started adaptive-cadence SAC",
+  "normalization": {
+    "observation_normalization": true,
+    "reward_normalization": true,
+    "source_statistics_loaded": true,
+    "statistics_frozen": true
+  },
+  "optimizer": {
+    "automatic_entropy_tuning": false,
+    "batch_size": 512,
+    "entropy_coefficient": 0.00017,
+    "gradient_steps": 1,
+    "learning_rate": 1e-05,
+    "tau": 0.005,
+    "train_freq": 4,
+    "update_to_data_ratio": 0.25
+  },
+  "purpose": "last-chance warm-started SAC with 0.1 s integration, adaptive far/terminal cadence, and simultaneous-target training coverage",
+  "replay": {
+    "anchor_batch_fraction": 0.25,
+    "anchor_buffer_size": 80000,
+    "capture_batch_fraction": 0.5,
+    "capture_buffer_size": 120000,
+    "global_batch_fraction": 0.25,
+    "global_buffer_size": 300000,
+    "minimum_anchor_episodes": 2,
+    "minimum_anchor_transitions": 24000,
+    "minimum_capture_episodes": 3,
+    "minimum_capture_transitions": 8000,
+    "priority_buffer_size": 30000,
+    "priority_capture_fraction": 0.0,
+    "target_ratio_threshold": 10.0,
+    "type": "SimultaneousTargetReplayBuffer",
+    "warmup_policy_deterministic": true
+  },
+  "replay_ready_after_warmup": true,
+  "reset_augmentation": {
+    "deterministic_mixture": true,
+    "maximum_target_ratio": 6.0,
+    "minimum_target_ratio": 1.05,
+    "near_p3_max_time_seconds": 600.0,
+    "other_component_max_ratio": 0.75,
+    "standard_p2_max_time_seconds": 12000.0,
+    "training_near_p3_fraction": 0.35,
+    "validation_uses_augmented_resets": false,
+    "warmup_near_p3_fraction": 0.5
+  },
+  "reward": {
+    "held_step_rewards_aggregated_by_environment": true,
+    "persistent_costs_scaled_by_dt": true,
+    "version": "v15_dt"
+  },
+  "source_entropy_coefficient": 0.00017023862164933234,
+  "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
+  "source_model_num_timesteps": 100000,
+  "source_model_sha256": "d633e22933e04621cb0eb5ae5b346522d7d01b834a13944789656a801247f1b7",
+  "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
+  "source_vecnormalize_sha256": "565b52f5eca81380facd8bc79f8a103a4d178613bc737309e63c054c7eb40cd9",
+  "strict_from_scratch_vanilla_sac": false,
+  "training_seed": 0,
+  "training_timesteps": 200000,
+  "validation_seeds": [
+    100,
+    101,
+    102
+  ]
+}

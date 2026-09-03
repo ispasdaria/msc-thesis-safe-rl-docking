@@ -70,6 +70,9 @@ class ProtectedMixedReplayBuffer(ReplayBuffer):
         self.demonstration_next_observations = None
         self.demonstration_dones = None
         self.demonstration_timeouts = None
+        self.behavior_cloning_count = 0
+        self.behavior_cloning_observations = None
+        self.behavior_cloning_actions = None
         self.sample_calls = 0
         self.sampled_demo_transitions = 0
         self.sampled_online_transitions = 0
@@ -134,6 +137,31 @@ class ProtectedMixedReplayBuffer(ReplayBuffer):
         self.demonstration_timeouts = timeouts
         self.demonstration_count = count
 
+    def set_behavior_cloning_demonstrations(self, dataset):
+        """Attach a potentially thinned state-action pool for actor cloning."""
+
+        observations = self._readonly_copy(
+            dataset["observations"],
+            np.float32,
+        )
+        actions = self._readonly_copy(dataset["actions"], np.float32)
+        count = len(actions)
+        if count <= 0:
+            raise ValueError("The behavior-cloning dataset is empty.")
+        if observations.shape != (count, *self.obs_shape):
+            raise ValueError(
+                "Behavior-cloning observation shape does not match the replay "
+                f"space: {observations.shape} != {(count, *self.obs_shape)}."
+            )
+        if actions.shape != (count, self.action_dim):
+            raise ValueError(
+                "Behavior-cloning action shape does not match the replay "
+                f"space: {actions.shape} != {(count, self.action_dim)}."
+            )
+        self.behavior_cloning_observations = observations
+        self.behavior_cloning_actions = actions
+        self.behavior_cloning_count = count
+
     @property
     def active_demo_fraction(self):
         if self.total_online_transitions < self.demo_fraction_switch_step:
@@ -181,6 +209,24 @@ class ProtectedMixedReplayBuffer(ReplayBuffer):
             ),
         )
         return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
+
+    def _get_behavior_cloning_samples(self, batch_size, env=None):
+        """Sample actor targets from the dedicated BC pool when configured."""
+
+        if self.behavior_cloning_count <= 0:
+            samples = self._get_demonstration_samples(batch_size, env=env)
+            return samples.observations, samples.actions
+        indices = np.random.randint(
+            0,
+            self.behavior_cloning_count,
+            size=batch_size,
+        )
+        observations = self._normalize_obs(
+            self.behavior_cloning_observations[indices],
+            env,
+        )
+        actions = self.behavior_cloning_actions[indices]
+        return self.to_torch(observations), self.to_torch(actions)
 
     @staticmethod
     def _concatenate_and_shuffle(demo_samples, online_samples):
@@ -262,6 +308,7 @@ class ProtectedMixedReplayBuffer(ReplayBuffer):
         )
         return {
             "demonstration_count": int(self.demonstration_count),
+            "behavior_cloning_count": int(self.behavior_cloning_count),
             "online_buffer_capacity": int(self.buffer_size),
             "online_buffer_size": int(self.size()),
             "total_online_transitions": int(self.total_online_transitions),

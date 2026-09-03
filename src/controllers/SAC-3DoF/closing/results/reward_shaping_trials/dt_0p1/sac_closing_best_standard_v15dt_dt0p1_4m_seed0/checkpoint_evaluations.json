@@ -1,0 +1,128 @@
+{
+  "selection_order": [
+    "highest success rate",
+    "lowest safety-failure rate",
+    "lowest final maximum target ratio",
+    "lowest final position error",
+    "highest return"
+  ],
+  "best": {
+    "timestep": 3500000,
+    "completed_episodes": 264,
+    "rollouts": 5,
+    "success_rate": 0.0,
+    "safety_failure_rate": 0.6,
+    "timeout_rate": 0.4,
+    "mean_final_max_target_ratio": 179.11423235763127,
+    "mean_final_position_error_m": 712.4232991381538,
+    "mean_return": -64362.307786474135,
+    "mean_steps": 90409.4,
+    "mean_elapsed_time_seconds": 9040.940000015358
+  },
+  "evaluations": [
+    {
+      "timestep": 500000,
+      "completed_episodes": 70,
+      "rollouts": 5,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 232.23355950175574,
+      "mean_final_position_error_m": 1363.035733817575,
+      "mean_return": -7572.748713459822,
+      "mean_steps": 5000.2,
+      "mean_elapsed_time_seconds": 500.0200000000452
+    },
+    {
+      "timestep": 1000000,
+      "completed_episodes": 179,
+      "rollouts": 5,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 166.10520705409027,
+      "mean_final_position_error_m": 1403.9903538910248,
+      "mean_return": -7533.112341641043,
+      "mean_steps": 7612.8,
+      "mean_elapsed_time_seconds": 761.2799999999223
+    },
+    {
+      "timestep": 1500000,
+      "completed_episodes": 226,
+      "rollouts": 5,
+      "success_rate": 0.0,
+      "safety_failure_rate": 0.8,
+      "timeout_rate": 0.2,
+      "mean_final_max_target_ratio": 178.45653571874976,
+      "mean_final_position_error_m": 1395.1752147960938,
+      "mean_return": -53646.18852670361,
+      "mean_steps": 52961.2,
+      "mean_elapsed_time_seconds": 5296.120000005838
+    },
+    {
+      "timestep": 2000000,
+      "completed_episodes": 242,
+      "rollouts": 5,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 138.3361034506359,
+      "mean_final_position_error_m": 1273.5215101363021,
+      "mean_return": -33124.060642458986,
+      "mean_steps": 42473.8,
+      "mean_elapsed_time_seconds": 4247.380000000933
+    },
+    {
+      "timestep": 2500000,
+      "completed_episodes": 252,
+      "rollouts": 5,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 243.58646528662644,
+      "mean_final_position_error_m": 1071.8615072842072,
+      "mean_return": -55776.397308791755,
+      "mean_steps": 62562.0,
+      "mean_elapsed_time_seconds": 6256.200000005597
+    },
+    {
+      "timestep": 3000000,
+      "completed_episodes": 259,
+      "rollouts": 5,
+      "success_rate": 0.0,
+      "safety_failure_rate": 0.8,
+      "timeout_rate": 0.2,
+      "mean_final_max_target_ratio": 233.43873356672788,
+      "mean_final_position_error_m": 585.0365884135692,
+      "mean_return": -72651.80582779096,
+      "mean_steps": 94170.0,
+      "mean_elapsed_time_seconds": 9417.000000016726
+    },
+    {
+      "timestep": 3500000,
+      "completed_episodes": 264,
+      "rollouts": 5,
+      "success_rate": 0.0,
+      "safety_failure_rate": 0.6,
+      "timeout_rate": 0.4,
+      "mean_final_max_target_ratio": 179.11423235763127,
+      "mean_final_position_error_m": 712.4232991381538,
+      "mean_return": -64362.307786474135,
+      "mean_steps": 90409.4,
+      "mean_elapsed_time_seconds": 9040.940000015358
+    },
+    {
+      "timestep": 4000000,
+      "completed_episodes": 271,
+      "rollouts": 5,
+      "success_rate": 0.0,
+      "safety_failure_rate": 1.0,
+      "timeout_rate": 0.0,
+      "mean_final_max_target_ratio": 166.17494284352816,
+      "mean_final_position_error_m": 311.4609189719382,
+      "mean_return": -55195.83945730635,
+      "mean_steps": 110749.8,
+      "mean_elapsed_time_seconds": 11074.980000022759
+    }
+  ]
+}

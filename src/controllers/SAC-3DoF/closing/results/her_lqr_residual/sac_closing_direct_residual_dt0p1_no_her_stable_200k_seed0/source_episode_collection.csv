@@ -1,0 +1,6 @@
+attempt,seed,steps,accepted,zero_residual_episode,prefill_role,success,failure,time_limit,lqr_saturation_fraction,residual_rms_ax,residual_rms_ay,residual_rms_alpha,residual_max_ax,residual_max_ay,residual_max_alpha,termination_reason,violated_constraints
+1,10,120000,1,1,required_zero,0,0,1,0.002533333333333333,0.0,0.0,0.0,0.0,0.0,0.0,timeout,[]
+2,11,111076,1,0,required_exploratory,1,0,0,0.0007202275919190464,0.2473499797261376,0.2489395213653598,0.2504336113700418,0.75,0.75,0.75,success_P3_target,[]
+3,12,283,1,0,required_exploratory,0,1,0,1.0,0.23548168946145442,0.2816827488955889,0.24171705726982048,0.5155772566795349,0.535099446773529,0.48373332619667053,safety_violation,['velocity']
+4,13,279,1,0,sampled_exploratory,0,1,0,1.0,0.2834838085712321,0.2801611612040938,0.24716030905824932,0.5923206806182861,0.75,0.5729320645332336,safety_violation,['velocity']
+5,14,120000,1,1,sampled_zero,0,0,1,0.00095,0.0,0.0,0.0,0.0,0.0,0.0,timeout,[]

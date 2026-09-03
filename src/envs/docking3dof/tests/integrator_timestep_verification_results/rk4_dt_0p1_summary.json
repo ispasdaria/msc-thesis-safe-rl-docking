@@ -1,0 +1,156 @@
+{
+  "focus_dt_s": 0.1,
+  "error_definition": "Maximum trajectory error relative to DOP853 on each RK4 fixed-step time grid.",
+  "selection_rationale": "The 0.1 s closing interval was selected for sampled-data LQR closed-loop stability. This study independently checks RK4 propagation accuracy and does not select the interval based on integration error.",
+  "per_scenario": [
+    {
+      "scenario": "closing_zero_rotation",
+      "phase": "closing",
+      "rotational_case": "zero",
+      "max_position_error_m": 4.7227154464786e-11,
+      "max_velocity_error_m_s": 3.560706645800387e-14,
+      "max_attitude_error_deg": 3.379339349054987e-14,
+      "max_angular_rate_error_deg_s": 5.932479923432927e-16
+    },
+    {
+      "scenario": "closing_nonzero_rotation",
+      "phase": "closing",
+      "rotational_case": "nonzero",
+      "max_position_error_m": 6.35032856025968e-10,
+      "max_velocity_error_m_s": 7.353585565517665e-13,
+      "max_attitude_error_deg": 4.961665303083086e-13,
+      "max_angular_rate_error_deg_s": 7.690481827444988e-15
+    },
+    {
+      "scenario": "final_zero_rotation",
+      "phase": "final",
+      "rotational_case": "zero",
+      "max_position_error_m": 1.1712671063323447e-12,
+      "max_velocity_error_m_s": 4.73118598013655e-16,
+      "max_attitude_error_deg": 1.2921003393445538e-15,
+      "max_angular_rate_error_deg_s": 7.765026077791789e-17
+    },
+    {
+      "scenario": "final_nonzero_rotation",
+      "phase": "final",
+      "rotational_case": "nonzero",
+      "max_position_error_m": 1.7053495328155764e-12,
+      "max_velocity_error_m_s": 3.167155204101338e-15,
+      "max_attitude_error_deg": 2.5842006786891074e-14,
+      "max_angular_rate_error_deg_s": 5.093857107031414e-16
+    }
+  ],
+  "worst_case_tolerance_checks": [
+    {
+      "metric": "position",
+      "unit": "m",
+      "worst_error": 6.35032856025968e-10,
+      "docking_tolerance": 0.1,
+      "fraction_of_tolerance": 6.3503285602596794e-09,
+      "passed": true
+    },
+    {
+      "metric": "velocity",
+      "unit": "m/s",
+      "worst_error": 7.353585565517665e-13,
+      "docking_tolerance": 0.1,
+      "fraction_of_tolerance": 7.353585565517665e-12,
+      "passed": true
+    },
+    {
+      "metric": "attitude",
+      "unit": "deg",
+      "worst_error": 4.961665303083086e-13,
+      "docking_tolerance": 4.0,
+      "fraction_of_tolerance": 1.2404163257707715e-13,
+      "passed": true
+    },
+    {
+      "metric": "angular rate",
+      "unit": "deg/s",
+      "worst_error": 7.690481827444988e-15,
+      "docking_tolerance": 0.2,
+      "fraction_of_tolerance": 3.845240913722494e-14,
+      "passed": true
+    }
+  ],
+  "all_tolerance_checks_passed": true,
+  "comparison_1s_to_0p1s": [
+    {
+      "metric": "position",
+      "unit": "m",
+      "error_at_1s": 6.342920508475705e-10,
+      "error_at_0p1s": 6.35032856025968e-10,
+      "ratio_1s_to_0p1s": 0.9988334380317998
+    },
+    {
+      "metric": "velocity",
+      "unit": "m/s",
+      "error_at_1s": 7.348878485844901e-13,
+      "error_at_0p1s": 7.353585565517665e-13,
+      "ratio_1s_to_0p1s": 0.9993598932614809
+    },
+    {
+      "metric": "attitude",
+      "unit": "deg",
+      "error_at_1s": 4.770832022195275e-14,
+      "error_at_0p1s": 4.961665303083086e-13,
+      "ratio_1s_to_0p1s": 0.09615384615384615
+    },
+    {
+      "metric": "angular rate",
+      "unit": "deg/s",
+      "error_at_1s": 6.708982531212105e-16,
+      "error_at_0p1s": 7.690481827444988e-15,
+      "ratio_1s_to_0p1s": 0.08723747980613893
+    }
+  ],
+  "convergence_0p25s_to_0p1s": [
+    {
+      "metric": "position",
+      "unit": "m",
+      "error_at_0p25s": 6.336987039902316e-10,
+      "error_at_0p1s": 6.35032856025968e-10,
+      "step_ratio": 2.5,
+      "expected_fourth_order_error_ratio": 39.0625,
+      "observed_error_ratio": 0.9978990818772977,
+      "observed_order": -0.002295262926876054,
+      "status": "reference_roundoff_floor"
+    },
+    {
+      "metric": "velocity",
+      "unit": "m/s",
+      "error_at_0p25s": 7.353273715540153e-13,
+      "error_at_0p1s": 7.353585565517665e-13,
+      "step_ratio": 2.5,
+      "expected_fourth_order_error_ratio": 39.0625,
+      "observed_error_ratio": 0.9999575921195539,
+      "observed_order": -4.628310448902504e-05,
+      "status": "reference_roundoff_floor"
+    },
+    {
+      "metric": "attitude",
+      "unit": "deg",
+      "error_at_0p25s": 1.1131941385122308e-13,
+      "error_at_0p1s": 4.961665303083086e-13,
+      "step_ratio": 2.5,
+      "expected_fourth_order_error_ratio": 39.0625,
+      "observed_error_ratio": 0.22435897435897437,
+      "observed_order": -1.6310412118905744,
+      "status": "reference_roundoff_floor"
+    },
+    {
+      "metric": "angular rate",
+      "unit": "deg/s",
+      "error_at_0p25s": 2.0375428428125655e-15,
+      "error_at_0p1s": 7.690481827444988e-15,
+      "step_ratio": 2.5,
+      "expected_fourth_order_error_ratio": 39.0625,
+      "observed_error_ratio": 0.2649434571890145,
+      "observed_order": -1.4495823199517206,
+      "status": "reference_roundoff_floor"
+    }
+  ],
+  "convergence_check_passed": true,
+  "all_checks_passed": true
+}

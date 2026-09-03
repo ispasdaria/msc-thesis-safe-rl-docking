@@ -393,10 +393,14 @@ def make_xy_figure(
     ax.grid(True, color="#D9D9D9", linewidth=0.7, alpha=0.8)
     ax.set_axisbelow(True)
     ax.margins(x=0.03, y=0.08)
+    # Show the approach in the natural reading direction: initial states on
+    # the left and convergence toward P3 on the right.  This changes only the
+    # display direction; the physical axial coordinate remains unchanged.
+    ax.invert_xaxis()
 
     # The full closing path spans about 1.5 km, so a terminal inset is needed
     # to make the sampled P3 targets and their 40 m x 4 m tolerance boxes clear.
-    inset = ax.inset_axes([0.08, 0.47, 0.47, 0.47])
+    inset = ax.inset_axes([0.45, 0.47, 0.47, 0.47])
     draw_xy_trajectory(inset, success, SUCCESS_COLOR, "-", "Successful", "o")
     draw_xy_trajectory(inset, timeout, TIMEOUT_COLOR, "--", "Timeout", "X")
 
@@ -415,7 +419,7 @@ def make_xy_figure(
         target = np.asarray(rollout["target"], dtype=float)
         tolerance = np.asarray(rollout["tolerance"], dtype=float)
         inset.text(
-            target[0] - tolerance[0] + 1.2,
+            target[0] + tolerance[0] - 1.2,
             target[1] + tolerance[1] - 0.25,
             label,
             color=color,
@@ -427,7 +431,7 @@ def make_xy_figure(
         )
 
     all_targets = np.vstack((success["target"][:2], timeout["target"][:2]))
-    inset.set_xlim(np.min(all_targets[:, 0]) - 28.0, np.max(all_targets[:, 0]) + 32.0)
+    inset.set_xlim(np.max(all_targets[:, 0]) + 32.0, np.min(all_targets[:, 0]) - 28.0)
     inset.set_ylim(np.min(all_targets[:, 1]) - 5.0, np.max(all_targets[:, 1]) + 5.0)
     inset.set_title("$P_3$ terminal region", fontsize=10.5, pad=3)
     inset.set_xlabel("$x$ [m]", fontsize=9)

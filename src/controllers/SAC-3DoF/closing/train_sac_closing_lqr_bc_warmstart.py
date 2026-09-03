@@ -295,6 +295,10 @@ def behavior_clone_actor(
         args.bc_action_clip,
     )
     latent_targets = np.arctanh(clipped_actions).astype(np.float32)
+    action_loss_scales = np.asarray(
+        getattr(args, "resolved_bc_action_loss_scales", np.ones(3)),
+        dtype=np.float32,
+    )
     rng = np.random.default_rng(args.bc_split_seed + model.seed)
     rows = []
     best_validation_mse = np.inf
@@ -321,9 +325,15 @@ def behavior_clone_actor(
             mean_actions, log_std, _ = actor.get_action_dist_params(
                 observation_batch
             )
+            scale_batch = torch.as_tensor(
+                action_loss_scales,
+                dtype=mean_actions.dtype,
+                device=model.device,
+            )
+            scaled_error = (mean_actions - latent_target_batch) / scale_batch
             latent_loss = F.smooth_l1_loss(
-                mean_actions,
-                latent_target_batch,
+                scaled_error,
+                torch.zeros_like(scaled_error),
             )
             desired_log_std = torch.full_like(
                 log_std,
@@ -410,6 +420,7 @@ def behavior_clone_actor(
     return {
         "best_epoch": int(best_epoch),
         "epochs_completed": len(rows),
+        "action_loss_scales": action_loss_scales.tolist(),
         "training": final_training_metrics,
         "validation": final_validation_metrics,
     }

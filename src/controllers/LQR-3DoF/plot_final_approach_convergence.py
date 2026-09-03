@@ -42,6 +42,21 @@ DEFAULT_PORT_XY_OUTPUT = RESULT_DIR / "final_approach_port_xy_trajectories"
 TRAJECTORY_COLOR = "#0072B2"
 MEDIAN_COLOR = "#003B5C"
 TOLERANCE_COLOR = "#009E73"
+CACHE_SCHEMA_VERSION = 1
+REQUIRED_CACHE_FIELDS = {
+    "seeds",
+    "times",
+    "port_distances",
+    "port_x_positions",
+    "port_y_positions",
+    "axial_port_velocities",
+    "success",
+    "termination_reasons",
+    "dock_tolerance",
+    "mode",
+    "max_time",
+    "cache_schema_version",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -159,6 +174,9 @@ def collect_histories(args: argparse.Namespace) -> dict[str, np.ndarray]:
         "success": np.asarray(successes, dtype=bool),
         "termination_reasons": np.asarray(reasons, dtype="U32"),
         "dock_tolerance": np.asarray(args.dock_tolerance, dtype=float),
+        "mode": np.asarray(args.mode),
+        "max_time": np.asarray(args.max_time, dtype=float),
+        "cache_schema_version": np.asarray(CACHE_SCHEMA_VERSION, dtype=int),
     }
 
 
@@ -170,6 +188,31 @@ def write_cache(path: Path, histories: dict[str, np.ndarray]) -> None:
 def load_cache(path: Path) -> dict[str, np.ndarray]:
     with np.load(path, allow_pickle=False) as data:
         return {key: np.asarray(data[key]) for key in data.files}
+
+
+def cache_matches(
+    histories: dict[str, np.ndarray], args: argparse.Namespace
+) -> bool:
+    """Return whether a trajectory cache matches the requested evaluation."""
+    if not REQUIRED_CACHE_FIELDS.issubset(histories):
+        return False
+
+    expected_seeds = np.arange(
+        args.seed_start, args.seed_start + args.rollouts, dtype=int
+    )
+    cached_seeds = np.asarray(histories["seeds"], dtype=int)
+    if not np.array_equal(cached_seeds, expected_seeds):
+        return False
+    if str(np.asarray(histories["mode"]).item()) != args.mode:
+        return False
+    if not np.isclose(float(np.asarray(histories["max_time"])), args.max_time):
+        return False
+    if not np.isclose(
+        float(np.asarray(histories["dock_tolerance"])), args.dock_tolerance
+    ):
+        return False
+    cached_schema = int(np.asarray(histories["cache_schema_version"]).item())
+    return cached_schema == CACHE_SCHEMA_VERSION
 
 
 def make_figure(
@@ -470,6 +513,9 @@ def make_port_xy_figure(histories: dict[str, np.ndarray]) -> plt.Figure:
         ax.set_axisbelow(True)
 
     full_ax.margins(x=0.035, y=0.10)
+    # Present the final approach from left to right while preserving the
+    # physical docking-port-relative coordinate values.
+    full_ax.invert_xaxis()
     full_ax.set_xlabel(
         r"Axial target docking-port-relative position $r_{p,x}$ [m]"
     )
@@ -528,7 +574,11 @@ def main() -> None:
     args = parse_args()
     histories = None
     if not args.recompute and args.cache.exists():
-        histories = load_cache(args.cache)
+        cached_histories = load_cache(args.cache)
+        if cache_matches(cached_histories, args):
+            histories = cached_histories
+        else:
+            print(f"Ignoring incompatible cache {args.cache}")
 
     required_history_fields = {
         "axial_port_velocities",

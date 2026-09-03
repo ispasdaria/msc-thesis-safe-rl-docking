@@ -106,19 +106,12 @@ def run_rollout(
     initial_state = state.copy()
     p3_target = env.p3_target.copy()
 
-    references = []
     done = False
     info = {}
     max_steps = int(np.ceil(env.max_time / env.dt)) + 1
 
     for _ in range(max_steps):
-        if reference_kind == "fixed":
-            references.append(float(p3_target[2]))
-        elif reference_kind == "scheduled":
-            references.append(
-                scheduled_axial_reference(state, p3_target, controller)
-            )
-        else:
+        if reference_kind not in {"fixed", "scheduled"}:
             raise ValueError(f"Unknown reference kind: {reference_kind}")
 
         action = controller.compute_action(env, state)
@@ -128,16 +121,16 @@ def run_rollout(
 
     times, states, actions_raw, actions_clipped, _ = env.get_history_arrays()
 
-    # The environment logs the initial condition before the first action.  Add
-    # its reference value so that the reference and state arrays have equal size.
     if reference_kind == "fixed":
-        initial_reference = float(p3_target[2])
+        reference_history = np.full(len(states), float(p3_target[2]), dtype=float)
     else:
-        initial_reference = scheduled_axial_reference(
-            initial_state, p3_target, controller
+        reference_history = np.asarray(
+            [
+                scheduled_axial_reference(sample, p3_target, controller)
+                for sample in states
+            ],
+            dtype=float,
         )
-    reference_history = np.asarray([initial_reference, *references], dtype=float)
-    reference_history = reference_history[: len(times)]
 
     distance = np.abs(states[:, 0] - p3_target[0])
     saturation = np.any(

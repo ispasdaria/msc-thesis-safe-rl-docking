@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "D:\Daria Master Thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\generate_lqr_replay_dataset_dt01.py", line 261, in <module>
+    main()
+  File "D:\Daria Master Thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\generate_lqr_replay_dataset_dt01.py", line 240, in main
+    raise RuntimeError(
+RuntimeError: Collected 78/200 successes. Continue the validated partial dataset with --resume.

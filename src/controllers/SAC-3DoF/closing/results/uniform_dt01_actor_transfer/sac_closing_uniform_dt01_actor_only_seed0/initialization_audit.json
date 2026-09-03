@@ -1,0 +1,8 @@
+{
+  "actor_weights_exactly_equal": true,
+  "critic_weights_equal_to_source": false,
+  "fresh_critic_sha256": "590e8e400d8809fa86694117a723b6ced2ce881bf4fdc3436ad650d4fac01310",
+  "new_actor_sha256": "242e3a409225f62fea7e4fedd1dd5710874604f1004ef367702191fc1922ca2b",
+  "source_actor_sha256": "242e3a409225f62fea7e4fedd1dd5710874604f1004ef367702191fc1922ca2b",
+  "source_critic_sha256": "48ecd053a1e332c89d95a8d249233486e372846b3f92c09e351c5293d0982971"
+}

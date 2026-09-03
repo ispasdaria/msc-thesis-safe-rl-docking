@@ -110,17 +110,12 @@ def run_rollout(
     state = env.reset(mode=mode)
     initial_state = state.copy()
 
-    references = []
     done = False
     info = {}
     max_steps = int(np.ceil(env.max_time / env.dt)) + 1
 
     for _ in range(max_steps):
-        if reference_kind == "zero":
-            references.append(0.0)
-        elif reference_kind == "scheduled":
-            references.append(scheduled_port_velocity_reference(state, env))
-        else:
+        if reference_kind not in {"zero", "scheduled"}:
             raise ValueError(f"Unknown reference kind: {reference_kind}")
 
         action = controller.compute_action(env, state)
@@ -130,11 +125,12 @@ def run_rollout(
 
     times, states, actions_raw, actions_clipped, _ = env.get_history_arrays()
     if reference_kind == "zero":
-        initial_reference = 0.0
+        reference_history = np.zeros(len(states), dtype=float)
     else:
-        initial_reference = scheduled_port_velocity_reference(initial_state, env)
-    reference_history = np.asarray([initial_reference, *references], dtype=float)
-    reference_history = reference_history[: len(times)]
+        reference_history = np.asarray(
+            [scheduled_port_velocity_reference(sample, env) for sample in states],
+            dtype=float,
+        )
 
     port_position = np.asarray(
         [env.get_port_relative_position(sample) for sample in states], dtype=float

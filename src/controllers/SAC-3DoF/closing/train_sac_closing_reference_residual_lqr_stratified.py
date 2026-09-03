@@ -70,7 +70,7 @@ def build_parser():
     parser.add_argument("--inner-ratio-limit", type=float, default=2.0)
     parser.add_argument(
         "--pilot-label",
-        choices=("D", "E", "G", "H", "I"),
+        choices=("D", "E", "G", "H", "I", "J"),
         default="D",
     )
     parser.add_argument(

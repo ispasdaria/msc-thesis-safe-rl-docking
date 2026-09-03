@@ -1,0 +1,11 @@
+{
+  "complete": true,
+  "last_attempted_seed": 20104,
+  "output": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_final_lqr_dt0p1_bank.npz",
+  "partial_path": null,
+  "snapshot_count": 12191,
+  "source_outcome_episode_counts": {
+    "success": 10,
+    "time_limit": 10
+  }
+}

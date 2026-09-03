@@ -8,6 +8,8 @@ or terminal conditions.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 import gymnasium as gym
@@ -22,6 +24,128 @@ REQUIRED_DATASET_FIELDS = (
     "source_steps",
     "source_outcomes",
 )
+
+PROVENANCE_SCHEMA_VERSION = 2
+
+
+def sha256_file(path):
+    """Return the SHA-256 digest of a file without loading it into memory."""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def terminal_reset_metadata(dataset):
+    """Parse the scalar JSON metadata stored with a terminal reset bank."""
+    if "metadata_json" not in dataset:
+        raise ValueError("Terminal reset dataset has no metadata_json field.")
+    encoded = np.asarray(dataset["metadata_json"])
+    if encoded.shape != ():
+        raise ValueError("metadata_json must be a scalar JSON string.")
+    try:
+        metadata = json.loads(str(encoded.item()))
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("metadata_json is not valid JSON.") from exc
+    if not isinstance(metadata, dict):
+        raise ValueError("metadata_json must encode a JSON object.")
+    return metadata
+
+
+def validate_terminal_reset_provenance(
+    dataset,
+    *,
+    dataset_path,
+    baseline_manifest,
+    baseline_manifest_path,
+    required_outcomes=("success", "time_limit"),
+):
+    """Require a bank produced by the fingerprinted final 10 Hz LQR.
+
+    ``validate_saved_baseline_manifest`` separately proves that the manifest
+    still matches the current controller sources and numerical gain.  This
+    function binds a reset bank to that already-validated manifest.
+    """
+    metadata = terminal_reset_metadata(dataset)
+    if int(metadata.get("schema_version", -1)) < PROVENANCE_SCHEMA_VERSION:
+        raise ValueError(
+            "Terminal reset dataset predates the provenance-locked dt=0.1 "
+            "schema and cannot be used for final-LQR training."
+        )
+
+    configuration = baseline_manifest.get("configuration", {})
+    controller = baseline_manifest.get("controller", {})
+    expected_dt = float(configuration.get("dt_seconds", np.nan))
+    recorded_dt = float(metadata.get("dt_seconds", np.nan))
+    if not np.isclose(recorded_dt, expected_dt, rtol=0.0, atol=1e-12):
+        raise ValueError(
+            f"Terminal bank dt mismatch: {recorded_dt!r} != {expected_dt!r}."
+        )
+    if not np.isclose(recorded_dt, 0.1, rtol=0.0, atol=1e-12):
+        raise ValueError("Final-LQR terminal banks must use dt=0.1 s.")
+
+    recorded_max_time = float(metadata.get("max_time_seconds", np.nan))
+    recorded_max_steps = int(metadata.get("max_steps", -1))
+    if not np.isfinite(recorded_max_time) or recorded_max_time <= 0.0:
+        raise ValueError("Terminal bank must record a positive max_time_seconds.")
+    expected_max_steps = int(round(recorded_max_time / recorded_dt))
+    if recorded_max_steps != expected_max_steps:
+        raise ValueError(
+            "Terminal bank horizon is inconsistent with its timestep: "
+            f"max_steps={recorded_max_steps} but max_time_seconds / dt="
+            f"{expected_max_steps}."
+        )
+
+    expected_fingerprint = controller.get("numeric_fingerprint_sha256")
+    recorded_fingerprint = metadata.get("controller_numeric_fingerprint_sha256")
+    if not expected_fingerprint or recorded_fingerprint != expected_fingerprint:
+        raise ValueError(
+            "Terminal bank controller fingerprint does not match the final "
+            "dt=0.1 LQR baseline."
+        )
+
+    expected_integrator = str(controller.get("integrator", ""))
+    if str(metadata.get("integrator", "")) != expected_integrator:
+        raise ValueError("Terminal bank integrator does not match the baseline.")
+
+    manifest_path = Path(baseline_manifest_path).resolve()
+    recorded_manifest_hash = metadata.get("baseline_manifest_sha256")
+    if recorded_manifest_hash != sha256_file(manifest_path):
+        raise ValueError(
+            "Terminal bank baseline-manifest hash does not match the supplied "
+            "manifest."
+        )
+
+    outcomes = np.asarray(dataset["source_outcomes"]).astype(str)
+    episode_seeds = np.asarray(dataset["source_seeds"], dtype=np.int64)
+    outcome_episode_counts = {
+        outcome: int(len(np.unique(episode_seeds[outcomes == outcome])))
+        for outcome in sorted(set(outcomes.tolist()))
+    }
+    missing = [
+        outcome
+        for outcome in required_outcomes
+        if outcome_episode_counts.get(str(outcome), 0) == 0
+    ]
+    if missing:
+        raise ValueError(
+            "Terminal bank lacks required source outcomes: " + ", ".join(missing)
+        )
+
+    return {
+        "dataset_path": str(Path(dataset_path).resolve()),
+        "dataset_sha256": sha256_file(dataset_path),
+        "schema_version": int(metadata["schema_version"]),
+        "dt_seconds": recorded_dt,
+        "max_time_seconds": recorded_max_time,
+        "max_steps": recorded_max_steps,
+        "integrator": expected_integrator,
+        "controller_numeric_fingerprint_sha256": expected_fingerprint,
+        "baseline_manifest_path": str(manifest_path),
+        "baseline_manifest_sha256": recorded_manifest_hash,
+        "source_outcome_episode_counts": outcome_episode_counts,
+    }
 
 
 def load_terminal_reset_dataset(path):
@@ -64,6 +188,7 @@ class EmpiricalTerminalReferenceResidualWrapper(gym.Wrapper):
         minimum_max_target_ratio=1.05,
         maximum_max_target_ratio=5.0,
         include_source_outcomes=("success", "failure", "time_limit"),
+        balance_source_outcomes=False,
     ):
         super().__init__(env)
         self.dataset_path = Path(dataset_path).resolve()
@@ -71,6 +196,7 @@ class EmpiricalTerminalReferenceResidualWrapper(gym.Wrapper):
         self.minimum_max_target_ratio = float(minimum_max_target_ratio)
         self.maximum_max_target_ratio = float(maximum_max_target_ratio)
         self.include_source_outcomes = tuple(str(x) for x in include_source_outcomes)
+        self.balance_source_outcomes = bool(balance_source_outcomes)
         if not 1.0 < self.minimum_max_target_ratio < self.maximum_max_target_ratio:
             raise ValueError(
                 "Terminal ratio limits must satisfy 1 < minimum < maximum."
@@ -86,11 +212,37 @@ class EmpiricalTerminalReferenceResidualWrapper(gym.Wrapper):
         self.eligible_indices = np.flatnonzero(eligible)
         if self.eligible_indices.size == 0:
             raise ValueError("No terminal reset states satisfy the requested filters.")
+        if self.balance_source_outcomes:
+            available = set(outcomes[self.eligible_indices].tolist())
+            missing = [
+                outcome
+                for outcome in self.include_source_outcomes
+                if outcome not in available
+            ]
+            if missing:
+                raise ValueError(
+                    "Cannot balance absent terminal source outcomes: "
+                    + ", ".join(missing)
+                )
         self.current_dataset_index = None
 
     def _candidate_indices(self):
         """Return reset candidates; subclasses may implement a curriculum."""
         return self.eligible_indices
+
+    def _choose_candidate_index(self, rng):
+        candidates = np.asarray(self._candidate_indices(), dtype=np.int64)
+        if not self.balance_source_outcomes:
+            return int(rng.choice(candidates))
+        outcomes = np.asarray(self.dataset["source_outcomes"]).astype(str)
+        available_outcomes = tuple(
+            outcome
+            for outcome in self.include_source_outcomes
+            if np.any(outcomes[candidates] == outcome)
+        )
+        chosen_outcome = str(rng.choice(available_outcomes))
+        matching = candidates[outcomes[candidates] == chosen_outcome]
+        return int(rng.choice(matching))
 
     @property
     def core_env(self):
@@ -136,7 +288,7 @@ class EmpiricalTerminalReferenceResidualWrapper(gym.Wrapper):
         # P2 state is discarded and replaced by one empirical state/P3 pair.
         self.env.reset(seed=seed, options=options)
         rng = self.core_env.rng
-        index = int(rng.choice(self._candidate_indices()))
+        index = self._choose_candidate_index(rng)
         mode = (options or {}).get("mode", self.env.unwrapped.mode)
         observation, info = self.env.reset(
             options={
@@ -187,6 +339,7 @@ class LateralTerminalCurriculumWrapper(
         stage_boundaries=(0.25, 0.60),
         total_curriculum_steps=500_000,
         include_source_outcomes=("success", "time_limit"),
+        balance_source_outcomes=False,
     ):
         stage_maximum_ratios = tuple(
             float(value) for value in stage_maximum_ratios
@@ -230,6 +383,7 @@ class LateralTerminalCurriculumWrapper(
             minimum_max_target_ratio=minimum_lateral_ratio,
             maximum_max_target_ratio=stage_maximum_ratios[-1],
             include_source_outcomes=include_source_outcomes,
+            balance_source_outcomes=balance_source_outcomes,
         )
         self.minimum_lateral_ratio = float(minimum_lateral_ratio)
         self.stage_maximum_ratios = stage_maximum_ratios

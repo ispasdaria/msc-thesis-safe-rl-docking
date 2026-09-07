@@ -56,6 +56,8 @@ REQUIRED_CACHE_FIELDS = {
     "ey",
     "evx",
     "evy",
+    "epsi_deg",
+    "eomega_deg_s",
     "p3_target_tolerance",
     "success",
     "termination_reasons",
@@ -158,6 +160,8 @@ def collect_one_rollout(
         "ey": errors[:, 1],
         "evx": errors[:, 2],
         "evy": errors[:, 3],
+        "epsi_deg": np.abs(np.rad2deg(errors[:, 4])),
+        "eomega_deg_s": np.abs(np.rad2deg(errors[:, 5])),
         "p3_target_tolerance": np.asarray(
             env.p3_target_tolerance, dtype=float
         ),
@@ -197,6 +201,10 @@ def collect_histories(args: argparse.Namespace) -> dict[str, np.ndarray]:
         "ey": pad_histories([record["ey"] for record in records]),
         "evx": pad_histories([record["evx"] for record in records]),
         "evy": pad_histories([record["evy"] for record in records]),
+        "epsi_deg": pad_histories([record["epsi_deg"] for record in records]),
+        "eomega_deg_s": pad_histories(
+            [record["eomega_deg_s"] for record in records]
+        ),
         "p3_target_tolerance": np.asarray(
             records[0]["p3_target_tolerance"], dtype=float
         ),

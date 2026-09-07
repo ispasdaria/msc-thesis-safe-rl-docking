@@ -68,6 +68,9 @@ def collect_histories() -> dict[str, np.ndarray]:
     times: list[np.ndarray] = []
     port_x: list[np.ndarray] = []
     port_y: list[np.ndarray] = []
+    port_speed: list[np.ndarray] = []
+    attitude_error_deg: list[np.ndarray] = []
+    angular_rate_error_deg_s: list[np.ndarray] = []
     successes: list[bool] = []
     reasons: list[str] = []
     terminal_distances: list[float] = []
@@ -79,6 +82,9 @@ def collect_histories() -> dict[str, np.ndarray]:
         rollout_times = [0.0]
         rollout_x = [float(initial["r_p"][0])]
         rollout_y = [float(initial["r_p"][1])]
+        rollout_speed = [float(np.linalg.norm(initial["v_p"]))]
+        rollout_attitude = [float(abs(np.rad2deg(initial["psi_e"])))]
+        rollout_rate = [float(abs(np.rad2deg(initial["omega"])))]
         final_info = None
 
         for _ in range(MAX_STEPS):
@@ -89,6 +95,9 @@ def collect_histories() -> dict[str, np.ndarray]:
             rollout_times.append(float(env.core_env.time))
             rollout_x.append(float(info["port_relative_position"][0]))
             rollout_y.append(float(info["port_relative_position"][1]))
+            rollout_speed.append(float(info["port_speed"]))
+            rollout_attitude.append(float(abs(np.rad2deg(info["psi_e"]))))
+            rollout_rate.append(float(abs(np.rad2deg(info["omega"]))))
             if terminated or truncated:
                 break
 
@@ -97,6 +106,9 @@ def collect_histories() -> dict[str, np.ndarray]:
         times.append(np.asarray(rollout_times))
         port_x.append(np.asarray(rollout_x))
         port_y.append(np.asarray(rollout_y))
+        port_speed.append(np.asarray(rollout_speed))
+        attitude_error_deg.append(np.asarray(rollout_attitude))
+        angular_rate_error_deg_s.append(np.asarray(rollout_rate))
         successes.append(bool(final_info.get("success", False)))
         reasons.append(str(final_info.get("termination_reason", "unknown")))
         terminal_distances.append(float(final_info["port_distance"]))
@@ -118,6 +130,12 @@ def collect_histories() -> dict[str, np.ndarray]:
         "times": pad(times),
         "port_x_positions": pad(port_x),
         "port_y_positions": pad(port_y),
+        "port_position_errors": pad(
+            [np.hypot(x_values, y_values) for x_values, y_values in zip(port_x, port_y)]
+        ),
+        "port_velocity_errors": pad(port_speed),
+        "attitude_errors_deg": pad(attitude_error_deg),
+        "angular_rate_errors_deg_s": pad(angular_rate_error_deg_s),
         "success": np.asarray(successes, dtype=bool),
         "termination_reasons": np.asarray(reasons),
         "terminal_port_distances": np.asarray(terminal_distances),
@@ -193,8 +211,15 @@ def main() -> None:
     if not MODEL_PATH.exists() or not VECNORM_PATH.exists():
         raise FileNotFoundError("Retained SAC model or VecNormalize file is missing")
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    required_fields = {
+        "port_position_errors", "port_velocity_errors", "attitude_errors_deg",
+        "angular_rate_errors_deg_s",
+    }
     if CACHE_PATH.exists():
         histories = dict(np.load(CACHE_PATH, allow_pickle=False))
+    else:
+        histories = {}
+    if required_fields.issubset(histories):
         print(f"Loaded {CACHE_PATH}")
     else:
         histories = collect_histories()

@@ -1,0 +1,68 @@
+{
+  "models": {
+    "docking_port_only": {
+      "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\closing_sac_trial16_docking_port_obs_only.zip",
+      "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\closing_sac_trial16_docking_port_obs_only_vecnormalize.pkl"
+    },
+    "adopted": {
+      "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+      "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl"
+    }
+  },
+  "testing_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "aggregate": [
+    {
+      "controller": "docking_port_only",
+      "observation_space": "Docking-port-only observation",
+      "episodes": 10,
+      "success_rate": 0.0,
+      "mean_final_position_error_m": 121.24657521367988,
+      "median_final_position_error_m": 119.48541856782875,
+      "mean_final_velocity_error_mps": 0.15043415314803074,
+      "mean_final_attitude_error_deg": 28.900663946247732,
+      "mean_final_rate_error_deg_s": 0.09693313037892667,
+      "mean_episode_return": -35536.08611154753,
+      "termination_reasons": {
+        "safety_violation": 6,
+        "timeout": 4
+      }
+    },
+    {
+      "controller": "adopted",
+      "observation_space": "Docking-port + P3 target-error observation",
+      "episodes": 10,
+      "success_rate": 0.0,
+      "mean_final_position_error_m": 61.71296653441927,
+      "median_final_position_error_m": 29.638823481008593,
+      "mean_final_velocity_error_mps": 0.02170454527372069,
+      "mean_final_attitude_error_deg": 12.533236031218632,
+      "mean_final_rate_error_deg_s": 0.02346157986157778,
+      "mean_episode_return": -31244.607122854584,
+      "termination_reasons": {
+        "timeout": 10
+      }
+    }
+  ],
+  "representative": {
+    "seed": 3,
+    "selection_rule": "Adopted-controller final P3 position error nearest its 10-seed median.",
+    "adopted_median_final_position_error_m": 29.638823481008593
+  },
+  "outputs": {
+    "per_seed": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\observation_comparison\\per_seed_results.csv",
+    "aggregate": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\observation_comparison\\aggregate_results.csv",
+    "representative_data": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\observation_comparison\\representative_axial_position_error.csv",
+    "figure_pdf": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\observation_comparison\\closing_position_error_comparison.pdf"
+  }
+}

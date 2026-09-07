@@ -1,0 +1,111 @@
+{
+  "models": {
+    "com": {
+      "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_com_observation.zip",
+      "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_com_observation_vecnormalize.pkl"
+    },
+    "docking_port": {
+      "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+      "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl"
+    },
+    "combined": {
+      "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_combined_observation.zip",
+      "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_combined_observation_vecnormalize.pkl"
+    }
+  },
+  "testing_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "aggregate": [
+    {
+      "controller": "com",
+      "observation_space": "CoM-based observation space",
+      "episodes": 10,
+      "success_rate": 0.0,
+      "mean_terminal_position_error_m": 2.4571088753914463,
+      "median_terminal_position_error_m": 2.4593316423792277,
+      "std_terminal_position_error_m": 0.022780542594110175,
+      "mean_terminal_velocity_error_mps": 0.07376887963893447,
+      "median_terminal_velocity_error_mps": 0.07376592096717738,
+      "std_terminal_velocity_error_mps": 3.603074731049373e-05,
+      "mean_terminal_attitude_error_deg": 1.1464917610503427,
+      "median_terminal_attitude_error_deg": 1.1464349776270037,
+      "std_terminal_attitude_error_deg": 0.0005850721549292854,
+      "mean_terminal_angular_rate_deg_s": 0.0018871093603261798,
+      "median_terminal_angular_rate_deg_s": 0.0018864090162192054,
+      "std_terminal_angular_rate_deg_s": 3.6735790047470627e-06,
+      "mean_episode_return": -5644.1044535565725,
+      "median_episode_return": -5698.12053365676,
+      "std_episode_return": 691.15345783785,
+      "unsuccessful_termination_causes": {
+        "safety_violation": 10
+      }
+    },
+    {
+      "controller": "docking_port",
+      "observation_space": "Docking-port-based observation space",
+      "episodes": 10,
+      "success_rate": 1.0,
+      "mean_terminal_position_error_m": 0.06484441587176379,
+      "median_terminal_position_error_m": 0.07282469973001529,
+      "std_terminal_position_error_m": 0.023019963353221845,
+      "mean_terminal_velocity_error_mps": 0.06903878915242136,
+      "median_terminal_velocity_error_mps": 0.06904285292916928,
+      "std_terminal_velocity_error_mps": 1.2597400605520646e-05,
+      "mean_terminal_attitude_error_deg": 0.07763849364368522,
+      "median_terminal_attitude_error_deg": 0.07769574183987933,
+      "std_terminal_attitude_error_deg": 0.00014612384709925046,
+      "mean_terminal_angular_rate_deg_s": 0.000436113233018711,
+      "median_terminal_angular_rate_deg_s": 0.0004389760203687617,
+      "std_terminal_angular_rate_deg_s": 7.4086942278194496e-06,
+      "mean_episode_return": -2569.9978446921305,
+      "median_episode_return": -2563.9465073437627,
+      "std_episode_return": 607.4056476164083,
+      "unsuccessful_termination_causes": {}
+    },
+    {
+      "controller": "combined",
+      "observation_space": "Combined CoM + docking-port observation space",
+      "episodes": 10,
+      "success_rate": 0.0,
+      "mean_terminal_position_error_m": 4.6996684073052934,
+      "median_terminal_position_error_m": 4.697223794041316,
+      "std_terminal_position_error_m": 0.02074812064502005,
+      "mean_terminal_velocity_error_mps": 0.07120347591172511,
+      "median_terminal_velocity_error_mps": 0.07107428385134514,
+      "std_terminal_velocity_error_mps": 0.00022366729302038095,
+      "mean_terminal_attitude_error_deg": 0.7134232187771531,
+      "median_terminal_attitude_error_deg": 0.7098112277261731,
+      "std_terminal_attitude_error_deg": 0.0068921322246724565,
+      "mean_terminal_angular_rate_deg_s": 0.009175043806625373,
+      "median_terminal_angular_rate_deg_s": 0.009617605884649208,
+      "std_terminal_angular_rate_deg_s": 0.0009420308140213392,
+      "mean_episode_return": -8227.873876888601,
+      "median_episode_return": -7806.458749411457,
+      "std_episode_return": 1463.0489684900517,
+      "unsuccessful_termination_causes": {
+        "safety_violation": 10
+      }
+    }
+  ],
+  "representative": {
+    "seed": 1,
+    "selection_rule": "Docking-port controller seed nearest the median terminal port-position error; return used as tie-break.",
+    "docking_port_median_terminal_position_error_m": 0.07282469973001529
+  },
+  "outputs": {
+    "per_seed": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\per_seed_results.csv",
+    "aggregate": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\aggregate_results.csv",
+    "figure_pdf": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\observation_space_trajectory_comparison.pdf",
+    "distance_figure_pdf": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\docking_port_distance_vs_timesteps.pdf"
+  }
+}

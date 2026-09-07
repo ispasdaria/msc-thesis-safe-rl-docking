@@ -1,0 +1,26 @@
+\begin{table}[t]
+\centering
+\caption{Deterministic evaluation of the retained final-approach SAC policy on seeds 0--49. Uncertainties are sample standard deviations; the success interval is the 95\% Wilson interval.}
+\label{tab:sac-final-lqr50}
+\small
+\begin{tabular}{lr}
+\hline
+Metric & Value \\
+\hline
+Successful rollouts & 50/50 (100.0\%) \\
+95\% Wilson interval & [92.9, 100.0]\% \\
+Timeouts / hard-safety terminations & 0 / 0 \\
+Episode duration & 3229.3 $\pm$ 133.3 s \\
+Final port distance & 0.0644 $\pm$ 0.0204 m \\
+Final port-distance range & [0.0320, 0.0979] m \\
+Final relative port speed & 0.06904 $\pm$ 1.12e-05 m/s \\
+Final axial position error & 0.0644 $\pm$ 0.0204 m \\
+Final lateral position error & 0.0002 $\pm$ 0.0001 m \\
+Final axial velocity error & 0.06903 $\pm$ 1.12e-05 m/s \\
+Final lateral velocity error & 0.000730 $\pm$ 3.39e-06 m/s \\
+Final attitude error & 0.07764 $\pm$ 1.28e-04 deg \\
+Final angular-rate error & 0.000439 $\pm$ 8.00e-06 deg/s \\
+Mean action-saturation fraction & 0.00\% \\
+\hline
+\end{tabular}
+\end{table}

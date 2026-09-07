@@ -1,0 +1,20 @@
+Curriculum dead-end trajectory comparison
+These are deterministic rollouts of the retained stage-00 policy; they are not the historical 275k or 425k checkpoint trajectories.
+
+PANEL A
+initialization: near-P3 success_acquisition
+evaluation seed: 1017
+outcome: success
+termination reason: success_P3_target
+closest P3-position error [m]: 16.462822
+final P3-position error [m]: 16.462822
+final maximum target-tolerance ratio: 0.997799
+
+PANEL B
+initialization: normal P2 testing
+evaluation seed: 0
+outcome: unsafe
+termination reason: safety_violation
+closest P3-position error [m]: 1422.887260
+final P3-position error [m]: 1426.173664
+final maximum target-tolerance ratio: 71.265029

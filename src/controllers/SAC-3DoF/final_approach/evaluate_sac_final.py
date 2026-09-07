@@ -368,9 +368,10 @@ def run_one_rollout(model, vecnorm, seed=0, mode="testing", max_steps=5000):
         if done:
             break
 
-    times, states, actions_raw, actions_clipped, actions_orbital, core_rewards = (
+    times, states, actions_raw, actions_clipped, actions_orbital = (
         env.get_history_arrays()
     )
+    core_rewards = np.full(len(times), np.nan, dtype=float)
 
     env.close()
 

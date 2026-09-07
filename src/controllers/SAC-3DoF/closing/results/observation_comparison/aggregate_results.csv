@@ -1,0 +1,3 @@
+controller,observation_space,episodes,success_rate,mean_final_position_error_m,median_final_position_error_m,mean_final_velocity_error_mps,mean_final_attitude_error_deg,mean_final_rate_error_deg_s,mean_episode_return,termination_reasons
+docking_port_only,Docking-port-only observation,10,0.0,121.24657521367988,119.48541856782875,0.15043415314803074,28.900663946247732,0.09693313037892667,-35536.08611154753,"{""safety_violation"": 6, ""timeout"": 4}"
+adopted,Docking-port + P3 target-error observation,10,0.0,61.71296653441927,29.638823481008593,0.02170454527372069,12.533236031218632,0.02346157986157778,-31244.607122854584,"{""timeout"": 10}"

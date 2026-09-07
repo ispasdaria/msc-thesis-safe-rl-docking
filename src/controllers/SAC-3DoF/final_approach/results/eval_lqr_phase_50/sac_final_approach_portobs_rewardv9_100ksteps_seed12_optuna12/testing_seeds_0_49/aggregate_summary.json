@@ -1,0 +1,157 @@
+{
+  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+  "vecnormalize_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
+  "evaluation_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49
+  ],
+  "deterministic": true,
+  "environment": {
+    "phase": "final",
+    "mode": "testing",
+    "dt_s": 1.0,
+    "integrator": "rk4",
+    "normalize_action": true,
+    "max_steps": 5000
+  },
+  "n_rollouts": 50,
+  "n_success": 50,
+  "success_percentage": 100.0,
+  "success_wilson_95_low": 0.9286524008666414,
+  "success_wilson_95_high": 1.0,
+  "n_timeouts": 0,
+  "n_hard_safety_terminations": 0,
+  "termination_reason_counts": {
+    "success_docking": 50
+  },
+  "distributions": {
+    "episode_steps": {
+      "mean": 3229.3,
+      "std_sample": 133.31200934925064,
+      "min": 2975.0,
+      "max": 3445.0
+    },
+    "elapsed_time_s": {
+      "mean": 3229.3,
+      "std_sample": 133.31200934925064,
+      "min": 2975.0,
+      "max": 3445.0
+    },
+    "final_port_distance_m": {
+      "mean": 0.06436803918936491,
+      "std_sample": 0.020356882181132897,
+      "min": 0.032040789574454734,
+      "max": 0.09791142385268585
+    },
+    "min_port_distance_m": {
+      "mean": 0.06436803918936491,
+      "std_sample": 0.020356882181132897,
+      "min": 0.032040789574454734,
+      "max": 0.09791142385268585
+    },
+    "final_port_speed_mps": {
+      "mean": 0.06903835863598771,
+      "std_sample": 1.1213562785075735e-05,
+      "min": 0.0690206458832333,
+      "max": 0.06905668741355094
+    },
+    "abs_final_axial_position_error_m": {
+      "mean": 0.0643675809928198,
+      "std_sample": 0.02035701768921727,
+      "min": 0.0320383809045488,
+      "max": 0.09791102690116915
+    },
+    "abs_final_lateral_position_error_m": {
+      "mean": 0.00020612272436931338,
+      "std_sample": 0.00010639221608651438,
+      "min": 5.292534407471891e-06,
+      "max": 0.0004113343989751118
+    },
+    "abs_final_axial_velocity_error_mps": {
+      "mean": 0.06903450377474257,
+      "std_sample": 1.1181122896179387e-05,
+      "min": 0.0690168390188634,
+      "max": 0.06905278978151781
+    },
+    "abs_final_lateral_velocity_error_mps": {
+      "mean": 0.0007295485994237378,
+      "std_sample": 3.392570670243557e-06,
+      "min": 0.0007249068788366569,
+      "max": 0.0007353448803851531
+    },
+    "abs_final_attitude_error_deg": {
+      "mean": 0.07763698307484213,
+      "std_sample": 0.0001279663374444498,
+      "min": 0.07743478490672556,
+      "max": 0.07785355112463653
+    },
+    "abs_final_angular_rate_error_deg_s": {
+      "mean": 0.0004385111279374769,
+      "std_sample": 7.99856574083628e-06,
+      "min": 0.00042548395904069196,
+      "max": 0.0004473563632611776
+    },
+    "action_saturation_step_fraction": {
+      "mean": 0.0,
+      "std_sample": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    }
+  },
+  "successful_seed_ranking": {
+    "representative_median_successful_seed": 24,
+    "representative_median_final_port_distance_m": 0.0618845809995463,
+    "best_successful_seed": 39,
+    "best_successful_final_port_distance_m": 0.032040789574454734,
+    "worst_successful_seed": 42,
+    "worst_successful_final_port_distance_m": 0.09791142385268585
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "seed": 3,
+  "selection_rule": "Adopted-controller final P3 position error nearest its 10-seed median.",
+  "adopted_median_final_position_error_m": 29.638823481008593
+}

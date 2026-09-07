@@ -1,0 +1,5 @@
+{
+  "seed": 1,
+  "selection_rule": "Docking-port controller seed nearest the median terminal port-position error; return used as tie-break.",
+  "docking_port_median_terminal_position_error_m": 0.07282469973001529
+}

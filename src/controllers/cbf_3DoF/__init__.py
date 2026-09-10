@@ -2,6 +2,7 @@
 
 from .barriers import FinalApproachCBFConfig, build_final_approach_constraints
 from .closing_barriers import ClosingCBFConfig, build_closing_constraints
+from .controller import CBFQPController, with_cbf_qp
 from .diagnostics import (
     attitude_hocbf_admissibility,
     cone_hocbf_admissibility,
@@ -12,6 +13,7 @@ from .qp_filter import ClosingCBFFilter, FinalApproachCBFFilter
 __all__ = [
     "ClosingCBFConfig",
     "ClosingCBFFilter",
+    "CBFQPController",
     "FinalApproachCBFConfig",
     "FinalApproachCBFFilter",
     "build_closing_constraints",
@@ -19,4 +21,5 @@ __all__ = [
     "attitude_hocbf_admissibility",
     "cone_hocbf_admissibility",
     "hard_cbf_feasibility_margin",
+    "with_cbf_qp",
 ]

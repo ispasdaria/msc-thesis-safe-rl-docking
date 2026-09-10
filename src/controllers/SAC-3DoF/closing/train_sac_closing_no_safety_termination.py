@@ -802,8 +802,11 @@ def evaluate_rollout(
             "normalized_alpha"
         ],
         "final_position_error_m": float(np.linalg.norm(final_error[:2])),
+        "final_axial_position_error_m": float(abs(final_error[0])),
         "final_lateral_error_m": float(abs(final_error[1])),
         "final_velocity_error_mps": float(np.linalg.norm(final_error[2:4])),
+        "final_axial_velocity_error_mps": float(abs(final_error[2])),
+        "final_lateral_velocity_error_mps": float(abs(final_error[3])),
         "final_attitude_error_deg": float(np.rad2deg(abs(final_error[4]))),
         "final_rate_error_degs": float(np.rad2deg(abs(final_error[5]))),
         "final_position_ratio": float(np.linalg.norm(final_ratios[:2])),
@@ -919,8 +922,17 @@ def summarize_rollouts(results):
             "closest_braking_envelope_violation_ratio"
         ),
         "mean_final_position_error_m": mean("final_position_error_m"),
+        "mean_final_axial_position_error_m": mean(
+            "final_axial_position_error_m"
+        ),
         "mean_final_lateral_error_m": mean("final_lateral_error_m"),
         "mean_final_velocity_error_mps": mean("final_velocity_error_mps"),
+        "mean_final_axial_velocity_error_mps": mean(
+            "final_axial_velocity_error_mps"
+        ),
+        "mean_final_lateral_velocity_error_mps": mean(
+            "final_lateral_velocity_error_mps"
+        ),
         "mean_final_attitude_error_deg": mean("final_attitude_error_deg"),
         "mean_final_rate_error_degs": mean("final_rate_error_degs"),
         "mean_final_max_target_ratio": mean("final_max_target_ratio"),

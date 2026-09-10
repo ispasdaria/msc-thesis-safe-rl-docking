@@ -2,7 +2,9 @@
 
 import argparse
 import contextlib
+import csv
 import io
+import json
 import os
 import sys
 
@@ -92,7 +94,7 @@ def plot_seed_zero(result, output_path):
     axis.scatter(0.0, 0.0, s=65, marker="+", label="$P_3$ target", zorder=4)
     axis.set_xlabel(r"Axial $P_3$-relative position error, $e_{P_3,x}$ [m]")
     axis.set_ylabel("Lateral $P_3$-relative position\nerror, $e_{P_3,y}$ [m]")
-    axis.set_title("Reward-v15 baseline (testing seed 0)")
+    axis.set_title("Selected Pre-Optimization Reward Candidate\n(Testing Seed 0)")
     axis.set_aspect("equal", adjustable="box")
     axis.grid(True, alpha=0.3)
     axis.invert_xaxis()
@@ -104,30 +106,54 @@ def plot_seed_zero(result, output_path):
     )
     figure.subplots_adjust(bottom=0.73)
     figure.savefig(output_path, dpi=200)
+    figure.savefig(os.path.splitext(output_path)[0] + ".pdf")
     plt.close(figure)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default=PLOT_PATH)
+    parser.add_argument("--model-name", default=MODEL_NAME)
+    parser.add_argument("--seeds", nargs="+", type=int, default=list(range(10)))
+    parser.add_argument("--output-dir", default=None)
+    parser.add_argument("--no-plot", action="store_true")
+    parser.add_argument("--plot-only", action="store_true")
     args = parser.parse_args()
 
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(MODEL_PATH)
-    if not os.path.exists(VECNORM_PATH):
-        raise FileNotFoundError(VECNORM_PATH)
+    model_name = args.model_name
+    model_path = os.path.join(MODEL_DIR, model_name + ".zip")
+    vecnorm_path = os.path.join(MODEL_DIR, model_name + "_vecnormalize.pkl")
+    output_dir = args.output_dir or os.path.join(
+        SCRIPT_DIR, "results", ARTIFACT_GROUP, "baseline_evaluation", model_name
+    )
+    plot_path = os.path.join(
+        output_dir, f"{model_name}_selected_reward_candidate_testing_seed0.png"
+    )
+
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(model_path)
+    if not os.path.exists(vecnorm_path):
+        raise FileNotFoundError(vecnorm_path)
+    if args.plot_only and 0 not in args.seeds:
+        raise ValueError("--plot-only requires testing seed 0 in --seeds")
+    os.makedirs(output_dir, exist_ok=True)
 
     evaluator.MODEL_DIR = MODEL_DIR
-    evaluator.MODEL_PATH = MODEL_PATH
-    evaluator.VECNORM_PATH = VECNORM_PATH
+    evaluator.MODEL_PATH = model_path
+    evaluator.VECNORM_PATH = vecnorm_path
 
     with contextlib.redirect_stdout(io.StringIO()):
         vecnorm, dummy_env = evaluator.load_vecnormalize_stats()
-        model = evaluator.SAC.load(MODEL_PATH)
+        model = evaluator.SAC.load(model_path)
 
-    results = [evaluate_seed(model, vecnorm, seed) for seed in range(10)]
+    results = [evaluate_seed(model, vecnorm, seed) for seed in args.seeds]
     dummy_env.close()
-    plot_seed_zero(results[0], args.output)
+    seed_zero = next((result for result in results if result["seed"] == 0), None)
+    if not args.no_plot and seed_zero is not None:
+        plot_seed_zero(seed_zero, plot_path)
+
+    if args.plot_only:
+        print(f"plot_path={plot_path}")
+        return
 
     metric_names = [
         "min_position_error",
@@ -138,9 +164,41 @@ def main():
         "terminal_rate_error",
     ]
 
-    print(f"model_path={MODEL_PATH}")
-    print(f"vecnormalize_path={VECNORM_PATH}")
-    print(f"plot_path={args.output}")
+    success_rate = np.mean([r["termination_reason"] == "success" for r in results])
+    timeout_rate = np.mean([r["termination_reason"] == "timeout" for r in results])
+    hard_safety_rate = np.mean(
+        [r["termination_reason"] == "safety_violation" for r in results]
+    )
+    summary = {
+        "model_name": model_name,
+        "testing_seeds": args.seeds,
+        "number_of_rollouts": len(results),
+        "mean_closest_p3_position_error_m": float(np.mean([r["min_position_error"] for r in results])),
+        "mean_terminal_position_error_m": float(np.mean([r["terminal_position_error"] for r in results])),
+        "mean_terminal_absolute_axial_error_m": float(np.mean([r["terminal_axial_error"] for r in results])),
+        "mean_terminal_absolute_lateral_error_m": float(np.mean([r["terminal_lateral_error"] for r in results])),
+        "success_rate": float(success_rate),
+        "timeout_rate": float(timeout_rate),
+        "hard_safety_violation_rate": float(hard_safety_rate),
+    }
+    summary_path = os.path.join(output_dir, "evaluation_summary.json")
+    with open(summary_path, "w", encoding="utf-8") as handle:
+        json.dump(summary, handle, indent=2)
+        handle.write("\n")
+    per_seed_path = os.path.join(output_dir, "per_seed_metrics.csv")
+    with open(per_seed_path, "w", newline="", encoding="utf-8") as handle:
+        fields = [
+            "seed", "steps", "min_position_error", "terminal_position_error",
+            "terminal_axial_error", "terminal_lateral_error", "termination_reason",
+        ]
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows({field: result[field] for field in fields} for result in results)
+
+    print(f"model_path={model_path}")
+    print(f"vecnormalize_path={vecnorm_path}")
+    if not args.no_plot and seed_zero is not None:
+        print(f"plot_path={plot_path}")
     print("PER_SEED")
     print(
         "seed | min_er | terminal_er | terminal_abs_ex | "
@@ -166,6 +224,12 @@ def main():
             f"std={np.std(values):.6f} | min={np.min(values):.6f} | "
             f"max={np.max(values):.6f}"
         )
+    print("OUTCOME_RATES")
+    print(f"success_rate={success_rate:.6f}")
+    print(f"timeout_rate={timeout_rate:.6f}")
+    print(f"hard_safety_violation_rate={hard_safety_rate:.6f}")
+    print(f"summary_path={summary_path}")
+    print(f"per_seed_path={per_seed_path}")
 
 
 if __name__ == "__main__":

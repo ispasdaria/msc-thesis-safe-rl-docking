@@ -238,12 +238,9 @@ def variant_manifest(variant):
 
 def build_manifest(args, model_path, vecnormalize_path, output_dir):
     return {
-        "purpose": (
-            "isolate simulator integration timestep from deterministic SAC "
-            "policy decision cadence"
-        ),
-        "source_experiment": SOURCE_EXPERIMENT,
-        "source_checkpoint": "model_0100000_steps",
+        "purpose": "deterministic closing SAC evaluation",
+        "source_experiment": model_path.stem,
+        "source_checkpoint": model_path.stem,
         "model_path": str(model_path),
         "vecnormalize_path": str(vecnormalize_path),
         "model_sha256": file_sha256(model_path),

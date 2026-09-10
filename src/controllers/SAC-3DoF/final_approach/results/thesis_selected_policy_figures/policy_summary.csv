@@ -1,0 +1,5 @@
+round,seed,budget,buffer,checkpoint_step,checkpoint_type,files_used,n_evaluation_rollouts,success_rate_percent
+5,3,600000,600000,100000,Intermediate checkpoint,"learning_curve.csv; evaluations.npz; exact _best.zip; exact _best_vecnormalize.pkl; reconstructed_selected_policies_50rollouts/all_rollouts.csv",50,100
+4,10,600000,100000,570000,Intermediate checkpoint,"learning_curve.csv; evaluations.npz; exact _best.zip; exact _best_vecnormalize.pkl; reconstructed_selected_policies_50rollouts/all_rollouts.csv",50,100
+5,11,600000,600000,600000,Final policy,"learning_curve.csv; evaluations.npz; exact final .zip; exact final _vecnormalize.pkl; newly collected r5_s11_b600k_trajectory_histories.npz",50,100
+3,19,300000,300000,160000,Intermediate checkpoint,"reconstructed_supplemental_policies_50rollouts/all_rollouts.csv; exact _best.zip; exact _best_vecnormalize.pkl; evaluation seed 44 rerun for failure history",50,42

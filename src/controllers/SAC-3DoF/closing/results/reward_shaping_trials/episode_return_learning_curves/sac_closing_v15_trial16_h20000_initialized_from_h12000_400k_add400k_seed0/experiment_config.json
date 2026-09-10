@@ -1,0 +1,22 @@
+{
+  "experiment_name": "sac_closing_v15_trial16_h20000_initialized_from_h12000_400k_add400k_seed0",
+  "training_seed": 0,
+  "new_environment_steps": 400000,
+  "episode_horizon_seconds": 20000.0,
+  "configuration": "post-optuna",
+  "sac_parameters": {
+    "learning_rate": 0.00026276728418436003,
+    "batch_size": 512,
+    "tau": 0.01,
+    "gamma": 0.99,
+    "learning_starts": 10000,
+    "train_freq": 16,
+    "gradient_steps": 8,
+    "ent_coef": "auto_0.05"
+  },
+  "buffer_size": 300000,
+  "initialization": "checkpoint",
+  "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+  "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+  "existing_artifacts_overwritten": false
+}

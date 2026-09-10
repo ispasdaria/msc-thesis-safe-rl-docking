@@ -1,0 +1,72 @@
+{
+  "final_approach_reward9_pre_vs_post_optuna": {
+    "seed": 0,
+    "phase": "final approach",
+    "reward_version": 9,
+    "observation": "docking-port",
+    "training_budget_steps": 100000,
+    "post_optuna_trial": 12,
+    "post_replay_buffer_size": 100000,
+    "dt_seconds": 1.0,
+    "integrator": "RK4",
+    "metric": "raw training episode return",
+    "x_axis": "original completed training episode number",
+    "replay_fill_filter": {
+      "rule": "retain completed episodes whose terminal timestep is at or after learning_starts",
+      "pre_learning_starts_steps": 1000,
+      "post_learning_starts_steps": 1000
+    },
+    "smoothing": {
+      "type": "trailing moving average",
+      "window_episodes": 10,
+      "min_periods": 1,
+      "identical_for_both_runs": true
+    },
+    "raw_data_plotted": true,
+    "pre_source": "final_approach\\results\\reward_shaping_trials\\learning_curves\\sac_final_approach_portobs_rewardv9_100ksteps_seed0\\learning_curve.csv",
+    "post_source": "final_approach\\results\\optuna12_100ksteps_buffer100k\\learning_curves\\sac_final_approach_portobs_rewardv9_100ksteps_seed0_optuna12\\learning_curve.csv",
+    "pre_points_plotted": 186,
+    "post_points_plotted": 67,
+    "caption": "Training seed 0; 100,000 environment steps; docking-port observation; Reward 9; dt=1 s; RK4; normalized actions; post-Optuna uses trial 12 and a 100,000-transition replay buffer. Episodes ending before learning_starts=1,000 steps are omitted.",
+    "outputs": [
+      "final_approach_reward9_pre_vs_post_optuna.png",
+      "final_approach_reward9_pre_vs_post_optuna.pdf"
+    ]
+  },
+  "closing_phase_reward15_pre_vs_post_optuna": {
+    "seed": 0,
+    "phase": "closing",
+    "reward_version": 15,
+    "observation": "augmented docking-port safety state plus P3 error",
+    "comparison_horizon_steps": 300000,
+    "pre_training_budget_steps": 300000,
+    "post_source_training_budget_steps": 400000,
+    "post_optuna_trial": 16,
+    "replay_buffer_size": 300000,
+    "dt_seconds": 1.0,
+    "integrator": "RK4",
+    "metric": "raw training episode return",
+    "x_axis": "original completed training episode number",
+    "replay_fill_filter": {
+      "rule": "retain completed episodes whose terminal timestep is at or after learning_starts",
+      "pre_learning_starts_steps": 1000,
+      "post_learning_starts_steps": 10000
+    },
+    "smoothing": {
+      "type": "trailing moving average",
+      "window_episodes": 10,
+      "min_periods": 1,
+      "identical_for_both_runs": true
+    },
+    "raw_data_plotted": true,
+    "pre_source": "closing\\results\\reward_shaping_trials\\episode_return_learning_curves\\sac_closing_p3augobs_rewardv15_300ksteps_seed0_buffer300k\\learning_curve.csv",
+    "post_source": "closing\\results\\reward_shaping_trials\\episode_return_learning_curves\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k\\learning_curve.csv",
+    "pre_points_plotted": 44,
+    "post_points_plotted": 58,
+    "caption": "Training seed 0; common first 300,000 environment steps; augmented P3 observation; Reward 15; 300,000-transition replay buffer; dt=1 s; RK4; normalized actions. Post-Optuna uses trial 16 (the source run continued to 400,000 steps). Replay-only prefixes are omitted: learning_starts is 1,000 steps pre-Optuna and 10,000 steps post-Optuna.",
+    "outputs": [
+      "closing_phase_reward15_pre_vs_post_optuna.png",
+      "closing_phase_reward15_pre_vs_post_optuna.pdf"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "model_name": "sac_closing_p3augobs_rewardv15_preoptuna_400ksteps_seed0_buffer300k_best",
+  "testing_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "number_of_rollouts": 10,
+  "mean_closest_p3_position_error_m": 38.094430476989444,
+  "mean_terminal_position_error_m": 53.30256118596647,
+  "mean_terminal_absolute_axial_error_m": 47.55412106437438,
+  "mean_terminal_absolute_lateral_error_m": 19.160992155127467,
+  "success_rate": 0.0,
+  "timeout_rate": 0.9,
+  "hard_safety_violation_rate": 0.1
+}

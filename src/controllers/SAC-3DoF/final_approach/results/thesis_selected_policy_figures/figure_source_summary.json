@@ -1,0 +1,82 @@
+[
+  {
+    "round": 5,
+    "seed": 3,
+    "budget": 600000,
+    "buffer": 600000,
+    "checkpoint_step": 100000,
+    "checkpoint_type": "best",
+    "checkpoint_episode": 247,
+    "episode_boundary_timestep": 101046,
+    "trim_start_episode": 209,
+    "trim_start_timestep": 10087,
+    "training_file": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\optuna12_600ksteps_buffer600k\\learning_curves\\sac_final_approach_portobs_rewardv9_600ksteps_seed3_optuna12_buffer600k\\learning_curve.csv"
+  },
+  {
+    "round": 4,
+    "seed": 10,
+    "budget": 600000,
+    "buffer": 100000,
+    "checkpoint_step": 570000,
+    "checkpoint_type": "best",
+    "checkpoint_episode": 429,
+    "episode_boundary_timestep": 572024,
+    "trim_start_episode": 176,
+    "trim_start_timestep": 10023,
+    "training_file": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\optuna12_600ksteps_buffer100k\\learning_curves\\sac_final_approach_portobs_rewardv9_600ksteps_seed10_optuna12_buffer100k\\learning_curve.csv"
+  },
+  {
+    "round": 5,
+    "seed": 11,
+    "budget": 600000,
+    "buffer": 600000,
+    "checkpoint_step": 600000,
+    "checkpoint_type": "final",
+    "checkpoint_episode": 360,
+    "episode_boundary_timestep": 596477,
+    "trim_start_episode": 178,
+    "trim_start_timestep": 10140,
+    "training_file": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\optuna12_600ksteps_buffer600k\\learning_curves\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k\\learning_curve.csv"
+  },
+  {
+    "round": 5,
+    "seed": 11,
+    "budget": 600000,
+    "buffer": 600000,
+    "checkpoint_step": 600000,
+    "checkpoint_type": "final",
+    "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k.zip",
+    "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k_vecnormalize.pkl",
+    "n_rollouts": 50,
+    "success_rate": 1.0,
+    "representative_seed": 21
+  },
+  {
+    "round": 3,
+    "seed": 19,
+    "budget": 300000,
+    "buffer": 300000,
+    "checkpoint_step": 160000,
+    "checkpoint_type": "best",
+    "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_300ksteps_buffer300k\\sac_final_approach_portobs_rewardv9_300ksteps_seed19_optuna12_buffer300k_best.zip",
+    "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_300ksteps_buffer300k\\sac_final_approach_portobs_rewardv9_300ksteps_seed19_optuna12_buffer300k_best_vecnormalize.pkl",
+    "evaluation_file": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\reconstructed_supplemental_policies_50rollouts\\all_rollouts.csv",
+    "n_rollouts": 50,
+    "success_rate": 0.42,
+    "failure_reasons": {
+      "safety_violation": 29
+    },
+    "failure_constraints": {
+      "geometry": 29
+    },
+    "terminal_criterion_failure_counts": {
+      "terminal_port_position_error_m": 0,
+      "terminal_port_velocity_error_mps": 0,
+      "terminal_attitude_error_deg": 0,
+      "terminal_angular_rate_error_deg_s": 0
+    },
+    "representative_failed_seed": 44,
+    "representative_reason": "safety_violation",
+    "representative_constraints": "geometry"
+  }
+]

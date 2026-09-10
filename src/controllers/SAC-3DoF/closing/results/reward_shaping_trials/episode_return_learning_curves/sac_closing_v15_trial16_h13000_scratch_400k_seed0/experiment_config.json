@@ -1,0 +1,22 @@
+{
+  "experiment_name": "sac_closing_v15_trial16_h13000_scratch_400k_seed0",
+  "training_seed": 0,
+  "new_environment_steps": 400000,
+  "episode_horizon_seconds": 13000.0,
+  "configuration": "post-optuna",
+  "sac_parameters": {
+    "learning_rate": 0.00026276728418436003,
+    "batch_size": 512,
+    "tau": 0.01,
+    "gamma": 0.99,
+    "learning_starts": 10000,
+    "train_freq": 16,
+    "gradient_steps": 8,
+    "ent_coef": "auto_0.05"
+  },
+  "buffer_size": 300000,
+  "initialization": "from_scratch",
+  "source_model": null,
+  "source_vecnormalize": null,
+  "existing_artifacts_overwritten": false
+}

@@ -1,0 +1,311 @@
+{
+  "configuration": "lqr_final_r1_s12_100k",
+  "label": "LQR dt=0.1 + final SAC round 1 seed 12 100k/buffer100k",
+  "seed_start": 300,
+  "seed_end": 349,
+  "num_missions": 50,
+  "mission_successes": 29,
+  "mission_success_rate": 0.58,
+  "closing_successes": 29,
+  "final_attempts": 29,
+  "final_successes": 29,
+  "failed_phase_counts": {
+    "none": 29,
+    "closing": 21
+  },
+  "closing_termination_counts": {
+    "success_P3_target": 29,
+    "timeout": 21
+  },
+  "final_termination_counts": {
+    "success_docking": 29
+  },
+  "closing_dt_s": 0.1,
+  "final_dt_s": 1.0,
+  "closing_model": null,
+  "closing_vecnormalize": null,
+  "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+  "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
+  "distributions": {
+    "mission_elapsed_time_s": {
+      "count": 50,
+      "mean": 13633.67,
+      "std_sample": 1432.468225846991,
+      "min": 12000.0,
+      "max": 15582.7
+    },
+    "mission_steps": {
+      "count": 50,
+      "mean": 118075.88,
+      "std_sample": 3180.67791926854,
+      "min": 109155.0,
+      "max": 122545.0
+    },
+    "closing_elapsed_time_s": {
+      "count": 50,
+      "mean": 11604.69,
+      "std_sample": 435.66649210943297,
+      "min": 10544.5,
+      "max": 12000.0
+    },
+    "closing_steps": {
+      "count": 50,
+      "mean": 116046.9,
+      "std_sample": 4356.6649210943315,
+      "min": 105445.0,
+      "max": 120000.0
+    },
+    "closing_saturation_fraction": {
+      "count": 50,
+      "mean": 0.0012467880526151245,
+      "std_sample": 0.0005645686711326526,
+      "min": 0.00042714887028022746,
+      "max": 0.002341666666666667
+    },
+    "closing_final_port_distance_m": {
+      "count": 50,
+      "mean": 287.9987139767981,
+      "std_sample": 18.768700732397306,
+      "min": 239.26137513241721,
+      "max": 315.83867781304264
+    },
+    "closing_final_port_speed_mps": {
+      "count": 50,
+      "mean": 0.03846097448511663,
+      "std_sample": 0.011213869624960711,
+      "min": 0.013880997089460435,
+      "max": 0.058266734298047955
+    },
+    "closing_axial_position_error_m": {
+      "count": 50,
+      "mean": 10.53368318018172,
+      "std_sample": 17.544926219027325,
+      "min": -51.83699297113117,
+      "max": 24.767963059274848
+    },
+    "closing_absolute_axial_position_error_m": {
+      "count": 50,
+      "mean": 18.647078200575102,
+      "std_sample": 8.138651998934817,
+      "min": 1.563273467855879,
+      "max": 51.83699297113117
+    },
+    "closing_lateral_position_error_m": {
+      "count": 50,
+      "mean": 0.3189121664767954,
+      "std_sample": 1.9839414015467078,
+      "min": -3.155993513591925,
+      "max": 3.2438579650396875
+    },
+    "closing_absolute_lateral_position_error_m": {
+      "count": 50,
+      "mean": 1.6762877191349501,
+      "std_sample": 1.082828621787967,
+      "min": 0.013090825372762849,
+      "max": 3.2438579650396875
+    },
+    "closing_position_error_norm_m": {
+      "count": 50,
+      "mean": 18.87263216361319,
+      "std_sample": 7.8512440098972816,
+      "min": 3.3938438023263338,
+      "max": 51.882865271613504
+    },
+    "closing_axial_velocity_error_mps": {
+      "count": 50,
+      "mean": -0.005565260974802307,
+      "std_sample": 0.003145556797225865,
+      "min": -0.012606024510126695,
+      "max": 0.0004901298784809258
+    },
+    "closing_absolute_axial_velocity_error_mps": {
+      "count": 50,
+      "mean": 0.005611609491585522,
+      "std_sample": 0.0030603797358229714,
+      "min": 0.00011670834163909904,
+      "max": 0.012606024510126695
+    },
+    "closing_lateral_velocity_error_mps": {
+      "count": 50,
+      "mean": -0.0009781586712733123,
+      "std_sample": 0.0060849931758791345,
+      "min": -0.009949366436453323,
+      "max": 0.009679698851879522
+    },
+    "closing_absolute_lateral_velocity_error_mps": {
+      "count": 50,
+      "mean": 0.005141360449364812,
+      "std_sample": 0.003321206786355653,
+      "min": 4.001586199124029e-05,
+      "max": 0.009949366436453323
+    },
+    "closing_velocity_error_norm_mps": {
+      "count": 50,
+      "mean": 0.008527768694177021,
+      "std_sample": 0.002301135772636919,
+      "min": 0.0018368114764700226,
+      "max": 0.013608941162705506
+    },
+    "closing_attitude_error_deg": {
+      "count": 50,
+      "mean": 0.025886417797934227,
+      "std_sample": 0.3248292578181598,
+      "min": -0.5262630888813635,
+      "max": 0.4892210121090268
+    },
+    "closing_absolute_attitude_error_deg": {
+      "count": 50,
+      "mean": 0.276147221596407,
+      "std_sample": 0.16847631829888626,
+      "min": 0.009905161116117136,
+      "max": 0.5262630888813635
+    },
+    "closing_angular_rate_error_deg_s": {
+      "count": 50,
+      "mean": -0.0024589794739835746,
+      "std_sample": 0.030855890674915065,
+      "min": -0.04647164534058295,
+      "max": 0.04999031320586401
+    },
+    "closing_absolute_angular_rate_error_deg_s": {
+      "count": 50,
+      "mean": 0.0262315301798669,
+      "std_sample": 0.016003751920800297,
+      "min": 0.0009409022159076953,
+      "max": 0.04999031320586401
+    },
+    "final_elapsed_time_s": {
+      "count": 29,
+      "mean": 3498.2413793103447,
+      "std_sample": 144.87991460230924,
+      "min": 3255.0,
+      "max": 3710.0
+    },
+    "final_steps": {
+      "count": 29,
+      "mean": 3498.2413793103447,
+      "std_sample": 144.87991460230924,
+      "min": 3255.0,
+      "max": 3710.0
+    },
+    "final_saturation_fraction": {
+      "count": 29,
+      "mean": 0.0,
+      "std_sample": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "final_final_port_distance_m": {
+      "count": 29,
+      "mean": 0.06478421548455343,
+      "std_sample": 0.02058686472241408,
+      "min": 0.03106528129291517,
+      "max": 0.09983764161159174
+    },
+    "final_final_port_speed_mps": {
+      "count": 29,
+      "mean": 0.06903861380647142,
+      "std_sample": 1.1396561906127323e-05,
+      "min": 0.06902005817980188,
+      "max": 0.06905780029173195
+    },
+    "final_axial_position_error_m": {
+      "count": 29,
+      "mean": 0.06478362302728562,
+      "std_sample": 0.020587136566365235,
+      "min": 0.03106249990029397,
+      "max": 0.09983715806214022
+    },
+    "final_absolute_axial_position_error_m": {
+      "count": 29,
+      "mean": 0.06478362302728562,
+      "std_sample": 0.020587136566365235,
+      "min": 0.03106249990029397,
+      "max": 0.09983715806214022
+    },
+    "final_lateral_position_error_m": {
+      "count": 29,
+      "mean": -7.029797799075477e-06,
+      "std_sample": 0.00026126781602122306,
+      "min": -0.0004156943013590266,
+      "max": 0.00041571080036479757
+    },
+    "final_absolute_lateral_position_error_m": {
+      "count": 29,
+      "mean": 0.00022177981873768542,
+      "std_sample": 0.00013179193273509814,
+      "min": 1.2403252528685703e-05,
+      "max": 0.00041571080036479757
+    },
+    "final_position_error_norm_m": {
+      "count": 29,
+      "mean": 0.06478421548455343,
+      "std_sample": 0.02058686472241408,
+      "min": 0.03106528129291517,
+      "max": 0.09983764161159174
+    },
+    "final_axial_velocity_error_mps": {
+      "count": 29,
+      "mean": -0.06903475701245369,
+      "std_sample": 1.13603729341101e-05,
+      "min": -0.06905389742968653,
+      "max": -0.06901625444774018
+    },
+    "final_absolute_axial_velocity_error_mps": {
+      "count": 29,
+      "mean": 0.06903475701245369,
+      "std_sample": 1.13603729341101e-05,
+      "min": 0.06901625444774018,
+      "max": 0.06905389742968653
+    },
+    "final_lateral_velocity_error_mps": {
+      "count": 29,
+      "mean": -0.000729731586419627,
+      "std_sample": 3.6915344617878877e-06,
+      "min": -0.0007353928025538634,
+      "max": -0.0007246055119989427
+    },
+    "final_absolute_lateral_velocity_error_mps": {
+      "count": 29,
+      "mean": 0.000729731586419627,
+      "std_sample": 3.6915344617878877e-06,
+      "min": 0.0007246055119989427,
+      "max": 0.0007353928025538634
+    },
+    "final_velocity_error_norm_mps": {
+      "count": 29,
+      "mean": 0.06903861380647142,
+      "std_sample": 1.1396561906127323e-05,
+      "min": 0.06902005817980188,
+      "max": 0.06905780029173195
+    },
+    "final_attitude_error_deg": {
+      "count": 29,
+      "mean": -0.07763921430643636,
+      "std_sample": 0.0001276512545403322,
+      "min": -0.07786527217871564,
+      "max": -0.07742863672119878
+    },
+    "final_absolute_attitude_error_deg": {
+      "count": 29,
+      "mean": 0.07763921430643636,
+      "std_sample": 0.0001276512545403322,
+      "min": 0.07742863672119878,
+      "max": 0.07786527217871564
+    },
+    "final_angular_rate_error_deg_s": {
+      "count": 29,
+      "mean": 0.0004379378335534807,
+      "std_sample": 8.388558116758579e-06,
+      "min": 0.0004254866342196016,
+      "max": 0.00044684805084857867
+    },
+    "final_absolute_angular_rate_error_deg_s": {
+      "count": 29,
+      "mean": 0.0004379378335534807,
+      "std_sample": 8.388558116758579e-06,
+      "min": 0.0004254866342196016,
+      "max": 0.00044684805084857867
+    }
+  }
+}

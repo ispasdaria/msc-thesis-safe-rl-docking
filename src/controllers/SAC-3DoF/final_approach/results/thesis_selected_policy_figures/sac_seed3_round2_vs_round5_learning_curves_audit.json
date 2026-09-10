@@ -1,0 +1,47 @@
+{
+  "smoothing": "rolling mean over 10 episodes",
+  "checkpoint_step": 100000,
+  "runs": [
+    {
+      "label": "Round 2: 300k steps, buffer size 100k",
+      "model": "models\\optuna12_300ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_300ksteps_seed3_optuna12_buffer100k.zip",
+      "learning_curve_csv": "results\\optuna12_300ksteps_buffer100k\\learning_curves\\sac_final_approach_portobs_rewardv9_300ksteps_seed3_optuna12_buffer100k\\learning_curve.csv",
+      "model_metadata": {
+        "learning_starts": 1000,
+        "buffer_size": 100000,
+        "num_timesteps": 300000,
+        "seed": 3
+      },
+      "first_fully_post_learning_episode": 182,
+      "first_fully_post_learning_episode_start_step": 1003,
+      "checkpoint_episode": 247,
+      "checkpoint_previous_episode_end_step": 97029,
+      "checkpoint_episode_end_step": 101019,
+      "checkpoint_continuous_episode_coordinate": 246.74461152882205
+    },
+    {
+      "label": "Round 5: 600k steps, buffer size 600k",
+      "model": "models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed3_optuna12_buffer600k.zip",
+      "learning_curve_csv": "results\\optuna12_600ksteps_buffer600k\\learning_curves\\sac_final_approach_portobs_rewardv9_600ksteps_seed3_optuna12_buffer600k\\learning_curve.csv",
+      "model_metadata": {
+        "learning_starts": 1000,
+        "buffer_size": 600000,
+        "num_timesteps": 600000,
+        "seed": 3
+      },
+      "first_fully_post_learning_episode": 182,
+      "first_fully_post_learning_episode_start_step": 1003,
+      "checkpoint_episode": 247,
+      "checkpoint_previous_episode_end_step": 97029,
+      "checkpoint_episode_end_step": 101046,
+      "checkpoint_continuous_episode_coordinate": 246.7396066716455
+    }
+  ],
+  "history_comparison": {
+    "completed_episodes_at_or_before_100k": 246,
+    "all_logged_fields_identical_for_those_episodes": true,
+    "last_identical_episode_before_100k": 246,
+    "last_identical_episode_end_step": 97029,
+    "first_mismatching_episode": 247
+  }
+}

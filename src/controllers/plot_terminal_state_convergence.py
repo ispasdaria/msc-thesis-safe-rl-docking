@@ -72,8 +72,9 @@ def plot_case(
     representative = representative_index(times, success)
 
     plt.rcParams.update({
-        "font.size": 9.5, "axes.labelsize": 10, "axes.titlesize": 10,
-        "legend.fontsize": 9, "figure.dpi": 130, "savefig.dpi": 400,
+        "font.size": 11, "axes.labelsize": 12.5, "axes.titlesize": 12,
+        "xtick.labelsize": 10.5, "ytick.labelsize": 10.5,
+        "legend.fontsize": 10.5, "figure.dpi": 130, "savefig.dpi": 400,
         "pdf.fonttype": 42, "ps.fonttype": 42,
     })
     fig, axes_grid = plt.subplots(2, 2, figsize=(11.2, 7.6), sharex=True)
@@ -101,17 +102,17 @@ def plot_case(
         ax.grid(True, color=GRID, lw=0.6, alpha=0.75)
         ax.set_axisbelow(True)
         ax.text(0.01, 0.92, f"({chr(96 + panel)})", transform=ax.transAxes,
-                ha="left", va="top", fontweight="bold")
+                ha="left", va="top", fontsize=11.5, fontweight="bold")
         annotation_transform = blended_transform_factory(ax.transAxes, ax.transData)
         ax.text(text_x, tolerance * text_y_factor, tolerance_label,
                 transform=annotation_transform, ha="left", va="bottom",
-                color=GREEN, fontsize=8.5,
+                color=GREEN, fontsize=10,
                 bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.72,
                       "pad": 1.0})
     for ax in axes_grid[-1, :]:
         ax.set_xlabel("Time [s]")
     axes[-1].set_xlim(0.0, 1.01 * np.nanmax(times))
-    fig.suptitle(title, fontsize=12.2, fontweight="bold", y=0.985)
+    fig.suptitle(title, fontsize=15, fontweight="normal", y=0.985)
     handles = [
         Line2D([], [], color=BLUE, lw=1.0, alpha=0.35, label="Individual rollouts"),
         Line2D([], [], color=DARK_BLUE, lw=1.7,
@@ -146,12 +147,12 @@ def main() -> None:
         "Terminal-state convergence across 50 rollouts for the retained final-approach SAC policy",
         "figure_a_retained_sac_final_approach", final_fields, final_labels,
         final_tolerances, final_tolerance_labels,
-        (0.56, 0.50, 0.78, 0.73), (8.0, 0.94, 0.92, 0.92))
+        (0.46, 0.50, 0.66, 0.61), (8.0, 0.94, 0.92, 0.92))
     outputs += plot_case(load(LQR_FINAL_CACHE),
         "Terminal-state convergence across 50 rollouts for the final-approach LQR controller",
         "figure_b_lqr_final_approach", final_fields, final_labels,
         final_tolerances, final_tolerance_labels,
-        (0.08, 0.70, 0.78, 0.73), (8.0, 1.035, 0.92, 0.92))
+        (0.08, 0.70, 0.66, 0.61), (8.0, 1.035, 0.92, 0.92))
 
     closing = load(LQR_CLOSING_CACHE)
     tolerance = np.asarray(closing["p3_target_tolerance"], dtype=float)
@@ -171,7 +172,7 @@ def main() -> None:
         (r"Corner norm: $\sqrt{20^2+2^2}=20.10$ m",
          r"Corner norm: $\sqrt{0.01^2+0.01^2}=0.0141$ m/s",
          "Tolerance: 0.5 deg", "Tolerance: 0.05 deg/s"),
-        (0.08, 0.08, 0.69, 0.71), (1.35, 1.10, 1.08, 1.10))
+        (0.08, 0.08, 0.69, 0.61), (1.35, 1.10, 1.08, 1.10))
     for path in outputs:
         print(f"Wrote {path}")
 

@@ -1,0 +1,308 @@
+{
+  "configuration": "vanilla400k_final_r1_s12_100k",
+  "label": "vanilla closing SAC reward v15/trial 16 final 400k + final SAC round 1 seed 12 100k",
+  "seed_start": 300,
+  "seed_end": 349,
+  "num_missions": 50,
+  "mission_successes": 0,
+  "mission_success_rate": 0.0,
+  "closing_successes": 0,
+  "final_attempts": 0,
+  "final_successes": 0,
+  "failed_phase_counts": {
+    "closing": 50
+  },
+  "closing_termination_counts": {
+    "timeout": 49,
+    "safety_violation": 1
+  },
+  "final_termination_counts": {},
+  "closing_dt_s": 1.0,
+  "final_dt_s": 1.0,
+  "closing_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+  "closing_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+  "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+  "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
+  "distributions": {
+    "mission_elapsed_time_s": {
+      "count": 50,
+      "mean": 11989.34,
+      "std_sample": 75.37758287448597,
+      "min": 11467.0,
+      "max": 12000.0
+    },
+    "mission_steps": {
+      "count": 50,
+      "mean": 11989.34,
+      "std_sample": 75.37758287448597,
+      "min": 11467.0,
+      "max": 12000.0
+    },
+    "closing_elapsed_time_s": {
+      "count": 50,
+      "mean": 11989.34,
+      "std_sample": 75.37758287448597,
+      "min": 11467.0,
+      "max": 12000.0
+    },
+    "closing_steps": {
+      "count": 50,
+      "mean": 11989.34,
+      "std_sample": 75.37758287448597,
+      "min": 11467.0,
+      "max": 12000.0
+    },
+    "closing_saturation_fraction": {
+      "count": 50,
+      "mean": 0.0,
+      "std_sample": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "closing_final_port_distance_m": {
+      "count": 50,
+      "mean": 291.6023491799592,
+      "std_sample": 60.945484042911225,
+      "min": 168.2901382993721,
+      "max": 448.21042621874636
+    },
+    "closing_final_port_speed_mps": {
+      "count": 50,
+      "mean": 0.024582368931246223,
+      "std_sample": 0.02623484941157512,
+      "min": 0.0003586547861054441,
+      "max": 0.10635446161320222
+    },
+    "closing_axial_position_error_m": {
+      "count": 50,
+      "mean": 11.782911956305085,
+      "std_sample": 56.67026178701995,
+      "min": -89.8711584692361,
+      "max": 177.02231976477748
+    },
+    "closing_absolute_axial_position_error_m": {
+      "count": 50,
+      "mean": 43.3382133002957,
+      "std_sample": 37.90326680360147,
+      "min": 0.5558481031246174,
+      "max": 177.02231976477748
+    },
+    "closing_lateral_position_error_m": {
+      "count": 50,
+      "mean": 26.310011603920888,
+      "std_sample": 28.36716449091484,
+      "min": 4.970737295620126,
+      "max": 85.46899640758387
+    },
+    "closing_absolute_lateral_position_error_m": {
+      "count": 50,
+      "mean": 26.310011603920888,
+      "std_sample": 28.36716449091484,
+      "min": 4.970737295620126,
+      "max": 85.46899640758387
+    },
+    "closing_position_error_norm_m": {
+      "count": 50,
+      "mean": 53.23285581634056,
+      "std_sample": 44.4146405217632,
+      "min": 10.968616915892374,
+      "max": 195.26674842339725
+    },
+    "closing_axial_velocity_error_mps": {
+      "count": 50,
+      "mean": 0.01084346429508749,
+      "std_sample": 0.02415653598750352,
+      "min": -0.09108842398619714,
+      "max": 0.035288378328260754
+    },
+    "closing_absolute_axial_velocity_error_mps": {
+      "count": 50,
+      "mean": 0.022721659863343915,
+      "std_sample": 0.013293175987217172,
+      "min": 0.00021727845055245776,
+      "max": 0.09108842398619714
+    },
+    "closing_lateral_velocity_error_mps": {
+      "count": 50,
+      "mean": -0.00012947810121322778,
+      "std_sample": 0.005772354864158996,
+      "min": -0.01127627400825769,
+      "max": 0.009504620226098227
+    },
+    "closing_absolute_lateral_velocity_error_mps": {
+      "count": 50,
+      "mean": 0.004834561690760078,
+      "std_sample": 0.0030801300166623065,
+      "min": 0.0001016615896340206,
+      "max": 0.01127627400825769
+    },
+    "closing_velocity_error_norm_mps": {
+      "count": 50,
+      "mean": 0.023640650365181592,
+      "std_sample": 0.01290618733795081,
+      "min": 0.0010406396978603308,
+      "max": 0.09143030674201888
+    },
+    "closing_attitude_error_deg": {
+      "count": 50,
+      "mean": -0.6831545314588038,
+      "std_sample": 17.26895425906582,
+      "min": -36.32372862305169,
+      "max": 14.544060823198755
+    },
+    "closing_absolute_attitude_error_deg": {
+      "count": 50,
+      "mean": 13.736425597844848,
+      "std_sample": 10.303048760518966,
+      "min": 4.202213029018557,
+      "max": 36.32372862305169
+    },
+    "closing_angular_rate_error_deg_s": {
+      "count": 50,
+      "mean": -0.0010265117799990273,
+      "std_sample": 0.031909415762168145,
+      "min": -0.04695544654359978,
+      "max": 0.052381142640059435
+    },
+    "closing_absolute_angular_rate_error_deg_s": {
+      "count": 50,
+      "mean": 0.027330640449530468,
+      "std_sample": 0.016033651380201873,
+      "min": 0.0014639383399280145,
+      "max": 0.052381142640059435
+    },
+    "final_elapsed_time_s": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_steps": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_saturation_fraction": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_final_port_distance_m": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_final_port_speed_mps": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_axial_position_error_m": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_absolute_axial_position_error_m": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_lateral_position_error_m": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_absolute_lateral_position_error_m": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_position_error_norm_m": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_axial_velocity_error_mps": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_absolute_axial_velocity_error_mps": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_lateral_velocity_error_mps": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_absolute_lateral_velocity_error_mps": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_velocity_error_norm_mps": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_attitude_error_deg": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_absolute_attitude_error_deg": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_angular_rate_error_deg_s": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    },
+    "final_absolute_angular_rate_error_deg_s": {
+      "count": 0,
+      "mean": null,
+      "std_sample": null,
+      "min": null,
+      "max": null
+    }
+  }
+}

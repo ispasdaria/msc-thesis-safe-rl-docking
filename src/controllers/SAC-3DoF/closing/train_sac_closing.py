@@ -6,6 +6,7 @@ This script only trains the SAC agent.
 
 import argparse
 import csv
+import json
 import os
 import sys
 from collections import deque
@@ -68,6 +69,19 @@ TRIAL_16_PARAMS = {
     "ent_coef": "auto_0.05",
 }
 
+# Configuration used by the Reward-v15 run immediately before Optuna.  Keep
+# this explicit so a matched-budget rerun changes only the training budget.
+PRE_OPTUNA_PARAMS = {
+    "learning_rate": 0.0003395686575052769,
+    "batch_size": 256,
+    "tau": 0.005,
+    "gamma": 0.98,
+    "learning_starts": 1_000,
+    "train_freq": 8,
+    "gradient_steps": 8,
+    "ent_coef": "auto_0.1",
+}
+
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -83,6 +97,31 @@ def parse_args():
         default="auto",
         help="Device used by Stable-Baselines3/PyTorch: auto, cpu, or cuda.",
     )
+    parser.add_argument(
+        "--configuration",
+        choices=["pre-optuna", "post-optuna"],
+        default="post-optuna",
+        help="SAC hyperparameter configuration to train.",
+    )
+    parser.add_argument(
+        "--total-timesteps",
+        type=int,
+        default=400_000,
+        help="Training budget in environment steps (default: 400000).",
+    )
+    parser.add_argument(
+        "--max-time",
+        type=float,
+        default=None,
+        help="Episode horizon in seconds (closing default when omitted).",
+    )
+    parser.add_argument(
+        "--experiment-name",
+        default=None,
+        help="Unique artifact name. Existing outputs are never overwritten.",
+    )
+    parser.add_argument("--initialize-model", default=None)
+    parser.add_argument("--initialize-vecnormalize", default=None)
     return parser.parse_args()
 
 
@@ -105,7 +144,7 @@ def print_device_info(device):
 # Environment factory
 # ---------------------------------------------------------------------
 
-def make_training_env(seed=12):
+def make_training_env(seed=12, max_time=None):
     """
     Creates one monitored closing training environment.
 
@@ -118,7 +157,7 @@ def make_training_env(seed=12):
         phase="closing",
         mode="training",
         dt=1.0,
-        max_time=None,
+        max_time=max_time,
         integrator="rk4",
         normalize_action=True,
         seed=seed,
@@ -129,7 +168,7 @@ def make_training_env(seed=12):
     return env
 
 
-def make_eval_env(seed=0):
+def make_eval_env(seed=0, max_time=None):
     """
     Creates one raw closing evaluation environment.
 
@@ -142,7 +181,7 @@ def make_eval_env(seed=0):
         phase="closing",
         mode="testing",
         dt=1.0,
-        max_time=None,
+        max_time=max_time,
         integrator="rk4",
         normalize_action=True,
         seed=seed,
@@ -659,18 +698,39 @@ class PeriodicEvalCallback(BaseCallback):
 def main():
     args = parse_args()
     validate_device(args.device)
+    if args.max_time is not None and args.max_time <= 0:
+        raise ValueError("--max-time must be positive")
+    initialized = args.initialize_model is not None or args.initialize_vecnormalize is not None
+    if initialized and not (args.initialize_model and args.initialize_vecnormalize):
+        raise ValueError(
+            "--initialize-model and --initialize-vecnormalize must be supplied together"
+        )
+    for source in (args.initialize_model, args.initialize_vecnormalize):
+        if source is not None and not os.path.isfile(source):
+            raise FileNotFoundError(source)
 
     # -----------------------------------------------------------------
     # Training configuration
     # -----------------------------------------------------------------
 
     seed = 0
-    total_timesteps = 400_000
-
-    model_name = (
-        "sac_closing_p3augobs_rewardv15_optuna_trial16_"
-        "400ksteps_seed0_buffer300k"
-    )
+    total_timesteps = args.total_timesteps
+    if total_timesteps <= 0:
+        raise ValueError("--total-timesteps must be positive")
+    params = PRE_OPTUNA_PARAMS if args.configuration == "pre-optuna" else TRIAL_16_PARAMS
+    steps_label = f"{total_timesteps // 1000}ksteps"
+    if args.experiment_name is not None:
+        model_name = args.experiment_name
+    elif args.configuration == "pre-optuna":
+        model_name = (
+            f"sac_closing_p3augobs_rewardv15_preoptuna_{steps_label}_"
+            "seed0_buffer300k"
+        )
+    else:
+        model_name = (
+            f"sac_closing_p3augobs_rewardv15_optuna_trial16_{steps_label}_"
+            "seed0_buffer300k"
+        )
 
     model_path = os.path.join(MODEL_DIR, model_name)
     best_model_path = os.path.join(MODEL_DIR, f"{model_name}_best")
@@ -695,8 +755,18 @@ def main():
         f"{model_name}.png",
     )
 
-    os.makedirs(learning_curve_dir, exist_ok=True)
-    os.makedirs(evaluation_curve_dir, exist_ok=True)
+    protected_outputs = [
+        model_path + ".zip", best_model_path + ".zip", vecnorm_path,
+        best_vecnorm_path, learning_curve_csv, learning_curve_plot,
+        evaluation_curve_csv, evaluations_npz, evaluation_curve_plot,
+    ]
+    if any(os.path.exists(path) for path in protected_outputs):
+        raise FileExistsError(
+            "Refusing to overwrite an existing experiment artifact. "
+            f"Choose a new --experiment-name: {model_name}"
+        )
+    os.makedirs(learning_curve_dir, exist_ok=False)
+    os.makedirs(evaluation_curve_dir, exist_ok=False)
 
     print("=" * 80)
     print("SAC closing training")
@@ -710,6 +780,10 @@ def main():
     print(f"Eval curve:      {evaluation_curve_plot}")
     print(f"Evaluations NPZ: {evaluations_npz}")
     print(f"Total steps:     {total_timesteps}")
+    print(f"Episode horizon: {args.max_time}")
+    print(f"Initialization:  {'checkpoint' if initialized else 'from scratch'}")
+    print(f"Configuration:   {args.configuration}")
+    print(f"SAC parameters:  {params}")
     print_device_info(args.device)
     print("=" * 80)
 
@@ -718,40 +792,73 @@ def main():
     # -----------------------------------------------------------------
 
     train_env = DummyVecEnv([
-        lambda: make_training_env(seed=seed)
+        lambda: make_training_env(seed=seed, max_time=args.max_time)
     ])
 
-    train_env = VecNormalize(
-        train_env,
-        norm_obs=True,
-        norm_reward=True,
-        clip_obs=10.0,
-        clip_reward=10.0,
-        gamma=TRIAL_16_PARAMS["gamma"],
-    )
+    if initialized:
+        train_env = VecNormalize.load(args.initialize_vecnormalize, train_env)
+        train_env.training = True
+        train_env.norm_reward = True
+    else:
+        train_env = VecNormalize(
+            train_env,
+            norm_obs=True,
+            norm_reward=True,
+            clip_obs=10.0,
+            clip_reward=10.0,
+            gamma=params["gamma"],
+        )
 
     # -----------------------------------------------------------------
     # SAC model
     # -----------------------------------------------------------------
 
-    model = SAC(
-        policy="MlpPolicy",
-        env=train_env,
-        learning_rate=TRIAL_16_PARAMS["learning_rate"],
-        buffer_size=300_000,
-        learning_starts=TRIAL_16_PARAMS["learning_starts"],
-        batch_size=TRIAL_16_PARAMS["batch_size"],
-        tau=TRIAL_16_PARAMS["tau"],
-        gamma=TRIAL_16_PARAMS["gamma"],
-        train_freq=TRIAL_16_PARAMS["train_freq"],
-        gradient_steps=TRIAL_16_PARAMS["gradient_steps"],
-        ent_coef=TRIAL_16_PARAMS["ent_coef"],
-        target_update_interval=1,
-        verbose=1,
-        seed=seed,
-        tensorboard_log=LOG_DIR,
-        device=args.device,
-    )
+    if initialized:
+        model = SAC.load(args.initialize_model, env=train_env, device=args.device)
+        # SAC.load restores weights and optimizer state but not replay data.
+        # With reset_num_timesteps=True below, refill the new replay buffer
+        # for the original trial-16 warm-up before allowing gradient updates.
+        model.learning_starts = params["learning_starts"]
+        model.tensorboard_log = LOG_DIR
+    else:
+        model = SAC(
+            policy="MlpPolicy",
+            env=train_env,
+            learning_rate=params["learning_rate"],
+            buffer_size=300_000,
+            learning_starts=params["learning_starts"],
+            batch_size=params["batch_size"],
+            tau=params["tau"],
+            gamma=params["gamma"],
+            train_freq=params["train_freq"],
+            gradient_steps=params["gradient_steps"],
+            ent_coef=params["ent_coef"],
+            target_update_interval=1,
+            verbose=1,
+            seed=seed,
+            tensorboard_log=LOG_DIR,
+            device=args.device,
+        )
+
+    config_path = os.path.join(learning_curve_dir, "experiment_config.json")
+    with open(config_path, "w", encoding="utf-8") as stream:
+        json.dump(
+            {
+                "experiment_name": model_name,
+                "training_seed": seed,
+                "new_environment_steps": total_timesteps,
+                "episode_horizon_seconds": args.max_time,
+                "configuration": args.configuration,
+                "sac_parameters": params,
+                "buffer_size": 300_000,
+                "initialization": "checkpoint" if initialized else "from_scratch",
+                "source_model": os.path.abspath(args.initialize_model) if initialized else None,
+                "source_vecnormalize": os.path.abspath(args.initialize_vecnormalize) if initialized else None,
+                "existing_artifacts_overwritten": False,
+            },
+            stream,
+            indent=2,
+        )
 
     # -----------------------------------------------------------------
     # Train
@@ -768,7 +875,8 @@ def main():
         best_vecnorm_path=best_vecnorm_path,
         eval_seeds=range(10),
         eval_freq=50_000,
-        max_steps=12000,
+        max_steps=int(args.max_time or 12000),
+        eval_env_factory=lambda seed: make_eval_env(seed, max_time=args.max_time),
     )
     periodic_eval_callback = PeriodicEvalCallback(
         csv_path=evaluation_curve_csv,
@@ -777,7 +885,8 @@ def main():
         model_name=model_name,
         eval_seeds=[0, 1, 2, 3, 4],
         eval_every_episodes=10,
-        max_steps=12000,
+        max_steps=int(args.max_time or 12000),
+        eval_env_factory=lambda seed: make_eval_env(seed, max_time=args.max_time),
     )
 
     model.learn(
@@ -785,6 +894,7 @@ def main():
         tb_log_name=model_name,
         progress_bar=True,
         callback=[learning_curve_callback, best_model_callback, periodic_eval_callback],
+        reset_num_timesteps=True,
     )
 
     best_checkpoint = best_model_callback.get_best_checkpoint()

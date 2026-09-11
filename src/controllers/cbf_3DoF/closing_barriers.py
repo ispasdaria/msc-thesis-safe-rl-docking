@@ -26,18 +26,19 @@ class ClosingCBFConfig:
     only the HOCBF response gains are configurable.
     """
 
-    cone_k1: float = 0.1
-    cone_k2: float = 0.1
+    # Selected by the staged closing gain search and 50-seed validation.
+    cone_k1: float = 0.05
+    cone_k2: float = 0.05
     cone_interior_margin: float = 1.0e-4
     port_speed_max: float = 0.25
     axial_port_speed_max: float = 0.15
-    port_speed_alpha: float = 0.5
+    port_speed_alpha: float = 0.25
     axial_port_speed_alpha: float = 0.5
     attitude_max: float = np.deg2rad(3.0)
     angular_rate_max: float = np.deg2rad(0.15)
-    attitude_k1: float = 0.3
-    attitude_k2: float = 0.3
-    angular_rate_alpha: float = 0.5
+    attitude_k1: float = 0.5
+    attitude_k2: float = 0.5
+    angular_rate_alpha: float = 1.0
     cone_slack_penalty: float = 1.0e8
     port_speed_slack_penalty: float = 1.0e8
     axial_port_speed_slack_penalty: float = 1.0e8

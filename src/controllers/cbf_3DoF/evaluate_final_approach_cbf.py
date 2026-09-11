@@ -360,6 +360,9 @@ def run_rollout(
         residuals = diagnostics["residuals"]
         slacks = diagnostics["slacks"]
         kinematics = diagnostics["kinematics"]
+        geometry = final_info.get("geometry", {})
+        velocity = final_info.get("velocity", {})
+        alignment = final_info.get("alignment", {})
         records.append(
             {
                 "step": step_index,
@@ -389,6 +392,21 @@ def run_rollout(
                 "port_speed": float(np.linalg.norm(kinematics.v_p)),
                 "psi_error": float(env.core_env.wrap_to_pi(state[4])),
                 "angular_rate": float(state[5]),
+                "post_time": float(env.core_env.time),
+                "post_s": float(final_info.get("s", np.nan)),
+                "post_rho": float(final_info.get("rho", np.nan)),
+                "post_s_dot": float(final_info.get("s_dot", np.nan)),
+                "post_y_p_dot": float(post_constraints.kinematics.y_p_dot),
+                "post_port_distance": float(final_info.get("port_distance", np.nan)),
+                "post_port_speed": float(final_info.get("port_speed", np.nan)),
+                "post_psi_error": abs(float(final_info.get("psi_e", np.nan))),
+                "post_angular_rate": abs(float(final_info.get("omega", np.nan))),
+                "post_hard_safety_violation": bool(final_info.get("unsafe", False)),
+                "post_docking_cone_violation": bool(not geometry.get("in_C_dock", False)),
+                "post_total_speed_violation": bool(float(final_info.get("port_speed", np.nan)) > env.core_env.vp_unsafe_final),
+                "post_axial_speed_violation": bool(abs(float(final_info.get("s_dot", np.nan))) > env.core_env.sdot_unsafe_final),
+                "post_attitude_violation": bool(abs(float(final_info.get("psi_e", np.nan))) > env.core_env.psi_unsafe),
+                "post_angular_rate_violation": bool(abs(float(final_info.get("omega", np.nan))) > env.core_env.omega_unsafe),
                 "h_cone_upper": float(values.get("cone_upper", np.nan)),
                 "h_cone_lower": float(values.get("cone_lower", np.nan)),
                 "h_port_speed": float(values.get("port_speed", np.nan)),
@@ -486,6 +504,11 @@ def run_rollout(
         finite = array[np.isfinite(array)]
         return float(np.min(finite)) if finite.size else np.nan
 
+    def finite_last(key):
+        array = values(key)
+        finite = array[np.isfinite(array)]
+        return float(finite[-1]) if finite.size else np.nan
+
     intervention = values("intervention_scaled_norm")
     slacks = np.column_stack(
         [
@@ -529,14 +552,27 @@ def run_rollout(
         "variant": variant,
         "eval_seed": eval_seed,
         "steps": steps,
+        "phase_duration_seconds": finite_last("post_time"),
         "success": bool(final_info.get("success", False)),
         "failure": bool(final_info.get("failure", False)),
         "time_limit": bool(final_info.get("time_limit", False)) or not ended,
         "termination_reason": reason,
         "violated_constraints": ",".join(final_info.get("violated_constraints", [])),
         "total_reward": total_reward,
-        "final_port_distance": float(final_info.get("port_distance", np.nan)),
-        "final_port_speed": float(final_info.get("port_speed", np.nan)),
+        "final_port_distance": finite_last("post_port_distance"),
+        "final_port_speed": finite_last("post_port_speed"),
+        "final_axial_position": finite_last("post_s"),
+        "final_lateral_position": finite_last("post_rho"),
+        "final_axial_velocity": finite_last("post_s_dot"),
+        "final_lateral_velocity": finite_last("post_y_p_dot"),
+        "final_attitude_error": finite_last("post_psi_error"),
+        "final_angular_rate_error": finite_last("post_angular_rate"),
+        "hard_safety_violation": bool(any(record["post_hard_safety_violation"] for record in records)),
+        "docking_cone_violation": bool(any(record["post_docking_cone_violation"] for record in records)),
+        "total_relative_velocity_violation": bool(any(record["post_total_speed_violation"] for record in records)),
+        "axial_velocity_violation": bool(any(record["post_axial_speed_violation"] for record in records)),
+        "alignment_attitude_violation": bool(any(record["post_attitude_violation"] for record in records)),
+        "angular_rate_violation": bool(any(record["post_angular_rate_violation"] for record in records)),
         "intervention_count": int(sum(record["intervened"] for record in records)),
         "intervention_fraction": float(np.mean([record["intervened"] for record in records])),
         "mean_intervention_scaled_norm": float(np.mean(intervention)),
@@ -616,12 +652,29 @@ def summarize_variant(variant: str, rows: list[dict[str, object]]):
     return {
         "variant": variant,
         "episodes": len(rows),
+        "success_count": int(sum(row["success"] for row in rows)),
         "success_rate": float(np.mean([row["success"] for row in rows])),
         "failure_rate": float(np.mean([row["failure"] for row in rows])),
         "mean_steps": float(np.mean([row["steps"] for row in rows])),
+        "mean_phase_duration_seconds": float(np.mean([row.get("phase_duration_seconds", row["steps"]) for row in rows])),
+        "mean_final_port_distance": float(np.mean([row.get("final_port_distance", np.nan) for row in rows])),
+        "mean_final_port_speed": float(np.mean([row.get("final_port_speed", np.nan) for row in rows])),
+        "mean_final_axial_position": float(np.mean([row.get("final_axial_position", np.nan) for row in rows])),
+        "mean_final_lateral_position": float(np.mean([row.get("final_lateral_position", np.nan) for row in rows])),
+        "mean_final_axial_velocity": float(np.mean([row.get("final_axial_velocity", np.nan) for row in rows])),
+        "mean_final_lateral_velocity": float(np.mean([row.get("final_lateral_velocity", np.nan) for row in rows])),
+        "mean_final_attitude_error": float(np.mean([row.get("final_attitude_error", np.nan) for row in rows])),
+        "mean_final_angular_rate_error": float(np.mean([row.get("final_angular_rate_error", np.nan) for row in rows])),
         "mean_intervention_fraction": float(
             np.mean([row["intervention_fraction"] for row in rows])
         ),
+        "intervention_count": int(sum(row.get("intervention_count", 0) for row in rows)),
+        "hard_safety_violation_count": int(sum(row.get("hard_safety_violation", False) for row in rows)),
+        "docking_cone_violation_count": int(sum(row.get("docking_cone_violation", False) for row in rows)),
+        "total_relative_velocity_violation_count": int(sum(row.get("total_relative_velocity_violation", False) for row in rows)),
+        "axial_velocity_violation_count": int(sum(row.get("axial_velocity_violation", False) for row in rows)),
+        "alignment_attitude_violation_count": int(sum(row.get("alignment_attitude_violation", False) for row in rows)),
+        "angular_rate_violation_count": int(sum(row.get("angular_rate_violation", False) for row in rows)),
         "qp_failure_count": int(sum(row["qp_failure_count"] for row in rows)),
         "qp_failure_reasons": _format_counter(qp_failure_reasons),
         "qp_failure_minimal_infeasible_constraint_groups": _format_counter(

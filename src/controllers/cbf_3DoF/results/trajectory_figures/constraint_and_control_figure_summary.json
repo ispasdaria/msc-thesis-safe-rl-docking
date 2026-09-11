@@ -1,0 +1,43 @@
+{
+  "closing_constraints": {
+    "seed": 25,
+    "duration_s": 12000.0,
+    "nominal_violations": [
+      "lower cone",
+      "axial velocity",
+      "positive attitude",
+      "negative attitude"
+    ],
+    "filtered_violations": [
+      "axial velocity",
+      "positive attitude",
+      "negative attitude"
+    ]
+  },
+  "final_controls": [
+    {
+      "policy": "Final-approach round 5, seed 10, 490k checkpoint (eval. seed 7)",
+      "eval_seed": 7,
+      "intervention_steps": 53,
+      "intervention_rate": 0.017241379310344827,
+      "maximum_component_normalized_corrections": {
+        "x": 1.1479922115502805,
+        "y": 0.21719484486704996,
+        "alpha": 0.2671496591740941
+      },
+      "pattern": "sparse/localized"
+    },
+    {
+      "policy": "Final-approach round 1, seed 12, 100k checkpoint (eval. seed 0)",
+      "eval_seed": 0,
+      "intervention_steps": 37,
+      "intervention_rate": 0.011188388267311764,
+      "maximum_component_normalized_corrections": {
+        "x": 1.2521400623999173,
+        "y": 1.0766461391731281,
+        "alpha": 0.9176468498365786
+      },
+      "pattern": "sparse/localized"
+    }
+  ]
+}

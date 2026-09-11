@@ -1,0 +1,27 @@
+{
+  "phase": "final",
+  "episodes": 50,
+  "success_count": 50,
+  "success_rate": 1.0,
+  "hard_safety_violation_count": 0,
+  "docking_cone_violation_count": 0,
+  "total_relative_velocity_violation_count": 0,
+  "axial_velocity_violation_count": 0,
+  "alignment_attitude_violation_count": 0,
+  "angular_rate_violation_count": 0,
+  "mean_intervention_fraction": 4.8511511339191126e-05,
+  "intervention_count": 9,
+  "qp_failure_count": 0,
+  "mean_phase_duration_seconds": 3749.96,
+  "termination_reasons": {
+    "success_docking": 50
+  },
+  "mean_terminal_port_distance": 0.09746883809178522,
+  "mean_terminal_port_speed": 0.005025568782021504,
+  "mean_terminal_axial_position": 0.09746880930598664,
+  "mean_terminal_lateral_position": 6.06237986779665e-05,
+  "mean_terminal_axial_velocity": -0.005025568775462641,
+  "mean_terminal_lateral_velocity": -2.6648641136212815e-09,
+  "mean_terminal_attitude_error": 3.023610775088059e-09,
+  "mean_terminal_angular_rate_error": 6.0448264346226394e-09
+}

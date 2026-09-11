@@ -302,8 +302,8 @@ def make_xy_figure(histories: list[dict[str, object]], total_successes: int) -> 
         axis.scatter(0.0, 0.0, marker="*", s=100 if axis is ax else 70, color="#CC3311", edgecolor="white", linewidth=0.5, zorder=6)
         axis.axhline(0.0, color="0.45", linewidth=0.6, zorder=0)
 
-    ax.set_xlabel("Axial docking-port position, $x_p$ [m]")
-    ax.set_ylabel("Lateral docking-port position, $y_p$ [m]")
+    ax.set_xlabel("Axial docking-port position, $r_{p,x}$ [m]")
+    ax.set_ylabel("Lateral docking-port position, $r_{p,y}$ [m]")
     fig.suptitle(
         f"{len(histories)} representative successful full-mission trajectories",
         y=0.975,
@@ -327,8 +327,8 @@ def make_xy_figure(histories: list[dict[str, object]], total_successes: int) -> 
         bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.75, "pad": 1.5},
     )
     inset.tick_params(labelsize=8)
-    inset.set_xlabel("$x_p$ [m]", fontsize=8)
-    inset.set_ylabel("$y_p$ [m]", fontsize=8)
+    inset.set_xlabel("$r_{p,x}$ [m]", fontsize=8)
+    inset.set_ylabel("$r_{p,y}$ [m]", fontsize=8)
 
     seed_handles = [
         Line2D(
@@ -377,13 +377,13 @@ def make_time_history_figure(history: dict[str, object]) -> plt.Figure:
             closing_position[:, 0],
             final_position[:, 0],
             "a) Axial position",
-            "Axial docking-port position, $x_p$ [m]",
+            "Axial docking-port position, $r_{p,x}$ [m]",
         ),
         (
             closing_position[:, 1],
             final_position[:, 1],
             "b) Lateral position",
-            "Lateral docking-port position, $y_p$ [m]",
+            "Lateral docking-port position, $r_{p,y}$ [m]",
         ),
         (
             closing_velocity[:, 0],

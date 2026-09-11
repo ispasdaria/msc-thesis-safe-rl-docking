@@ -1,0 +1,36 @@
+{
+  "closing": {
+    "phase-balanced": {
+      "selected_seed": 25,
+      "nominal_cone_violation": true,
+      "filtered_repaired_cone_violation": true
+    },
+    "vanilla": {
+      "selected_seed": 5,
+      "nominal_cone_violation": true,
+      "filtered_repaired_cone_violation": true
+    }
+  },
+  "final_approach": {
+    "round1": {
+      "selected_seed": 0,
+      "nominal_cone_violation": false,
+      "filtered_repaired_cone_violation": false
+    },
+    "round3": {
+      "selected_seed": 39,
+      "nominal_cone_violation": false,
+      "filtered_repaired_cone_violation": false
+    },
+    "round5_seed10": {
+      "selected_seed": 7,
+      "nominal_cone_violation": true,
+      "filtered_repaired_cone_violation": true
+    },
+    "round5_seed14": {
+      "selected_seed": 34,
+      "nominal_cone_violation": true,
+      "filtered_repaired_cone_violation": true
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "closing": {
+    "selected_seed": 41,
+    "nominal_success": true,
+    "filtered_success": false,
+    "nominal_terminal_p3_error_m": 20.017158717768034,
+    "filtered_terminal_p3_error_m": 28.358121619567566,
+    "intervention_fraction": 0.308325,
+    "intervention_count": 36999,
+    "nominal_duration_s": 11752.000000025222,
+    "filtered_duration_s": 12000.000000026124,
+    "replayed_intervention_count": 36999,
+    "axial_velocity_binding_steps": 36999
+  },
+  "final_approach": {
+    "selected_seed": 40,
+    "intervention_count": 1,
+    "nominal_terminal_port_distance_m": 0.09503551306845365,
+    "filtered_terminal_port_distance_m": 0.09503731859064864,
+    "replayed_intervention_count": 1
+  },
+  "diagnostic_verification": {
+    "intervention_mask_matches_signed_corrections": true,
+    "last_intervention_time_s": 3699.7999999977305,
+    "maximum_absolute_correction_after_last_intervention": 1.3396884852010828e-17,
+    "maximum_axial_speed_difference_after_last_intervention_mps": 0.018808887674144098,
+    "interpretation": "true closed-loop state-history effect"
+  }
+}

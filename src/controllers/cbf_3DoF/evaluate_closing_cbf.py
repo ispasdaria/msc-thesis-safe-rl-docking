@@ -40,6 +40,9 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 
 SAC_CLOSING_DIR = SRC_PATH / "controllers" / "SAC-3DoF" / "closing"
+if str(SAC_CLOSING_DIR) not in sys.path:
+    # Required when loading checkpoints that pickle the custom replay-buffer class.
+    sys.path.insert(0, str(SAC_CLOSING_DIR))
 DEFAULT_MODEL_STEM = (
     "sac_closing_p3augobs_rewardv15_optuna_trial16_"
     "400ksteps_seed0_buffer300k"
@@ -87,12 +90,16 @@ PROTECTED_BARRIER_TOLERANCE = 1.0e-6
 RESULT_SCHEMA_VERSION = 3
 
 
-def make_env(seed: int, mode: str) -> Docking3DoFGymEnv:
+def make_env(
+    seed: int,
+    mode: str,
+    max_time: float | None = None,
+) -> Docking3DoFGymEnv:
     return Docking3DoFGymEnv(
         phase="closing",
         mode=mode,
         dt=1.0,
-        max_time=None,
+        max_time=max_time,
         integrator="rk4",
         normalize_action=True,
         seed=seed,
@@ -242,11 +249,13 @@ def run_rollout(
     eval_seed: int,
     mode: str,
     max_steps: int,
+    max_time: float | None,
     variant: str,
     base_config: ClosingCBFConfig,
     output_dir: Path,
+    save_timeseries: bool = True,
 ) -> dict[str, object]:
-    env = make_env(eval_seed, mode)
+    env = make_env(eval_seed, mode, max_time=max_time)
     observation, reset_info = env.reset(seed=eval_seed)
     initial_state = env.get_physical_state()
     p3_target = np.asarray(env.core_env.p3_target, dtype=np.float64).copy()
@@ -335,6 +344,8 @@ def run_rollout(
             }
 
         filtered_physical = np.asarray(diagnostics["action"], dtype=np.float64)
+        correction_physical = filtered_physical - nominal_physical
+        actuator_ratio = np.abs(filtered_physical / env.core_env.action_high)
         filtered_normalized = env.physical_action_to_normalized(filtered_physical)
         observation, reward, terminated, truncated, final_info = env.step(
             filtered_normalized
@@ -367,6 +378,8 @@ def run_rollout(
                 "action_filtered": filtered_physical,
                 "intervened": diagnostics["intervened"],
                 "intervention_scaled_norm": diagnostics["scaled_norm"],
+                "action_correction_norm": float(np.linalg.norm(correction_physical)),
+                "actuator_saturated": bool(np.any(actuator_ratio >= 1.0 - 1.0e-6)),
                 "solver_status": str(diagnostics["status"]),
                 "solver_backend": str(diagnostics["backend"]),
                 "qp_failed": diagnostics["failed"],
@@ -473,6 +486,22 @@ def run_rollout(
                 ),
                 "post_port_speed": float(final_info.get("port_speed", np.nan)),
                 "post_s_dot_abs": abs(float(final_info.get("s_dot", np.nan))),
+                "post_total_speed_violation": bool(
+                    float(final_info.get("port_speed", np.nan))
+                    > env.core_env.vp_unsafe_close
+                ),
+                "post_axial_speed_violation": bool(
+                    abs(float(final_info.get("s_dot", np.nan)))
+                    > env.core_env.sdot_unsafe_close
+                ),
+                "post_attitude_violation": bool(
+                    abs(float(final_info.get("psi_e", np.nan)))
+                    > env.core_env.psi_unsafe
+                ),
+                "post_angular_rate_violation": bool(
+                    abs(float(final_info.get("omega", np.nan)))
+                    > env.core_env.omega_unsafe
+                ),
                 "post_velocity_safe": bool(velocity.get("safe", False)),
                 "post_velocity_warning": bool(velocity.get("warn", False)),
                 "post_velocity_unsafe": bool(velocity.get("unsafe", False)),
@@ -523,11 +552,14 @@ def run_rollout(
         if terminated or truncated:
             break
 
+    final_state = env.get_physical_state()
     env.close()
-    rollout_path = output_dir / (
-        f"step_timeseries_{STEP_LOG_LABELS[variant]}_eval_seed{eval_seed:04d}.npz"
-    )
-    _serialize_step_records(records, rollout_path)
+    rollout_path = None
+    if save_timeseries:
+        rollout_path = output_dir / (
+            f"step_timeseries_{STEP_LOG_LABELS[variant]}_eval_seed{eval_seed:04d}.npz"
+        )
+        _serialize_step_records(records, rollout_path)
 
     def array(key):
         return np.asarray([record[key] for record in records], dtype=np.float64)
@@ -577,6 +609,31 @@ def run_rollout(
     )
     reason = final_info.get("termination_reason") if ended else "evaluation_step_limit"
     intervention = array("intervention_scaled_norm")
+    correction = array("action_correction_norm")
+
+    def family_count(key, prefixes):
+        return int(
+            sum(
+                any(
+                    name.startswith(prefixes)
+                    for name in str(record[key]).split(",")
+                    if name
+                )
+                for record in records
+            )
+        )
+
+    residual_keys = (
+        tuple(key for key in records[0] if key.startswith("residual_"))
+        if records
+        else ()
+    )
+    finite_residuals = [
+        float(record[key])
+        for record in records
+        for key in residual_keys
+        if np.isfinite(record[key])
+    ]
 
     return {
         "variant": variant,
@@ -625,6 +682,7 @@ def run_rollout(
         "success": bool(final_info.get("success", False)),
         "failure": bool(final_info.get("failure", False)),
         "time_limit": bool(final_info.get("time_limit", False)) or not ended,
+        "phase_duration_seconds": finite_last("time"),
         "termination_reason": reason,
         "violated_constraints": ",".join(
             final_info.get("violated_constraints", [])
@@ -638,6 +696,8 @@ def run_rollout(
         "maximum_abs_axial_speed": finite_max("post_s_dot_abs"),
         "final_p3_position_error": finite_last("p3_position_error"),
         "minimum_p3_position_error": finite_min("p3_position_error"),
+        "final_p3_axial_error": abs(float(final_state[0] - p3_target[0])),
+        "final_p3_lateral_error": abs(float(final_state[1] - p3_target[1])),
         "final_p3_velocity_error": finite_last("p3_velocity_error"),
         "final_p3_attitude_error": finite_last("p3_attitude_error"),
         "final_p3_rate_error": finite_last("p3_rate_error"),
@@ -668,6 +728,11 @@ def run_rollout(
         "intervention_fraction": float(np.mean([r["intervened"] for r in records])),
         "mean_intervention_scaled_norm": float(np.mean(intervention)),
         "max_intervention_scaled_norm": float(np.max(intervention)),
+        "mean_action_correction_norm": float(np.mean(correction)),
+        "max_action_correction_norm": float(np.max(correction)),
+        "actuator_saturation_fraction": float(
+            np.mean(array("actuator_saturated"))
+        ),
         "qp_failure_count": int(sum(r["qp_failed"] for r in records)),
         "qp_failure_reasons": _format_counter(qp_reasons),
         "qp_failure_minimal_infeasible_constraint_groups": _format_counter(
@@ -687,6 +752,31 @@ def run_rollout(
         ),
         "protected_barriers_violated_beyond_tolerance": barrier_names(
             "protected_barriers_violated_beyond_tolerance"
+        ),
+        "protected_cone_violation_count": family_count(
+            "protected_barriers_violated_beyond_tolerance", ("cone_",)
+        ),
+        "protected_total_speed_violation_count": family_count(
+            "protected_barriers_violated_beyond_tolerance", ("port_speed",)
+        ),
+        "protected_axial_speed_violation_count": family_count(
+            "protected_barriers_violated_beyond_tolerance", ("axial_port_speed",)
+        ),
+        "protected_attitude_violation_count": family_count(
+            "protected_barriers_violated_beyond_tolerance", ("attitude_",)
+        ),
+        "protected_angular_rate_violation_count": family_count(
+            "protected_barriers_violated_beyond_tolerance", ("angular_rate_",)
+        ),
+        # Rollout-level physical-limit categories are deliberately independent.
+        "hard_safety_violation": bool(any(r["post_geometry_unsafe"] or r["post_velocity_unsafe"] for r in records)),
+        "docking_cone_violation": bool(any(not r["post_in_docking_cone"] for r in records)),
+        "total_relative_velocity_violation": bool(any(r["post_total_speed_violation"] for r in records)),
+        "axial_velocity_violation": bool(any(r["post_axial_speed_violation"] for r in records)),
+        "alignment_attitude_violation": bool(any(r["post_attitude_violation"] for r in records)),
+        "angular_rate_violation": bool(any(r["post_angular_rate_violation"] for r in records)),
+        "minimum_cbf_residual": (
+            float(min(finite_residuals)) if finite_residuals else np.nan
         ),
         "min_h_cone_upper": finite_min("h_cone_upper"),
         "min_h_cone_lower": finite_min("h_cone_lower"),
@@ -733,7 +823,7 @@ def run_rollout(
         "min_raw_residual_angular_rate_lower": finite_min(
             "residual_angular_rate_lower"
         ),
-        "step_log": rollout_path.name,
+        "step_log": rollout_path.name if rollout_path is not None else "",
     }
 
 
@@ -774,10 +864,12 @@ def summarize_variant(variant: str, rows: list[dict[str, object]]):
     return {
         "variant": variant,
         "episodes": len(rows),
+        "success_count": int(sum(row["success"] for row in rows)),
         "success_rate": float(np.mean([row["success"] for row in rows])),
         "failure_rate": float(np.mean([row["failure"] for row in rows])),
         "time_limit_rate": float(np.mean([row["time_limit"] for row in rows])),
         "mean_steps": float(np.mean([row["steps"] for row in rows])),
+        "mean_phase_duration_seconds": float(np.mean([row["phase_duration_seconds"] for row in rows])),
         "mean_final_p3_position_error": float(
             np.mean([row["final_p3_position_error"] for row in rows])
         ),
@@ -787,6 +879,11 @@ def summarize_variant(variant: str, rows: list[dict[str, object]]):
         "mean_final_p3_max_target_ratio": float(
             np.mean([row["final_p3_max_target_ratio"] for row in rows])
         ),
+        "mean_final_p3_axial_error": float(np.mean([row["final_p3_axial_error"] for row in rows])),
+        "mean_final_p3_lateral_error": float(np.mean([row["final_p3_lateral_error"] for row in rows])),
+        "mean_final_p3_velocity_error": float(np.mean([row["final_p3_velocity_error"] for row in rows])),
+        "mean_final_p3_attitude_error": float(np.mean([row["final_p3_attitude_error"] for row in rows])),
+        "mean_final_p3_rate_error": float(np.mean([row["final_p3_rate_error"] for row in rows])),
         "mean_velocity_safe_fraction": float(
             np.mean([row["velocity_safe_fraction"] for row in rows])
         ),
@@ -814,6 +911,13 @@ def summarize_variant(variant: str, rows: list[dict[str, object]]):
         "mean_intervention_fraction": float(
             np.mean([row["intervention_fraction"] for row in rows])
         ),
+        "intervention_count": int(sum(row["intervention_count"] for row in rows)),
+        "hard_safety_violation_count": int(sum(row["hard_safety_violation"] for row in rows)),
+        "docking_cone_violation_count": int(sum(row["docking_cone_violation"] for row in rows)),
+        "total_relative_velocity_violation_count": int(sum(row["total_relative_velocity_violation"] for row in rows)),
+        "axial_velocity_violation_count": int(sum(row["axial_velocity_violation"] for row in rows)),
+        "alignment_attitude_violation_count": int(sum(row["alignment_attitude_violation"] for row in rows)),
+        "angular_rate_violation_count": int(sum(row["angular_rate_violation"] for row in rows)),
         "initial_protected_set_violation_count": int(
             sum(not row["initial_protected_set_satisfied"] for row in rows)
         ),
@@ -948,19 +1052,28 @@ def parse_args():
         default="testing",
     )
     parser.add_argument("--max-steps", type=int, default=12_000)
+    parser.add_argument(
+        "--max-time",
+        type=float,
+        default=None,
+        help=(
+            "Environment horizon in seconds. If omitted, the closing default "
+            "of 12000 seconds is used."
+        ),
+    )
     parser.add_argument("--solver", choices=("auto", "osqp", "scipy"), default="auto")
-    parser.add_argument("--cone-k1", type=float, default=0.1)
-    parser.add_argument("--cone-k2", type=float, default=0.1)
+    parser.add_argument("--cone-k1", type=float, default=0.05)
+    parser.add_argument("--cone-k2", type=float, default=0.05)
     parser.add_argument("--cone-interior-margin", type=float, default=1.0e-4)
     parser.add_argument("--port-speed-max", type=float, default=0.25)
     parser.add_argument("--axial-port-speed-max", type=float, default=0.15)
-    parser.add_argument("--port-speed-alpha", type=float, default=0.5)
+    parser.add_argument("--port-speed-alpha", type=float, default=0.25)
     parser.add_argument("--axial-port-speed-alpha", type=float, default=0.5)
     parser.add_argument("--attitude-max-deg", type=float, default=3.0)
     parser.add_argument("--angular-rate-max-deg-s", type=float, default=0.15)
-    parser.add_argument("--attitude-k1", type=float, default=0.3)
-    parser.add_argument("--attitude-k2", type=float, default=0.3)
-    parser.add_argument("--angular-rate-alpha", type=float, default=0.5)
+    parser.add_argument("--attitude-k1", type=float, default=0.5)
+    parser.add_argument("--attitude-k2", type=float, default=0.5)
+    parser.add_argument("--angular-rate-alpha", type=float, default=1.0)
     parser.add_argument("--output-dir", type=Path, default=None)
     return parser.parse_args()
 
@@ -969,6 +1082,8 @@ def main() -> None:
     args = parse_args()
     if args.num_seeds <= 0 or args.max_steps <= 0:
         raise ValueError("--num-seeds and --max-steps must be positive.")
+    if args.max_time is not None and args.max_time <= 0:
+        raise ValueError("--max-time must be positive when provided.")
     if not args.model.is_file():
         raise FileNotFoundError(f"SAC checkpoint not found: {args.model}")
     if not args.vecnormalize.is_file():
@@ -1014,6 +1129,7 @@ def main() -> None:
                     eval_seed=seed,
                     mode=args.mode,
                     max_steps=args.max_steps,
+                    max_time=args.max_time,
                     variant=variant,
                     base_config=config,
                     output_dir=output_dir,
@@ -1040,7 +1156,7 @@ def main() -> None:
     write_csv(output_dir / VARIANT_SUMMARY_FILENAME, summaries)
     write_csv(output_dir / PAIRED_COMPARISON_FILENAME, paired)
 
-    metadata_env = make_env(999_998, args.mode)
+    metadata_env = make_env(999_998, args.mode, max_time=args.max_time)
     try:
         metadata_env.reset(seed=999_998)
         environment_metadata = {
@@ -1073,6 +1189,7 @@ def main() -> None:
                 "num_seeds": args.num_seeds,
                 "mode": args.mode,
                 "max_steps": args.max_steps,
+                "max_time_seconds": float(metadata_env.max_time),
                 "paired_evaluation": True,
                 "protected_barrier_tolerance": PROTECTED_BARRIER_TOLERANCE,
                 "constraint_policy": "hard_no_slack",

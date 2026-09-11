@@ -1,4 +1,4 @@
-"""Run the four retained LQR/SAC full-mission evaluations.
+"""Run retained LQR/SAC full-mission evaluations, optionally with closing CBF.
 
 Seed ranges are inclusive.  The script intentionally writes one independent
 directory per range, so the 300--349 smoke test cannot be overwritten by the
@@ -31,6 +31,8 @@ for path in (SRC_ROOT, LQR_ROOT, CLOSING_CODE_ROOT):
         sys.path.insert(0, str(path))
 
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
+from controllers.cbf_3DoF.closing_barriers import ClosingCBFConfig
+from controllers.cbf_3DoF.qp_filter import ClosingCBFFilter
 from lqr_3dof_closing import (
     LQRClosingController,
     build_Q_closing,
@@ -72,6 +74,7 @@ class MissionConfiguration:
     closing_dt: float
     final_policy: PolicyFiles
     closing_policy: PolicyFiles | None = None
+    closing_cbf: bool = False
 
 
 def paired(directory: Path, stem: str) -> PolicyFiles:
@@ -96,6 +99,12 @@ CONFIGURATIONS = {
         "vanilla400k_final_r1_s12_100k", "vanilla closing SAC reward v15/trial 16 final 400k + final SAC round 1 seed 12 100k",
         "sac", 1.0, paired(FINAL_100K_DIR, FINAL_100K_NAME),
         paired(VANILLA_DIR, VANILLA_NAME),
+    ),
+    "vanilla400k_cbf_final_r1_s12_100k": MissionConfiguration(
+        "vanilla400k_cbf_final_r1_s12_100k",
+        "vanilla closing SAC reward v15/trial 16 final 400k + full closing CBF + final SAC round 1 seed 12 100k",
+        "sac", 1.0, paired(FINAL_100K_DIR, FINAL_100K_NAME),
+        paired(VANILLA_DIR, VANILLA_NAME), True,
     ),
 }
 
@@ -134,11 +143,19 @@ def build_lqr(env: Docking3DoFGymEnv) -> LQRClosingController:
     return LQRClosingController(gain)
 
 
-def run_phase(env, observation, action_function, max_steps):
+def run_phase(env, observation, action_function, max_steps, cbf_filter=None):
     info = {}
     saturation_steps = 0
+    intervention_steps = 0
+    qp_failure_count = 0
     for step_index in range(max_steps):
         action = np.asarray(action_function(observation), dtype=np.float64)
+        if cbf_filter is not None:
+            nominal_physical = env.normalized_action_to_physical(action)
+            filtered = cbf_filter.filter(env.get_physical_state(), nominal_physical)
+            intervention_steps += int(filtered.intervened)
+            qp_failure_count += int(filtered.qp_failed)
+            action = env.physical_action_to_normalized(filtered.action_filtered)
         saturation_steps += int(np.any(np.abs(action) >= 1.0 - 1e-6))
         observation, _, terminated, truncated, info = env.step(action)
         if terminated or truncated:
@@ -166,6 +183,9 @@ def run_phase(env, observation, action_function, max_steps):
         "steps": steps,
         "elapsed_time_s": steps * env.core_env.dt,
         "saturation_fraction": saturation_steps / steps,
+        "cbf_intervention_count": intervention_steps,
+        "cbf_intervention_fraction": intervention_steps / steps,
+        "cbf_qp_failure_count": qp_failure_count,
         "terminal_state": state,
         "final_port_distance_m": float(info.get("port_distance", math.nan)),
         "final_port_speed_mps": float(info.get("port_speed", math.nan)),
@@ -191,7 +211,15 @@ def run_mission(config, seed, closing_sac, final_sac, closing_max_time, final_ma
             return closing_env.physical_action_to_normalized(physical)
     else:
         closing_action = closing_sac.action
-    closing = run_phase(closing_env, closing_obs, closing_action, closing_steps)
+    closing_cbf = None
+    if config.closing_cbf:
+        closing_cbf = ClosingCBFFilter(
+            closing_env.core_env,
+            ClosingCBFConfig(allow_slack=False),
+        )
+    closing = run_phase(
+        closing_env, closing_obs, closing_action, closing_steps, closing_cbf
+    )
     closing_env.close()
 
     final = None
@@ -223,7 +251,8 @@ def flatten_result(config, seed, closing, final):
                       "lateral_position_error_m", "position_error_norm_m",
                       "axial_velocity_error_mps", "lateral_velocity_error_mps",
                       "velocity_error_norm_mps", "attitude_error_deg",
-                      "angular_rate_error_deg_s"):
+                      "angular_rate_error_deg_s", "cbf_intervention_count",
+                      "cbf_intervention_fraction", "cbf_qp_failure_count"):
             row[f"{prefix}_{field}"] = "" if result is None else result[field]
         for index, state_name in enumerate(("rx_m", "ry_m", "vx_mps", "vy_mps", "psi_deg", "omega_deg_s")):
             value = "" if result is None else float(result["terminal_state"][index])
@@ -261,6 +290,7 @@ def summary(config, rows, seed_start, seed_end):
         "closing_termination_counts": dict(Counter(row["closing_termination_reason"] for row in rows)),
         "final_termination_counts": dict(Counter(row["final_termination_reason"] for row in rows if row["final_termination_reason"])),
         "closing_dt_s": config.closing_dt, "final_dt_s": 1.0,
+        "closing_cbf_enabled": config.closing_cbf,
         "closing_model": None if config.closing_policy is None else str(config.closing_policy.model),
         "closing_vecnormalize": None if config.closing_policy is None else str(config.closing_policy.vecnorm),
         "final_model": str(config.final_policy.model),
@@ -272,6 +302,8 @@ def summary(config, rows, seed_start, seed_end):
         "position_error_norm_m", "axial_velocity_error_mps",
         "lateral_velocity_error_mps", "velocity_error_norm_mps",
         "attitude_error_deg", "angular_rate_error_deg_s",
+        "cbf_intervention_count", "cbf_intervention_fraction",
+        "cbf_qp_failure_count",
     )
     result["distributions"] = {}
     result["distributions"]["mission_elapsed_time_s"] = distribution(

@@ -53,6 +53,12 @@ For each rollout with applied commands `u_k = [a_x,k, a_y,k, alpha_z,k]` and tim
 - `duration_s` is the environment's final elapsed time and must equal `num_steps * dt` within floating-point tolerance.
 - `saturation_fraction` is the fraction of applied timesteps on which at least one final applied component is at its corresponding physical bound within a documented absolute tolerance. This describes operation at the actuator bound, not CBF intervention.
 - `cbf_intervention_fraction` is the fraction of SAC+CBF steps flagged as interventions by the existing CBF evaluator's intervention tolerance. It is contextual and excluded from both integrals.
+- `path_length_m = sum(||r_p,k+1 - r_p,k||_2)` uses signed docking-port positions including the initial and terminal samples.
+- `path_efficiency = ||r_p,0 - r_p,f||_2 / path_length_m` is dimensionless; values closer to one indicate a more direct geometric path.
+- `J_delta_a_mps2 = sum(||a_k+1 - a_k||_2)` measures translational command variation.
+- `J_delta_alpha_radps2 = sum(|alpha_k+1 - alpha_k|)` measures rotational command variation.
+
+Translational and rotational control variation remain separate because their physical units are incompatible. These variation sums are not multiplied by the timestep: they measure total successive command change, as defined above.
 
 All per-rollout effort values must be finite and nonnegative.
 
@@ -66,6 +72,7 @@ Each controller/seed history is saved as a compressed NPZ containing at least:
 - `a_x_Bc_applied`
 - `a_y_Bc_applied`
 - `alpha_z_Bc_applied`
+- signed `r_p_x` and `r_p_y` state samples, including initial and terminal positions
 
 CBF histories also contain nominal and filtered command context and intervention flags when available.
 

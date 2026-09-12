@@ -1,0 +1,89 @@
+{
+  "phase": "final",
+  "controller": "LQRFinalController",
+  "dt_seconds": 1.0,
+  "max_time_seconds": 5000.0,
+  "integrator": "rk4",
+  "mode": "testing",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49
+  ],
+  "initial_ranges": {
+    "x_o": [
+      220.0,
+      380.0
+    ],
+    "y_o": [
+      -8.0,
+      8.0
+    ],
+    "xdot_o": [
+      -0.085,
+      0.015
+    ],
+    "ydot_o": [
+      -0.035,
+      0.035
+    ],
+    "psi_deg": [
+      -3.5,
+      3.5
+    ],
+    "omega_z_deg_s": [
+      -0.18,
+      0.18
+    ]
+  },
+  "cbf": null,
+  "control_path": "LQR nominal -> base environment",
+  "sac_or_vecnormalize_used": false
+}

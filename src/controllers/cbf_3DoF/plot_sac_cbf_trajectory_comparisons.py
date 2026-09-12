@@ -308,7 +308,13 @@ def draw_panel(
     ax.grid(True, color="0.9", lw=0.55)
 
 
-def add_shared_labels_and_legend(fig, axes, *, label_fontsize: float = 9.5):
+def add_shared_labels_and_legend(
+    fig,
+    axes,
+    *,
+    label_fontsize: float = 9.5,
+    legend_fontsize: float = 7.2,
+):
     handles, labels = axes.flat[0].get_legend_handles_labels()
     unique = dict(zip(labels, handles))
     fig.legend(
@@ -318,7 +324,7 @@ def add_shared_labels_and_legend(fig, axes, *, label_fontsize: float = 9.5):
         bbox_to_anchor=(0.5, 0.985),
         ncol=len(unique),
         frameon=False,
-        fontsize=7.2,
+        fontsize=legend_fontsize,
         handletextpad=0.45,
         columnspacing=1.1,
     )
@@ -356,7 +362,7 @@ def main() -> None:
     plt.close(fig1)
 
     titles = {
-        "round1": "Round 1, seed 12, final 100 k (eval. seed 0)",
+        "round1": "Round 1, seed 12, final 100k (eval. seed 0)",
         "round3": "Round 3, seed 18, best 160k (eval. seed 39)",
         "round5_seed10": "Round 5, seed 10, best 490k (eval. seed 7)",
         "round5_seed14": "Round 5, seed 14, best 270k (eval. seed 34)",
@@ -379,6 +385,47 @@ def main() -> None:
     add_shared_labels_and_legend(fig2, axes, label_fontsize=11.5)
     save_figure(fig2, "final_approach_sac_vs_sac_cbf_representative_trajectories")
     plt.close(fig2)
+
+    panel_order = {
+        "combined": ("phase-balanced", "round1", "round3", "round5_seed10"),
+    }
+    combined_titles = {
+        "round1": "Round 1, seed 12, final 100k,\ninitial 100% success rate (eval. seed 0)",
+        "round3": "Round 3, seed 18, best 160k,\ninitial 42% success rate (eval. seed 39)",
+        "round5_seed10": "Round 5, seed 10, best 490k,\ninitial 66% success rate (eval. seed 7)",
+    }
+    fig3, axes = plt.subplots(2, 2, figsize=(10.2, 7.5))
+    fig3.suptitle("Representative nominal vs. CBF-filtered trajectories", fontsize=13, fontweight="bold", x=0.075, y=0.935, ha="left")
+    fig3.subplots_adjust(left=0.075, right=0.985, bottom=0.09, top=0.86, wspace=0.12, hspace=0.25)
+    for ax, key in zip(axes.flat, panel_order["combined"]):
+        if key == "phase-balanced":
+            seed = closing_seeds[key]
+            draw_panel(
+                ax,
+                close_nominal[key],
+                filtered_path(CLOSING_FILTERED[key], seed, True),
+                geometry(CLOSING_FILTERED[key], seed, True),
+                f"Closing phase-balanced policy (evaluation seed {seed})",
+                True,
+                stronger_boundaries=True,
+            )
+            continue
+
+        seed = final_seeds[key]
+        campaign = FINAL_CASES[key][2]
+        draw_panel(
+            ax,
+            final_nominal[key],
+            filtered_path(campaign, seed, False),
+            geometry(campaign, seed, False),
+            combined_titles.get(key, titles[key]),
+            False,
+            stronger_boundaries=True,
+            external_zoom=True,
+        )
+    add_shared_labels_and_legend(fig3, axes, label_fontsize=11.5, legend_fontsize=8.2)
+    save_figure(fig3, "closing_and_final_approach_representative_trajectories_2x2")
+    plt.close(fig3)
 
     report = {"closing": {}, "final_approach": {}}
     for key, seed in closing_seeds.items():

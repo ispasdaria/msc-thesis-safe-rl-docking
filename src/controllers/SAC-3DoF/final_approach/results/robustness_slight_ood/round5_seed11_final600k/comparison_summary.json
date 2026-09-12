@@ -1,0 +1,33 @@
+[
+  {
+    "policy_identifier": "round5_seed11_final600k",
+    "evaluation_rollouts": 50,
+    "successful_rollouts": 50,
+    "success_rate": 1.0,
+    "timeouts": 0,
+    "hard_safety_terminations": 0,
+    "termination_reason_breakdown": {
+      "success_docking": 50
+    },
+    "mean_duration_s": 3404.28,
+    "std_duration_s": 334.4370816760606,
+    "mean_terminal_port_distance_m": 0.07627839111858464,
+    "max_terminal_port_distance_m": 0.09944595026913282,
+    "mean_terminal_port_speed_mps": 0.04404242181496667,
+    "mean_terminal_attitude_error_deg": 1.1078242393761784,
+    "mean_terminal_angular_rate_error_deg_s": 0.0012201863713783034,
+    "mean_action_saturation_fraction": 0.0,
+    "docking_cone_violation_count": 0,
+    "round": 5,
+    "training_seed": 11,
+    "training_budget_steps": 600000,
+    "replay_buffer_size": 600000,
+    "model_path": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k.zip",
+    "vecnormalize_path": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k_vecnormalize.pkl",
+    "vecnormalize_training": false,
+    "vecnormalize_reward_normalization": false,
+    "deterministic_inference": true,
+    "evaluation_seed_start": 0,
+    "evaluation_seed_end": 49
+  }
+]

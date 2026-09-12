@@ -35,6 +35,11 @@ from controllers.cbf_3DoF.barriers import (
 )
 from controllers.cbf_3DoF.diagnostics import hard_cbf_feasibility_margin
 from controllers.cbf_3DoF.qp_filter import FinalApproachCBFFilter
+from controllers.evaluation_initialization import (
+    add_initial_range_arguments,
+    initial_ranges_from_args,
+    sample_initial_state,
+)
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 
@@ -263,9 +268,14 @@ def run_rollout(
     variant: str,
     base_config: FinalApproachCBFConfig,
     output_dir: Path,
+    initial_ranges: dict[str, tuple[float, float]],
 ) -> dict[str, object]:
     env = make_env(eval_seed, mode)
-    observation, info = env.reset(seed=eval_seed)
+    initial_state = sample_initial_state(eval_seed, initial_ranges)
+    observation, info = env.reset(
+        seed=eval_seed,
+        options={"initial_state": initial_state, "mode": mode},
+    )
     total_reward = 0.0
     records: list[dict[str, object]] = []
     cone_enabled, speed_enabled, alignment_enabled = VARIANT_FLAGS[variant]
@@ -755,6 +765,7 @@ def parse_args():
     parser.add_argument("--speed-slack-penalty", type=float, default=1.0e8)
     parser.add_argument("--alignment-slack-penalty", type=float, default=1.0e8)
     parser.add_argument("--output-dir", type=Path, default=None)
+    add_initial_range_arguments(parser)
     return parser.parse_args()
 
 
@@ -766,6 +777,7 @@ def main() -> None:
         raise FileNotFoundError(f"SAC checkpoint not found: {args.model}")
     if not args.vecnormalize.is_file():
         raise FileNotFoundError(f"VecNormalize statistics not found: {args.vecnormalize}")
+    initial_ranges = initial_ranges_from_args(args)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = args.output_dir or (DEFAULT_RESULTS_DIR / timestamp)
@@ -804,6 +816,7 @@ def main() -> None:
                     variant=variant,
                     base_config=config,
                     output_dir=output_dir,
+                    initial_ranges=initial_ranges,
                 )
                 rows.append(row)
                 print(
@@ -831,6 +844,7 @@ def main() -> None:
                 "num_seeds": args.num_seeds,
                 "mode": args.mode,
                 "max_steps": args.max_steps,
+                "initial_ranges": initial_ranges,
                 "protected_barrier_tolerance": PROTECTED_BARRIER_TOLERANCE,
                 "qp_failure_behavior": (
                     "record_diagnosis_and_retain_nominal_action_fallback"

@@ -23,6 +23,11 @@ for path in (SRC_PATH, LQR_PATH):
 from controllers.cbf_3DoF.barriers import FinalApproachCBFConfig
 from controllers.cbf_3DoF.closing_barriers import ClosingCBFConfig
 from controllers.cbf_3DoF.controller import CBFQPController
+from controllers.evaluation_initialization import (
+    add_initial_range_arguments,
+    initial_ranges_from_args,
+    sample_initial_state,
+)
 from envs.docking3dof.core import Docking3DoFEnv
 from lqr_3dof_closing import (
     LQRClosingController,
@@ -110,7 +115,14 @@ def full_cbf_config(phase: str):
     )
 
 
-def run_rollout(phase: str, seed: int, mode: str, max_time: float):
+def run_rollout(
+    phase: str,
+    seed: int,
+    mode: str,
+    max_time: float,
+    initial_ranges: dict[str, tuple[float, float]] | None = None,
+    use_cbf: bool = True,
+):
     dt = 0.1 if phase == "closing" else 1.0
     env = Docking3DoFEnv(
         phase=phase,
@@ -119,9 +131,17 @@ def run_rollout(phase: str, seed: int, mode: str, max_time: float):
         integrator="rk4",
         seed=seed,
     )
-    state = env.reset(mode=mode)
+    initial_state = (
+        None if initial_ranges is None else sample_initial_state(seed, initial_ranges)
+    )
+    state = env.reset(initial_state=initial_state, mode=mode)
     p3_target = None if env.p3_target is None else env.p3_target.copy()
-    controller = CBFQPController(build_lqr(env), full_cbf_config(phase))
+    nominal_controller = build_lqr(env)
+    controller = (
+        CBFQPController(nominal_controller, full_cbf_config(phase))
+        if use_cbf
+        else nominal_controller
+    )
 
     interventions = 0
     qp_failures = 0
@@ -135,14 +155,14 @@ def run_rollout(phase: str, seed: int, mode: str, max_time: float):
 
     while not done and steps < max_steps:
         filtered_action = controller.compute_action(env, state)
-        result = controller.last_result
+        result = controller.last_result if use_cbf else None
         # CBFQPController computes LQR nominal -> CBF filtered; only the latter
         # is passed to the base environment here.
         state, done, info = env.step(filtered_action)
         steps += 1
-        interventions += int(result.intervened)
-        qp_failures += int(result.qp_failed)
-        if result.intervened:
+        interventions += int(result.intervened) if result is not None else 0
+        qp_failures += int(result.qp_failed) if result is not None else 0
+        if result is not None and result.intervened:
             # A family is attributed independently when one of its filtered
             # hard rows is binding to the intervention tolerance. Multiple
             # families may therefore be counted at the same control step.
@@ -268,6 +288,12 @@ def parse_args():
     parser.add_argument("--mode", choices=("nominal", "testing", "training"), default="testing")
     parser.add_argument("--max-time", type=float, default=None)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--no-cbf",
+        action="store_true",
+        help="Evaluate the unchanged nominal LQR without the CBF-QP filter.",
+    )
+    add_initial_range_arguments(parser)
     return parser.parse_args()
 
 
@@ -279,11 +305,19 @@ def main():
     max_time = default_max_time if args.max_time is None else args.max_time
     if max_time <= 0.0:
         raise ValueError("--max-time must be positive")
+    initial_ranges = initial_ranges_from_args(args)
     args.output_dir.mkdir(parents=True, exist_ok=False)
 
     rows = []
     for seed in range(args.seed_start, args.seed_start + args.num_seeds):
-        row = run_rollout(args.phase, seed, args.mode, max_time)
+        row = run_rollout(
+            args.phase,
+            seed,
+            args.mode,
+            max_time,
+            initial_ranges=initial_ranges,
+            use_cbf=not args.no_cbf,
+        )
         rows.append(row)
         print(f"{args.phase} seed={seed} success={row['success']} reason={row['termination_reason']}")
 
@@ -301,8 +335,13 @@ def main():
                 "integrator": "rk4",
                 "mode": args.mode,
                 "seeds": list(range(args.seed_start, args.seed_start + args.num_seeds)),
-                "cbf": asdict(full_cbf_config(args.phase)),
-                "control_path": "LQR nominal -> full hard CBF-QP -> base environment",
+                "initial_ranges": initial_ranges,
+                "cbf": None if args.no_cbf else asdict(full_cbf_config(args.phase)),
+                "control_path": (
+                    "LQR nominal -> base environment"
+                    if args.no_cbf
+                    else "LQR nominal -> full hard CBF-QP -> base environment"
+                ),
                 "sac_or_vecnormalize_used": False,
             },
             stream,

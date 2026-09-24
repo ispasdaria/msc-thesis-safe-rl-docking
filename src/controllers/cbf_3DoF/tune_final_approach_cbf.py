@@ -222,7 +222,7 @@ def config_from_trial(trial, independent_k2):
 
 def boundary_precheck(config, dt=1.0, tolerance=1.0e-6):
     """Exercise admissible exact boundaries before expensive SAC rollouts."""
-    env = Docking3DoFEnv(phase="final", dt=dt, integrator="rk4", seed=0)
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final", dt=dt, integrator="rk4", seed=0)
     cbf_filter = FinalApproachCBFFilter(env, config)
     cases = []
 

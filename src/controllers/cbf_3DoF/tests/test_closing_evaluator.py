@@ -34,7 +34,7 @@ def test_closing_barrier_reporting_separates_strict_and_tolerant_crossings():
 
 
 def test_closing_qp_failure_diagnosis_identifies_axial_family():
-    env = Docking3DoFEnv(phase="closing", dt=1.0, integrator="rk4", seed=0)
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing", dt=1.0, integrator="rk4", seed=0)
     config = ClosingCBFConfig(
         enable_cone=False,
         enable_port_speed=False,

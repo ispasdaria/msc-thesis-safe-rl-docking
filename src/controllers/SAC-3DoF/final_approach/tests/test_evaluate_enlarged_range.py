@@ -16,6 +16,47 @@ def load_module():
 
 
 class EnlargedRangeEvaluationTests(unittest.TestCase):
+    def test_default_outputs_use_controller_local_representative_names(self):
+        evaluator = load_module()
+
+        self.assertEqual(
+            evaluator.DEFAULT_OUTPUT_ROOT,
+            SCRIPT.parent / "results" / "robustness_expanded_test_bounds",
+        )
+        self.assertEqual(
+            evaluator.POLICIES["round1_seed12_final100k"]["output_directory"],
+            "round1_seed12_100k_steps",
+        )
+        self.assertEqual(
+            evaluator.POLICIES["round5_seed11_final600k"]["output_directory"],
+            "round5_seed11_600k_steps_buffer600k",
+        )
+
+    def test_evaluator_does_not_write_redundant_combined_rollouts(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+
+        self.assertNotIn('"all_rollouts.csv"', source)
+        self.assertIn('"rollout_results.csv"', source)
+        self.assertIn('"evaluation_summary.json"', source)
+        self.assertIn('"policy_comparison_summary.json"', source)
+
+    def test_repository_model_paths_are_stored_relative_to_repository(self):
+        evaluator = load_module()
+        model_path = (
+            evaluator.REPO_ROOT
+            / "src"
+            / "controllers"
+            / "SAC-3DoF"
+            / "final_approach"
+            / "models"
+            / "policy.zip"
+        )
+
+        self.assertEqual(
+            evaluator.portable_path(model_path),
+            "src/controllers/SAC-3DoF/final_approach/models/policy.zip",
+        )
+
     def test_seeded_initial_states_are_repeatable_and_inside_enlarged_bounds(self):
         evaluator = load_module()
 

@@ -643,13 +643,14 @@ def run_rollouts(
     elapsed_time_mean = float(np.mean(elapsed_times)) if elapsed_times else float("nan")
     vx_traj_mean = float(np.mean(mean_vx_trajectory)) if mean_vx_trajectory else float("nan")
 
-    # This keeps your old diagnostic, but note that it uses final vx, not trajectory-average vx.
+    # Retain the terminal-velocity diagnostic; it uses final vx rather than
+    # trajectory-average vx.
     if np.isfinite(rx_dot_final_mean) and abs(rx_dot_final_mean) > 1e-9:
         est_time_from_final_vx = s_delta_mean / abs(rx_dot_final_mean)
     else:
         est_time_from_final_vx = float("nan")
 
-    # This is usually the more meaningful velocity-based estimate.
+    # Estimate traversal time using the trajectory-average axial velocity.
     if np.isfinite(vx_traj_mean) and abs(vx_traj_mean) > 1e-9:
         est_time_from_mean_vx = s_delta_mean / abs(vx_traj_mean)
     else:

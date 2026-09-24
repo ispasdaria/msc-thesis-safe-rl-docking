@@ -1,15 +1,37 @@
-# Ignore the virtual environment folder
+# Virtual environments and local configuration
 .venv/
+.env
+.env.*
+!.env.example
 
-# Ignore Visual Studio Code settings
+# Editors and operating systems
 .vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~
 
-# Ignore Python cache folders
+# Python caches and build artifacts
 __pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+
+# Test, coverage, and analysis outputs
 .pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Repository-specific temporary files
 .tmp_pdf_tools/
-
-# Ignore Python bytecode files
-*.pyc
-
-

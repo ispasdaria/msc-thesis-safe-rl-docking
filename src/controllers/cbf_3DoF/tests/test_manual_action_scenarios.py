@@ -27,7 +27,7 @@ BARRIER_TOL = 1.0e-6
 
 
 def make_env():
-    return Docking3DoFEnv(phase="final", dt=1.0, integrator="rk4", seed=123)
+    return Docking3DoFEnv(max_time=5_000.0, phase="final", dt=1.0, integrator="rk4", seed=123)
 
 
 def hard_config(**changes):

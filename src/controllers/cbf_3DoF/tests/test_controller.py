@@ -34,7 +34,7 @@ def scipy_config(config):
     ],
 )
 def test_adapter_has_lqr_controller_contract_for_both_phases(phase, config):
-    env = Docking3DoFEnv(phase=phase, seed=7)
+    env = Docking3DoFEnv(max_time=12_000.0 if phase == "closing" else 5_000.0, phase=phase, seed=7)
     state = env.reset(mode="testing")
     nominal_controller = ConstantPhysicalController([0.0, 0.0, 0.0])
     controller = with_cbf_qp(nominal_controller, config)
@@ -51,7 +51,7 @@ def test_adapter_has_lqr_controller_contract_for_both_phases(phase, config):
 
 
 def test_adapter_clips_lqr_command_in_physical_units_before_filtering():
-    env = Docking3DoFEnv(phase="final", seed=3)
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final", seed=3)
     state = env.reset(mode="testing")
     raw = 2.0 * env.action_high
     controller = CBFQPController(
@@ -66,7 +66,7 @@ def test_adapter_clips_lqr_command_in_physical_units_before_filtering():
 
 
 def test_adapter_rejects_config_for_the_other_phase():
-    env = Docking3DoFEnv(phase="closing", seed=1)
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing", seed=1)
     state = env.reset(mode="testing")
     controller = CBFQPController(
         ConstantPhysicalController(np.zeros(3)), FinalApproachCBFConfig()

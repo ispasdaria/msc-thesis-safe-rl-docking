@@ -202,7 +202,7 @@ def test_final_lqr_deterministic_rollout_with_fixed_seed():
 
 
 def test_final_lqr_step_robust_under_clipping():
-    env = Docking3DoFEnv(phase="final", seed=1)
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final", seed=1)
     env.reset(mode="testing")
 
     action = np.array([10.0, -10.0, 10.0])

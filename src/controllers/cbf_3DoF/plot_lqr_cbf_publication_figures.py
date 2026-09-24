@@ -206,7 +206,7 @@ def load_saved_rollout(phase: str, seed: int, label: str) -> dict | None:
         data = {key: archive[key].item() if archive[key].ndim == 0 else archive[key].copy()
                 for key in archive.files}
     dt = 0.1 if phase == "closing" else 1.0
-    env = Docking3DoFEnv(phase=phase, dt=dt, integrator="rk4", seed=seed)
+    env = Docking3DoFEnv(max_time=12_000.0 if phase == "closing" else 5_000.0, phase=phase, dt=dt, integrator="rk4", seed=seed)
     env.reset(mode="testing")
     p3 = np.array([env.d_P3, 0.0])
     if phase == "closing":

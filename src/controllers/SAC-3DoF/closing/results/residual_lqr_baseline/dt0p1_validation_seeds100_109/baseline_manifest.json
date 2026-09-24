@@ -122,7 +122,7 @@
       "v_fast_mps": -0.08
     },
     "source_sha256": {
-      "src\\controllers\\LQR-3DoF\\lqr_3dof_closing.py": "78300c8454e7e31ef930412e21079dc997c7b733880da8d48db5e4502d600ec1",
+      "src\\controllers\\LQR-3DoF\\lqr_3dof_closing.py": "73e2a9092c79abe0d025c1f948e2c4e1358c4108ca4b4ea0efed30ca385e226d",
       "src\\controllers\\SAC-3DoF\\closing\\lqr_reference_residual_env.py": "94816894c92e912c17e3f1f8c5dbae955df1f845e0fecb2a91d94ce4f46397df",
       "src\\controllers\\SAC-3DoF\\closing\\lqr_residual_env.py": "9818cc217a5e04efdb26586c90eeb2a09191672e11ed73f4b5fedf5ed31307b0",
       "src\\controllers\\SAC-3DoF\\closing\\residual_lqr_config.py": "7e7ffdeaa4b0a531671864d76dadd1912010356dcdf5c2afdc94079f916bcc77"

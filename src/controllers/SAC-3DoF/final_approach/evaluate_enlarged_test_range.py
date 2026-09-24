@@ -29,7 +29,7 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODEL_ROOT = SCRIPT_DIR / "models"
 DEFAULT_OUTPUT_ROOT = (
-    REPO_ROOT / "results" / "final_approach" / "robustness_enlarged_test_range"
+    SCRIPT_DIR / "results" / "robustness_expanded_test_bounds"
 )
 MAX_STEPS = 5_000
 DT_SECONDS = 1.0
@@ -40,6 +40,7 @@ POLICIES = {
         "training_seed": 12,
         "training_budget_steps": 100_000,
         "replay_buffer_size": 100_000,
+        "output_directory": "round1_seed12_100k_steps",
         "group": "optuna12_100ksteps_buffer100k",
         "stem": "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12",
     },
@@ -48,6 +49,7 @@ POLICIES = {
         "training_seed": 11,
         "training_budget_steps": 600_000,
         "replay_buffer_size": 600_000,
+        "output_directory": "round5_seed11_600k_steps_buffer600k",
         "group": "optuna12_600ksteps_buffer600k",
         "stem": "sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k",
     },
@@ -79,6 +81,14 @@ RANGE_CLI_NAMES = {
     "psi_deg": ("psi-min-deg", "psi-max-deg"),
     "omega_z_deg_s": ("omega-z-min-deg-s", "omega-z-max-deg-s"),
 }
+
+
+def portable_path(path: Path) -> str:
+    """Return repository paths in a platform-independent form."""
+    try:
+        return path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return str(path)
 
 
 def sample_initial_state(seed: int, ranges: dict | None = None) -> np.ndarray:
@@ -309,7 +319,6 @@ def main() -> None:
     args = parse_args()
     selected = POLICIES if args.policy == "both" else {args.policy: POLICIES[args.policy]}
     args.output_root.mkdir(parents=True, exist_ok=True)
-    all_rows = []
     summaries = []
 
     for policy_id, spec in selected.items():
@@ -342,8 +351,8 @@ def main() -> None:
                 "training_seed": spec["training_seed"],
                 "training_budget_steps": spec["training_budget_steps"],
                 "replay_buffer_size": spec["replay_buffer_size"],
-                "model_path": str(model_path),
-                "vecnormalize_path": str(vecnorm_path),
+                "model_path": portable_path(model_path),
+                "vecnormalize_path": portable_path(vecnorm_path),
                 "vecnormalize_training": False,
                 "vecnormalize_reward_normalization": False,
                 "deterministic_inference": True,
@@ -351,15 +360,15 @@ def main() -> None:
                 "evaluation_seed_end": args.seed_end,
             }
         )
-        policy_dir = args.output_root / policy_id
-        write_csv(policy_dir / "rollouts.csv", rows)
-        with (policy_dir / "summary.json").open("w", encoding="utf-8") as stream:
+        policy_dir = args.output_root / spec["output_directory"]
+        write_csv(policy_dir / "rollout_results.csv", rows)
+        with (policy_dir / "evaluation_summary.json").open(
+            "w", encoding="utf-8"
+        ) as stream:
             json.dump(summary, stream, indent=2)
-        all_rows.extend(rows)
         summaries.append(summary)
 
-    write_csv(args.output_root / "all_rollouts.csv", all_rows)
-    with (args.output_root / "comparison_summary.json").open(
+    with (args.output_root / "policy_comparison_summary.json").open(
         "w", encoding="utf-8"
     ) as stream:
         json.dump(summaries, stream, indent=2)

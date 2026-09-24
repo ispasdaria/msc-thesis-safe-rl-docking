@@ -37,7 +37,7 @@ def test_build_Q_final_is_symmetric_psd():
 
 
 def test_build_R_final_is_symmetric_pd():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     R = build_R_final(env)
 
     assert R.shape == (3, 3)
@@ -48,7 +48,7 @@ def test_build_R_final_is_symmetric_pd():
 
 
 def test_port_error_mapping_shape_and_conditioning():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     H = build_port_error_mapping(env)
 
     assert H.shape == (6, 6)
@@ -59,7 +59,7 @@ def test_port_error_mapping_shape_and_conditioning():
 
 
 def test_port_error_mapping_contains_expected_entries():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     H = build_port_error_mapping(env)
 
     x_c, y_c = env.r_c_body
@@ -81,7 +81,7 @@ def test_port_error_mapping_contains_expected_entries():
 
 
 def test_final_error_shape_and_finiteness():
-    env = Docking3DoFEnv(phase="final", seed=0)
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final", seed=0)
     state = env.reset(mode="testing")
 
     e = final_error(env, state)
@@ -91,14 +91,14 @@ def test_final_error_shape_and_finiteness():
 
 
 def test_final_error_rejects_invalid_state_shape():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     with pytest.raises(ValueError, match="state must have shape"):
         final_error(env, np.zeros(5))
 
 
 def test_orbital_to_body_action_zero_angle():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     action_orbital = np.array([0.1, -0.2, 0.3])
 
     action_body = orbital_to_body_action(env, action_orbital, psi=0.0)
@@ -108,7 +108,7 @@ def test_orbital_to_body_action_zero_angle():
 
 
 def test_orbital_to_body_action_inverse_transform():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     psi = 0.3
     action_orbital = np.array([0.05, -0.02, 0.01])
 
@@ -119,7 +119,7 @@ def test_orbital_to_body_action_inverse_transform():
 
 
 def test_orbital_to_body_action_rejects_wrong_shape():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     with pytest.raises(ValueError, match="Orbital-frame action"):
         orbital_to_body_action(env, np.zeros(2), psi=0.0)

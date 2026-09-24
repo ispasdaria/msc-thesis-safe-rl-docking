@@ -132,7 +132,7 @@ def build_phase_problem(
     object,
 ]:
     """Build the selected continuous LQR problem for one mission phase."""
-    env = Docking3DoFEnv(phase=phase, dt=dt, seed=0)
+    env = Docking3DoFEnv(max_time=12_000.0 if phase == "closing" else 5_000.0, phase=phase, dt=dt, seed=0)
     if phase == "closing":
         A, B = build_closing_matrices(env)
         Q = build_Q_closing(dt=dt)

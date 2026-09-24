@@ -39,7 +39,7 @@ CONFIG_KEYS = {
 COLORS = ("#0072B2", "#D55E00", "#CC79A7")
 PHASE_COLORS = {"closing": "#0072B2", "final": "#D55E00"}
 DEFAULT_CACHE = HERE / "results/full_mission_mixed/representative_histories_lqr_sac_seed12_100k"
-DEFAULT_OUTPUT = HERE.parents[2] / "figures/full_mission_sac"
+DEFAULT_OUTPUT = HERE / "figures" / "full_mission"
 
 
 def parse_args() -> argparse.Namespace:
@@ -226,85 +226,6 @@ def make_figure(histories: list[dict[str, object]]) -> plt.Figure:
     return fig
 
 
-def make_state_evolution_figure(history: dict[str, object]) -> plt.Figure:
-    closing_times = np.asarray(history["closing_times"], dtype=float)
-    final_times = np.asarray(history["final_times"], dtype=float)
-    closing_states = np.asarray(history["closing_states"], dtype=float)
-    final_states = np.asarray(history["final_states"], dtype=float)
-    handover_time = float(history["handover_time_s"])
-    mission_final_times = final_times + handover_time
-
-    closing_position = port_positions(closing_states)
-    final_position = port_positions(final_states)
-    closing_velocity = port_velocities(closing_states)
-    final_velocity = port_velocities(final_states)
-
-    fig, axes = plt.subplots(
-        2, 2, figsize=(11.2, 8.5), sharex=True,
-        gridspec_kw={"height_ratios": [1.0, 1.25]},
-    )
-    fig.subplots_adjust(left=0.095, right=0.975, bottom=0.09, top=0.92,
-                        wspace=0.22, hspace=0.32)
-    series = (
-        (closing_position[:, 0], final_position[:, 0],
-         "a) Axial position", r"Axial docking-port position, $r_{p,x}$ [m]"),
-        (closing_position[:, 1], final_position[:, 1],
-         "b) Lateral position", r"Lateral docking-port position, $r_{p,y}$ [m]"),
-        (closing_velocity[:, 0], final_velocity[:, 0],
-         "c) Axial velocity", r"Axial docking-port velocity, $v_{p,x}$ [m/s]"),
-        (closing_velocity[:, 1], final_velocity[:, 1],
-         "d) Lateral velocity", r"Lateral docking-port velocity, $v_{p,y}$ [m/s]"),
-    )
-
-    for axis, (closing_values, final_values, title, ylabel) in zip(axes.flat, series):
-        axis.plot(closing_times, closing_values, color=PHASE_COLORS["closing"])
-        axis.plot(mission_final_times, final_values, color=PHASE_COLORS["final"])
-        axis.axvline(handover_time, color="0.20", linestyle="--", linewidth=0.9)
-        axis.axhline(0.0, color="0.45", linewidth=0.6)
-        axis.scatter(handover_time, closing_values[-1], s=15, color="0.18",
-                     edgecolor="white", linewidth=0.35, zorder=5)
-        axis.set_title(title, loc="left")
-        axis.set_ylabel(ylabel)
-        axis.ticklabel_format(axis="both", style="plain", useOffset=False)
-
-    axes[0, 1].text(
-        handover_time + 0.018 * float(history["total_time_s"]),
-        0.94, r"$P_3$ handover", transform=axes[0, 1].get_xaxis_transform(),
-        ha="left", va="top", fontsize=8.5,
-    )
-    for axis in axes[1, :]:
-        axis.set_xlabel("Mission time [s]")
-
-    # At full-mission scale, the first SAC velocity correction occupies only a
-    # few pixels.  These insets verify continuity at t - t_P3 = 0.
-    for axis, closing_values, final_values, bounds in (
-        (axes[1, 0], closing_velocity[:, 0], final_velocity[:, 0], [0.16, 0.60, 0.39, 0.36]),
-        (axes[1, 1], closing_velocity[:, 1], final_velocity[:, 1], [0.17, 0.60, 0.39, 0.36]),
-    ):
-        detail = axis.inset_axes(bounds)
-        closing_mask = closing_times >= handover_time - 5.0
-        final_mask = final_times <= 50.0
-        detail.plot(closing_times[closing_mask] - handover_time,
-                    closing_values[closing_mask], color=PHASE_COLORS["closing"])
-        detail.plot(final_times[final_mask], final_values[final_mask],
-                    color=PHASE_COLORS["final"])
-        detail.axvline(0.0, color="0.20", linestyle="--", linewidth=0.7)
-        detail.scatter([0.0, 0.0], [closing_values[-1], final_values[0]],
-                       s=10, color="0.18", zorder=5)
-        detail.set_title("Transition detail", fontsize=7.5, pad=2)
-        detail.set_xlabel(r"$t-t_{P_3}$ [s]", fontsize=7)
-        detail.tick_params(labelsize=6.5)
-        detail.ticklabel_format(axis="both", style="plain", useOffset=False)
-
-    policy_text = (
-        "SAC final approach, seed 11, 600k/600k"
-        if history.get("configuration") == "lqr_final_r5_s11_600k"
-        else "SAC final approach, seed 12, 100k"
-    )
-    fig.suptitle(f"Full-mission state evolution: LQR closing to {policy_text} (seed 803)", y=0.975)
-    return fig
-
-
 def make_final_policy_comparison_figure(
     seed12: dict[str, object], seed11: dict[str, object]
 ) -> plt.Figure:
@@ -449,16 +370,7 @@ def main() -> None:
         figure = make_figure(histories)
         stem = args.output_dir / f"representative_successful_full_mission_trajectories_lqr_{args.final_policy}"
         figure.savefig(stem.with_suffix(".png"), dpi=400, bbox_inches="tight", facecolor="white")
-        figure.savefig(stem.with_suffix(".pdf"), bbox_inches="tight", facecolor="white")
         plt.close(figure)
-    seed803 = next(history for history in histories if int(history["seed"]) == 803)
-    state_figure = make_state_evolution_figure(seed803)
-    state_stem = args.output_dir / f"full_mission_state_evolution_seed0803_lqr_{args.final_policy}"
-    state_figure.savefig(state_stem.with_suffix(".png"), dpi=400,
-                         bbox_inches="tight", facecolor="white")
-    state_figure.savefig(state_stem.with_suffix(".pdf"),
-                         bbox_inches="tight", facecolor="white")
-    plt.close(state_figure)
     comparison_stem = None
     if args.compare_final_policies:
         seed12_path = args.cache_dir / "seed0803_lqr_seed12_100k.npz"
@@ -476,17 +388,11 @@ def main() -> None:
         comparison_stem = args.output_dir / "full_mission_state_evolution_seed0803_final_policy_comparison"
         comparison.savefig(comparison_stem.with_suffix(".png"), dpi=400,
                            bbox_inches="tight", facecolor="white")
-        comparison.savefig(comparison_stem.with_suffix(".pdf"),
-                           bbox_inches="tight", facecolor="white")
         plt.close(comparison)
     if stem is not None:
         print(f"Saved {stem.with_suffix('.png')}")
-        print(f"Saved {stem.with_suffix('.pdf')}")
-    print(f"Saved {state_stem.with_suffix('.png')}")
-    print(f"Saved {state_stem.with_suffix('.pdf')}")
     if comparison_stem is not None:
         print(f"Saved {comparison_stem.with_suffix('.png')}")
-        print(f"Saved {comparison_stem.with_suffix('.pdf')}")
 
 
 if __name__ == "__main__":

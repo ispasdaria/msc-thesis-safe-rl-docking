@@ -42,7 +42,7 @@ def _build_final_controller(env):
 
 
 def test_build_linearized_3dof_matrices_entries_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     A, B = build_linearized_3dof_matrices(env)
 
     assert A.shape == (6, 6)
@@ -58,7 +58,7 @@ def test_build_linearized_3dof_matrices_entries_final():
 
 
 def test_Q_com_is_symmetric_psd():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     Q_port = build_Q_final()
     H = build_port_error_mapping(env)
@@ -73,7 +73,7 @@ def test_Q_com_is_symmetric_psd():
 
 
 def test_linearized_pair_is_controllable_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     A, B = build_linearized_3dof_matrices(env)
 
     n = A.shape[0]
@@ -90,7 +90,7 @@ def test_linearized_pair_is_controllable_final():
 
 
 def test_linearized_pair_is_stabilizable_pbh_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     A, B = build_linearized_3dof_matrices(env)
 
     n = A.shape[0]
@@ -104,7 +104,7 @@ def test_linearized_pair_is_stabilizable_pbh_final():
 
 
 def test_linearized_pair_is_detectable_from_Q_com_pbh_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     A, _ = build_linearized_3dof_matrices(env)
     H = build_port_error_mapping(env)
@@ -126,7 +126,7 @@ def test_linearized_pair_is_detectable_from_Q_com_pbh_final():
 
 
 def test_compute_lqr_gain_final_stable_and_shapes():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     A, B = build_linearized_3dof_matrices(env)
     H = build_port_error_mapping(env)
@@ -145,7 +145,7 @@ def test_compute_lqr_gain_final_stable_and_shapes():
 
 
 def test_compute_lqr_gain_rejects_non_pd_R_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     A, B = build_linearized_3dof_matrices(env)
     H = build_port_error_mapping(env)
@@ -159,7 +159,7 @@ def test_compute_lqr_gain_rejects_non_pd_R_final():
 
 
 def test_compute_lqr_gain_rejects_non_psd_Q_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     A, B = build_linearized_3dof_matrices(env)
     R = build_R_final(env)
@@ -172,7 +172,7 @@ def test_compute_lqr_gain_rejects_non_psd_Q_final():
 
 
 def test_compute_lqr_gain_rejects_undetectable_Q_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     A, B = build_linearized_3dof_matrices(env)
     R = build_R_final(env)
@@ -184,7 +184,7 @@ def test_compute_lqr_gain_rejects_undetectable_Q_final():
 
 
 def test_compute_lqr_gain_rejects_non_stabilizable_B_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     A, B = build_linearized_3dof_matrices(env)
     H = build_port_error_mapping(env)
@@ -202,7 +202,7 @@ def test_compute_lqr_gain_rejects_non_stabilizable_B_final():
 
 def test_controller_rejects_wrong_phase_final():
     controller = LQRFinalController(np.zeros((3, 6)), np.eye(6))
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
 
     with pytest.raises(ValueError, match="final phase"):
         controller.compute_action(env, np.zeros(6))
@@ -210,7 +210,7 @@ def test_controller_rejects_wrong_phase_final():
 
 def test_controller_rejects_invalid_state_shape_final():
     controller = LQRFinalController(np.zeros((3, 6)), np.eye(6))
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     with pytest.raises(ValueError, match="state must have shape"):
         controller.compute_action(env, np.zeros(5))
@@ -227,7 +227,7 @@ def test_controller_rejects_bad_H_shape_final():
 
 
 def test_controller_action_sanity_final():
-    env = Docking3DoFEnv(phase="final", seed=1)
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final", seed=1)
     state = env.reset(mode="testing")
 
     controller = _build_final_controller(env)

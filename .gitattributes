@@ -1,5 +1,4 @@
 src/controllers/SAC-3DoF/closing/demonstrations/lqr_closing_training_rewardv15_expanded_200successes.npz filter=lfs diff=lfs merge=lfs -text
-src/controllers/SAC-3DoF/closing/demonstrations/lqr_closing_training_rewardv15_expanded_200successes.partial.npz filter=lfs diff=lfs merge=lfs -text
 src/controllers/SAC-3DoF/closing/demonstrations/lqr_closing_training_rewardv15_dt_dt0p1_200successes.partial.npz filter=lfs diff=lfs merge=lfs -text
 src/controllers/SAC-3DoF/closing/demonstrations/lqr_closing_training_rewardv15_dt_dt0p1_replay_20episodes.npz filter=lfs diff=lfs merge=lfs -text
 src/controllers/SAC-3DoF/closing/demonstrations/lqr_closing_training_rewardv15_dt_dt0p1_bc_stride10_78episodes.npz filter=lfs diff=lfs merge=lfs -text

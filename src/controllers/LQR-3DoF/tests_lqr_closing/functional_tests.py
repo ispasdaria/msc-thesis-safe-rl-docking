@@ -102,7 +102,7 @@ def test_nominal_closing_rollout_succeeds():
 
 
 def test_qr_scaling_keeps_closed_loop_stable():
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     A, B = build_linearized_3dof_matrices(env)
 
     for q_scale in [0.5, 2.0]:
@@ -117,7 +117,7 @@ def test_qr_scaling_keeps_closed_loop_stable():
 
 
 def test_orbital_to_body_inverse_transform():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     psi = 0.3
     action_orbital = np.array([0.05, -0.02, 0.01])
 
@@ -128,7 +128,7 @@ def test_orbital_to_body_inverse_transform():
 
 
 def test_step_robust_under_clipping():
-    env = Docking3DoFEnv(phase="closing", seed=1)
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing", seed=1)
     env.reset(mode="testing")
 
     action = np.array([10.0, -10.0, 10.0])

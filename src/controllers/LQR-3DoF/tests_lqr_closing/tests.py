@@ -70,7 +70,7 @@ def test_build_Q_closing_selects_only_supported_dt_weights():
 
 
 def test_build_R_closing_is_pd():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     R = build_R_closing(env)
 
     assert R.shape == (3, 3)
@@ -81,7 +81,7 @@ def test_build_R_closing_is_pd():
 
 
 def test_build_linearized_3dof_matrices_entries():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     A, B = build_linearized_3dof_matrices(env)
 
     assert A.shape == (6, 6)
@@ -97,7 +97,7 @@ def test_build_linearized_3dof_matrices_entries():
 
 
 def test_linear_model_matches_local_dynamics():
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     A, B = build_linearized_3dof_matrices(env)
 
     state = np.array([1e-3, -2e-3, 0.0, 0.0, 0.0, 0.0])
@@ -120,7 +120,7 @@ def test_linear_model_matches_local_dynamics():
 
 
 def test_closing_error_wraps_psi():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
 
     x = np.array([0.0, 0.0, 0.0, 0.0, np.pi - 0.01, 0.0])
     x_ref = np.array([0.0, 0.0, 0.0, 0.0, -np.pi + 0.01, 0.0])
@@ -132,7 +132,7 @@ def test_closing_error_wraps_psi():
 
 
 def test_orbital_to_body_action_zero_angle():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     action_orbital = np.array([0.1, -0.2, 0.3])
 
     action_body = orbital_to_body_action(env, action_orbital, psi=0.0)
@@ -142,7 +142,7 @@ def test_orbital_to_body_action_zero_angle():
 
 
 def test_orbital_to_body_action_pi_over_2():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     action_orbital = np.array([0.1, 0.2, -0.3])
 
     action_body = orbital_to_body_action(env, action_orbital, psi=np.pi / 2)
@@ -152,7 +152,7 @@ def test_orbital_to_body_action_pi_over_2():
 
 
 def test_compute_lqr_gain_stable_and_shapes():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     A, B = build_linearized_3dof_matrices(env)
     Q = build_Q_closing()
     R = build_R_closing(env)
@@ -167,7 +167,7 @@ def test_compute_lqr_gain_stable_and_shapes():
 
 
 def test_compute_lqr_gain_rejects_non_pd_R():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     A, B = build_linearized_3dof_matrices(env)
     Q = build_Q_closing()
     R_bad = np.zeros((3, 3))
@@ -177,7 +177,7 @@ def test_compute_lqr_gain_rejects_non_pd_R():
 
 
 def test_compute_lqr_gain_rejects_non_psd_Q():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     A, B = build_linearized_3dof_matrices(env)
     Q_bad = build_Q_closing()
     Q_bad[0, 0] = -1.0
@@ -188,7 +188,7 @@ def test_compute_lqr_gain_rejects_non_psd_Q():
 
 
 def test_linearized_pair_is_controllable():
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     A, B = build_linearized_3dof_matrices(env)
 
     n = A.shape[0]
@@ -203,7 +203,7 @@ def test_linearized_pair_is_controllable():
 
 
 def test_linearized_pair_is_stabilizable_pbh():
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     A, B = build_linearized_3dof_matrices(env)
 
     n = A.shape[0]
@@ -218,7 +218,7 @@ def test_linearized_pair_is_stabilizable_pbh():
 
 
 def test_linearized_pair_is_detectable_from_Q_pbh():
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     A, _ = build_linearized_3dof_matrices(env)
     Q = build_Q_closing()
 
@@ -238,7 +238,7 @@ def test_linearized_pair_is_detectable_from_Q_pbh():
 
 def test_controller_rejects_wrong_phase():
     controller = LQRClosingController(np.zeros((3, 6)))
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     with pytest.raises(ValueError, match="closing phase"):
         controller.compute_action(env, np.zeros(6))
@@ -246,7 +246,7 @@ def test_controller_rejects_wrong_phase():
 
 def test_controller_requires_p3_target():
     controller = LQRClosingController(np.zeros((3, 6)))
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
 
     with pytest.raises(RuntimeError, match="p3_target is None"):
         controller.compute_action(env, np.zeros(6))
@@ -254,7 +254,7 @@ def test_controller_requires_p3_target():
 
 def test_controller_rejects_invalid_state_shape():
     controller = LQRClosingController(np.zeros((3, 6)))
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     env.reset(mode="testing")
 
     with pytest.raises(ValueError, match="state must have shape"):
@@ -262,7 +262,7 @@ def test_controller_rejects_invalid_state_shape():
 
 
 def test_controller_action_sanity():
-    env = Docking3DoFEnv(phase="closing", seed=1)
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing", seed=1)
     state = env.reset(mode="testing")
 
     Q = build_Q_closing()
@@ -282,7 +282,7 @@ def test_controller_action_sanity():
 
 
 def test_analyze_saturation_empty_history(capsys):
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
 
     stats = analyze_saturation(env)
     capsys.readouterr()
@@ -292,7 +292,7 @@ def test_analyze_saturation_empty_history(capsys):
 
 
 def test_analyze_saturation_detects_clipping(capsys):
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     env.reset(mode="testing")
 
     action = np.array([10.0, -10.0, 10.0])

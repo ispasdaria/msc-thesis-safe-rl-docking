@@ -29,10 +29,15 @@ def make_state_from_port(env, s, rho, vx=0.0, vy=0.0, psi=0.0, omegaz=0.0):
 
 
 ### Initialization and validation
+def test_environment_requires_explicit_max_time():
+    with pytest.raises(TypeError, match="max_time"):
+        Docking3DoFEnv()
+
+
 def test_environment_initialization():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0)
     assert env.dt > 0
-    assert env.max_time > 0
+    assert env.max_time == 12_000.0
     assert env.ax_max > 0
     assert env.ay_max > 0
     assert env.alphaz_max > 0
@@ -54,24 +59,25 @@ def test_environment_initialization():
     ],
 )
 def test_init_rejects_invalid_scalars(kwargs):
+    constructor_kwargs = {"max_time": 12_000.0, **kwargs}
     with pytest.raises(ValueError):
-        Docking3DoFEnv(**kwargs)
+        Docking3DoFEnv(**constructor_kwargs)
 
 
 @pytest.mark.parametrize("integrator", ["invalid", "", None])
 def test_init_rejects_invalid_integrator(integrator):
     with pytest.raises(ValueError, match="integrator must be either"):
-        Docking3DoFEnv(integrator=integrator)
+        Docking3DoFEnv(max_time=12_000.0, integrator=integrator)
 
 
 @pytest.mark.parametrize("phase", ["invalid", "", None])
 def test_init_rejects_invalid_phase(phase):
     with pytest.raises(ValueError, match="phase must be either"):
-        Docking3DoFEnv(phase=phase)
+        Docking3DoFEnv(max_time=12_000.0 if phase == "closing" else 5_000.0, phase=phase)
 
 
 def test_init_converts_negative_control_limits_to_positive():
-    env = Docking3DoFEnv(ax_max=-0.01, ay_max=-0.02, alphaz_max=-0.003)
+    env = Docking3DoFEnv(max_time=12_000.0, ax_max=-0.01, ay_max=-0.02, alphaz_max=-0.003)
     assert env.ax_max == 0.01
     assert env.ay_max == 0.02
     assert env.alphaz_max == 0.003
@@ -87,32 +93,32 @@ def test_init_converts_negative_control_limits_to_positive():
 )
 def test_init_rejects_non_finite_control_limits(kwargs):
     with pytest.raises(ValueError, match="Control limits must be finite"):
-        Docking3DoFEnv(**kwargs)
+        Docking3DoFEnv(max_time=12_000.0, **kwargs)
 
 
 def test_init_rejects_invalid_geometry_shapes():
     with pytest.raises(ValueError, match="r_c_body must have shape"):
-        Docking3DoFEnv(r_c_body=[1.0, 2.0, 3.0])
+        Docking3DoFEnv(max_time=12_000.0, r_c_body=[1.0, 2.0, 3.0])
 
     with pytest.raises(ValueError, match="r_t_orbital must have shape"):
-        Docking3DoFEnv(r_t_orbital=[1.0])
+        Docking3DoFEnv(max_time=12_000.0, r_t_orbital=[1.0])
 
 
 def test_init_rejects_invalid_p3_target_tolerance_shape():
     with pytest.raises(ValueError, match="p3_target_tolerance must have shape"):
-        Docking3DoFEnv(p3_target_tolerance=np.ones(5))
+        Docking3DoFEnv(max_time=12_000.0, p3_target_tolerance=np.ones(5))
 
 
 ### Angle utilities and action transforms
 @pytest.mark.parametrize("angle", [-4.0 * np.pi, -3.5 * np.pi, 3.5 * np.pi, 4.0 * np.pi])
 def test_wrap_to_pi_bounds(angle):
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     wrapped = env.wrap_to_pi(angle)
     assert -np.pi <= wrapped < np.pi
 
 
 def test_rotation_body_to_orbital_2d_basic_angles():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
 
     r0 = env.rotation_body_to_orbital_2d(0.0)
     r90 = env.rotation_body_to_orbital_2d(np.pi / 2)
@@ -122,19 +128,20 @@ def test_rotation_body_to_orbital_2d_basic_angles():
 
 
 def test_clip_action_rejects_invalid_shape():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     with pytest.raises(ValueError, match="Action must have shape"):
         env.clip_action([0.0, 0.0])
 
 
 def test_transform_action_rejects_invalid_shape():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     with pytest.raises(ValueError, match="Body-frame action must have shape"):
         env.transform_action_to_orbital_frame([0.0, 0.0], psi=0.0)
 
 
 def test_action_clipping():
     env = Docking3DoFEnv(
+        max_time=12_000.0,
         ax_max=0.01,
         ay_max=0.02,
         alphaz_max=0.003,
@@ -156,7 +163,7 @@ def test_action_clipping():
 
 
 def test_action_transformation_zero_angle_and_pi_over_2():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
 
     action_body = np.array([0.01, 0.02, 0.003])
 
@@ -181,7 +188,7 @@ def test_action_transformation_zero_angle_and_pi_over_2():
 
 ### Docking-port geometry
 def test_port_relative_position_uses_offsets_and_rotation():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
 
     state_zero = np.array([100.0, 50.0, 0.0, 0.0, 0.0, 0.0])
     r_p_zero = env.get_port_relative_position(state_zero)
@@ -199,7 +206,7 @@ def test_port_relative_position_uses_offsets_and_rotation():
 
 
 def test_port_relative_velocity_includes_rotation_term():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
 
     state = np.array([100.0, 50.0, -0.2, 0.1, 0.0, 0.1])
     v_p = env.get_port_relative_velocity(state)
@@ -210,7 +217,7 @@ def test_port_relative_velocity_includes_rotation_term():
 
 
 def test_port_relative_velocity_with_rotation_and_omega():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
 
     psi = np.pi / 4
     omegaz = 0.2
@@ -229,7 +236,7 @@ def test_port_relative_velocity_with_rotation_and_omega():
 
 
 def test_is_in_X_dock_true_for_aligned_port_state():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     psi = 0.0
     r_c_orbital = env.rotation_body_to_orbital_2d(psi) @ env.r_c_body
@@ -248,7 +255,7 @@ def test_is_in_X_dock_true_for_aligned_port_state():
 
 
 def test_is_in_X_dock_false_for_high_speed():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     psi = 0.0
     r_c_orbital = env.rotation_body_to_orbital_2d(psi) @ env.r_c_body
@@ -267,7 +274,7 @@ def test_is_in_X_dock_false_for_high_speed():
 
 
 def test_geometry_membership_on_boundaries():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     env.reset(mode="nominal")
 
     s0_state = make_state_from_port(env, s=0.0, rho=0.0)
@@ -302,6 +309,7 @@ def test_geometry_membership_on_boundaries():
 ### Dynamics and integration
 def test_dynamics_returns_correct_state_derivative():
     env = Docking3DoFEnv(
+        max_time=12_000.0,
         ax_max=0.01,
         ay_max=0.02,
         alphaz_max=0.003,
@@ -348,6 +356,7 @@ def test_dynamics_returns_correct_state_derivative():
 
 def test_dynamics_clips_action_before_computing_derivative():
     env = Docking3DoFEnv(
+        max_time=12_000.0,
         ax_max=0.01,
         ay_max=0.02,
         alphaz_max=0.003,
@@ -391,7 +400,7 @@ def test_dynamics_clips_action_before_computing_derivative():
 
 
 def test_dynamics_zero_action_zero_velocity():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
 
     state = np.array([
         100.0,
@@ -429,6 +438,7 @@ def test_dynamics_zero_action_zero_velocity():
 @pytest.mark.parametrize("integrator", ["euler", "rk4"])
 def test_integrate_returns_valid_state(integrator):
     env = Docking3DoFEnv(
+        max_time=12_000.0,
         dt=1.0,
         integrator=integrator,
     )
@@ -457,6 +467,7 @@ def test_integrate_returns_valid_state(integrator):
 @pytest.mark.parametrize("integrator", ["euler", "rk4"])
 def test_integrate_constant_velocity_when_net_acceleration_is_zero(integrator):
     env = Docking3DoFEnv(
+        max_time=12_000.0,
         dt=1.0,
         integrator=integrator,
         ax_max=1.0,
@@ -506,6 +517,7 @@ def test_integrate_constant_velocity_when_net_acceleration_is_zero(integrator):
 @pytest.mark.parametrize("integrator", ["euler", "rk4"])
 def test_integrate_uses_timestep(integrator):
     env = Docking3DoFEnv(
+        max_time=12_000.0,
         dt=0.5,
         integrator=integrator,
         ax_max=1.0,
@@ -554,13 +566,14 @@ def test_integrate_uses_timestep(integrator):
 
 def test_invalid_integrator_name_raises_error():
     with pytest.raises(ValueError, match="integrator must be either"):
-        Docking3DoFEnv(integrator="invalid")
+        Docking3DoFEnv(max_time=12_000.0, integrator="invalid")
 
 
 def test_euler_and_rk4_match_for_constant_velocity_case():
     dt = 0.5
 
     env_euler = Docking3DoFEnv(
+        max_time=12_000.0,
         dt=dt,
         integrator="euler",
         ax_max=1.0,
@@ -569,6 +582,7 @@ def test_euler_and_rk4_match_for_constant_velocity_case():
     )
 
     env_rk4 = Docking3DoFEnv(
+        max_time=12_000.0,
         dt=dt,
         integrator="rk4",
         ax_max=1.0,
@@ -609,13 +623,13 @@ def test_euler_and_rk4_match_for_constant_velocity_case():
 
 ### Reset, sampling, and reproducibility
 def test_reset_rejects_invalid_initial_state_shape():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     with pytest.raises(ValueError, match="Initial state must have shape"):
         env.reset(initial_state=[0.0, 0.0, 0.0])
 
 
 def test_reset_wraps_initial_psi():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     initial_state = np.array([100.0, 0.0, 0.0, 0.0, 3.0 * np.pi, 0.0])
     state = env.reset(initial_state=initial_state)
     assert state[4] == env.wrap_to_pi(initial_state[4])
@@ -679,7 +693,7 @@ def test_reset_returns_valid_state():
 
     for phase, bounds_by_mode in bounds_by_phase.items():
         for mode, bounds in bounds_by_mode.items():
-            env = Docking3DoFEnv(seed=42, phase=phase)
+            env = Docking3DoFEnv(max_time=12_000.0 if phase == "closing" else 5_000.0, seed=42, phase=phase)
             state = env.reset(mode=mode)
 
             assert state.shape == (6,)
@@ -697,14 +711,14 @@ def test_reset_returns_valid_state():
 
 
 def test_is_at_P3_target_raises_without_sampling():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     env.reset(mode="nominal")
     with pytest.raises(RuntimeError, match="P3 target has not been sampled"):
         env.is_at_P3_target(env.state)
 
 
 def test_is_in_X_P3_nominal_and_out_of_bounds():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
 
     nominal_state = np.array([300.0, 0.0, -0.03, 0.0, 0.0, 0.0])
     assert env.is_in_X_P3(nominal_state, mode="nominal")
@@ -714,8 +728,8 @@ def test_is_in_X_P3_nominal_and_out_of_bounds():
 
 
 def test_reset_reproducible_with_seed():
-    env_a = Docking3DoFEnv(phase="closing", seed=123)
-    env_b = Docking3DoFEnv(phase="closing", seed=123)
+    env_a = Docking3DoFEnv(max_time=12_000.0, phase="closing", seed=123)
+    env_b = Docking3DoFEnv(max_time=12_000.0, phase="closing", seed=123)
 
     state_a = env_a.reset(mode="testing")
     state_b = env_b.reset(mode="testing")
@@ -725,7 +739,7 @@ def test_reset_reproducible_with_seed():
 
 
 def test_is_at_P3_target_tolerance_bounds():
-    env = Docking3DoFEnv(phase="closing", seed=123)
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing", seed=123)
     env.reset(mode="testing")
 
     inside = env.p3_target + 0.5 * env.p3_target_tolerance
@@ -737,7 +751,7 @@ def test_is_at_P3_target_tolerance_bounds():
 
 ### Termination and safety
 def test_monitor_safety_flags_alignment_unsafe_in_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     env.reset(mode="nominal")
 
     psi = env.psi_unsafe * 1.1
@@ -760,7 +774,7 @@ def test_monitor_safety_flags_alignment_unsafe_in_final():
 
 
 def test_monitor_safety_geometry_safe_velocity_warn_closing():
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     env.reset(mode="nominal")
 
     s = 1000.0
@@ -776,7 +790,7 @@ def test_monitor_safety_geometry_safe_velocity_warn_closing():
 
 
 def test_monitor_safety_geometry_warn_velocity_safe_closing():
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     env.reset(mode="nominal")
 
     s = 1000.0
@@ -790,7 +804,7 @@ def test_monitor_safety_geometry_warn_velocity_safe_closing():
 
 
 def test_monitor_safety_geometry_unsafe_overrides_velocity_safe():
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     env.reset(mode="nominal")
 
     state = make_state_from_port(env, s=3000.0, rho=0.0, vx=0.05, vy=0.0)
@@ -801,7 +815,7 @@ def test_monitor_safety_geometry_unsafe_overrides_velocity_safe():
 
 
 def test_monitor_safety_velocity_unsafe_overrides_geometry_safe():
-    env = Docking3DoFEnv(phase="closing")
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing")
     env.reset(mode="nominal")
 
     s = 1000.0
@@ -814,7 +828,7 @@ def test_monitor_safety_velocity_unsafe_overrides_geometry_safe():
 
 
 def test_check_done_success_in_final_dock_state():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     env.reset(mode="nominal")
 
     psi = 0.0
@@ -839,7 +853,7 @@ def test_check_done_success_in_final_dock_state():
 
 
 def test_check_done_failure_on_alignment_violation_final():
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     env.reset(mode="nominal")
 
     psi = env.psi_unsafe * 1.1
@@ -895,7 +909,7 @@ def test_check_done_success_overrides_timeout():
 
 
 def test_check_done_success_at_p3_target_closing():
-    env = Docking3DoFEnv(phase="closing", seed=7)
+    env = Docking3DoFEnv(max_time=12_000.0, phase="closing", seed=7)
     env.reset(mode="nominal")
 
     done, info = env.check_done(env.p3_target)
@@ -908,7 +922,7 @@ def test_check_done_success_at_p3_target_closing():
 
 ### Step, logging, and history
 def test_history_arrays_after_reset():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     env.reset(mode="nominal")
 
     times, states, actions_body_raw, actions_body_clipped, actions_orbital = (
@@ -923,7 +937,7 @@ def test_history_arrays_after_reset():
 
 
 def test_step_output_format():
-    env = Docking3DoFEnv(seed=42)
+    env = Docking3DoFEnv(max_time=12_000.0, seed=42)
     env.reset()
 
     action_body = np.zeros(3)
@@ -976,7 +990,7 @@ def test_step_time_limit_only_triggers_after_max_time():
 
 
 def test_step_rejects_invalid_action_shape():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     env.reset()
 
     with pytest.raises(ValueError, match="Action must have shape"):
@@ -984,7 +998,7 @@ def test_step_rejects_invalid_action_shape():
 
 
 def test_step_appends_history_entry_with_actions():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     env.reset(mode="nominal")
 
     action = np.array([0.0, 0.0, 0.0])
@@ -1000,7 +1014,7 @@ def test_step_appends_history_entry_with_actions():
 
 
 def test_step_logs_action_orbital_with_pre_step_psi():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     initial_state = np.array([1000.0, 0.0, 0.0, 0.0, np.pi / 6, 0.1])
     env.reset(initial_state=initial_state)
 
@@ -1014,7 +1028,7 @@ def test_step_logs_action_orbital_with_pre_step_psi():
 
 
 def test_step_non_finite_state_returns_failure():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     initial_state = np.array([np.inf, 0.0, 0.0, 0.0, np.inf, 0.0])
     env.reset(initial_state=initial_state)
 
@@ -1027,7 +1041,7 @@ def test_step_non_finite_state_returns_failure():
 
 
 def test_history_arrays_after_multiple_steps():
-    env = Docking3DoFEnv()
+    env = Docking3DoFEnv(max_time=12_000.0, )
     env.reset(mode="nominal")
 
     for _ in range(3):

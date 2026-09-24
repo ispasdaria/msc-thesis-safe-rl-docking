@@ -344,7 +344,7 @@ def main():
         json.dump(
             {
                 "phase": args.phase,
-                "controller": type(build_lqr(Docking3DoFEnv(phase=args.phase, dt=0.1 if args.phase == 'closing' else 1.0))).__name__,
+                "controller": type(build_lqr(Docking3DoFEnv(max_time=12_000.0 if args.phase == "closing" else 5_000.0, phase=args.phase, dt=0.1 if args.phase == 'closing' else 1.0))).__name__,
                 "dt_seconds": 0.1 if args.phase == "closing" else 1.0,
                 "max_time_seconds": max_time,
                 "integrator": "rk4",

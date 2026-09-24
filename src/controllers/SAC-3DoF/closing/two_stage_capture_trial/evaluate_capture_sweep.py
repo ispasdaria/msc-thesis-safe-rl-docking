@@ -77,7 +77,7 @@ def normalize_action(model, vecnormalize, observation):
 
 
 def final_entry_classification(state):
-    final_env = Docking3DoFEnv(phase="final")
+    final_env = Docking3DoFEnv(max_time=5_000.0, phase="final")
     final_env.reset(initial_state=np.asarray(state), mode="testing")
     monitor = final_env.monitor_safety(final_env.state)
     return {

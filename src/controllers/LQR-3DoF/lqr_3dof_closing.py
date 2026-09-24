@@ -553,6 +553,7 @@ def analyze_saturation(env, atol=1e-12):
 
 def main():
     env = Docking3DoFEnv(
+        max_time=12_000.0,
         phase="closing",
         integrator="rk4",
         seed=42,

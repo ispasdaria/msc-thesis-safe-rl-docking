@@ -1,147 +1,99 @@
-# Contributing and Git Workflow
+# Engineering Conventions
 
-## Branching strategy
+This document defines the engineering conventions used by the project. Their
+purpose is to maintain consistent source code, reproducible experiments, and
+traceable results. Validated controller behavior remains unchanged unless a
+change explicitly targets that behavior.
 
-The `main` branch stores the stable version of the project. New work should be developed in separate feature branches created from `main`.
+## Environment
 
-Branch names should follow these conventions:
+- The supported Python version is Python 3.12.
+- Project dependencies are defined in `requirements.txt`.
+- Large demonstration datasets are managed through Git LFS as described in
+  `README.md`.
+- Virtual environments and local tool configuration are excluded from version
+  control.
 
-- `feature/<task-name>` for new functionality
-- `fix/<issue-name>` for bug fixes
-- `docs/<topic>` for documentation updates
-- `testing/<topic>` for experimental work on study cases
+## Repository organization
 
-Examples:
-- `feature/project-structure`
-- `feature/3dof-simulator`
-- `feature/lqr-baseline`
-- `fix/reset-function-found-bug`
-- `docs/readme-update`
+- `benchmark_problems/` contains the Mountain Car and Pendulum SAC examples.
+- `docs/` contains implementation and scenario documentation.
+- `src/envs/docking3dof/` contains the planar 3-DoF docking environment.
+- `src/controllers/LQR-3DoF/` contains the LQR controllers and evaluations.
+- `src/controllers/SAC-3DoF/` contains the SAC controllers, training scripts,
+  evaluations, retained models, results, and figures.
+- `src/controllers/cbf_3DoF/` contains the CBF safety filter and associated
+  evaluations.
 
-## Development workflow
+Tests and experiment artifacts are generally stored with the subsystem that
+produces or consumes them. Retained models, numerical results, and figures are
+versioned when they support reported results or reproduction.
 
-1. Start from the latest version of `main`.
-2. Create a new branch for the task.
-3. Implement and test the changes in that branch.
-4. Commit changes with clear and concise commit messages.
-5. Open a pull request to merge the branch into `main`.
-6. Merge only after the changes are reviewed and the branch is in a stable condition.
+## Source-code conventions
 
-## Pull requests
+- Python source uses four spaces for indentation.
+- Variables, functions, modules, and new file names use `snake_case`.
+- Classes use `PascalCase`.
+- Module-level constants use `UPPER_CASE`.
+- Names are descriptive rather than abbreviated. Units are included when
+  the quantity would otherwise be ambiguous, such as `duration_s` or
+  `terminal_speed_mps`.
+- Imports are grouped into standard-library, third-party, and local-project
+  groups.
+- Modules and functions or classes whose purpose is not evident from their
+  name and signature include concise docstrings.
+- Comments describe assumptions, formulas, units, non-obvious decisions, or
+  experiment provenance in objective language. Comments do not address the
+  reader.
+- Functions remain focused on a single responsibility where this can be
+  achieved without risking validated behavior.
 
-Pull requests are used to keep a clear history of development versions and completed tasks. Each pull request should correspond to one main task or one logically grouped set of changes.
+Established directory names such as `LQR-3DoF`, `SAC-3DoF`, and `cbf_3DoF`
+are retained because scripts and saved experiment records refer to them. New
+paths follow the surrounding subsystem's established structure.
 
-Pull request titles should clearly describe the implemented change.
+## Reproducibility conventions
 
-Examples:
-- `Add initial project folder structure`
-- `Implement 3-DoF simulator skeleton`
-- `Add LQR baseline controller`
+- Training and evaluation use explicit seeds when stochastic behavior is
+  involved.
+- Simulation horizons are provided explicitly rather than through implicit
+  core defaults.
+- Repository paths are derived from `Path(__file__).resolve()` so execution
+  does not depend on the current working directory.
+- Model checkpoints remain paired with the normalization statistics required
+  to load them.
+- Run and artifact names record the controller, mission phase, distinguishing
+  configuration, training seed, and training budget when those details are
+  relevant.
+- New result and figure file names use lowercase words separated by
+  underscores.
+- Vague names such as `final_run`, `test_new`, or `output1` are avoided.
 
-## Commit message conventions
+Representative names include:
 
-Commit messages should be short, clear, and action-oriented.
+- `round1_seed12_100k_steps`
+- `round5_seed11_600k_steps_buffer600k`
+- `closing_vanilla_sac_state_convergence_seed15.png`
+- `policy_comparison_summary.json`
 
-Examples:
-- `Create initial repository structure`
-- `Add simulator reset function`
-- `Implement state propagation`
-- `Update README with setup instructions`
+## Testing
 
-## General rules
+The complete test suite runs from the repository root with `src` on
+`PYTHONPATH`:
 
-- Keep `main` as the stable branch.
-- Do not commit incomplete experimental code directly to `main`.
-- Use pull requests to document the development history.
-- Keep branches focused on one task whenever possible.
+```powershell
+$env:PYTHONPATH = "src"
+python -m pytest -q
+```
 
-## Environment 
+An equivalent environment-variable syntax applies in non-PowerShell shells.
+Behavior changes include focused tests, which run before the complete suite.
 
-This project is developed using Python 3.12.2.
+## Change management
 
-## Repository structure
-
-- `configs/` — Configuration files for simulation settings, controller parameters, reward weights, and training hyperparameters.
-- `docs/` — Project notes, implementation documentation, and supporting written material for the repository.
-- `src/` — Main source code of the project.
-- `src/envs/` — Simulation environments for the docking problem, including the 3-DoF model and later the 6-DoF extension.
-- `src/controllers/` — Controller implementations, including the LQR baseline, SAC controller, and CBF-based safety filter.
-- `src/utils/` — Shared utility functions such as configuration loading, logging helpers, state conversions, and plotting support.
-- `src/evaluation/` — Code for performance metrics, controller comparisons, Monte Carlo runs, and experiment evaluation.
-- `scripts/` — Runnable scripts for training, evaluation, verification checks, and experiment execution.
-- `tests/` — Unit tests, integration checks, and verification scripts for the simulator, controllers, and safety filter.
-- `logs/` — Stored logs from simulations, training runs, and safety-filter interventions.
-- `models/` — Saved trained models and other reusable serialized outputs.
-- `results/` — Numerical experiment outputs, processed metrics, and saved trajectories.
-- `figures/` — Generated plots and figures used for analysis and inclusion in the thesis.
-
-## Coding conventions
-
-- Use 4 spaces for indentation.
-- Use `snake_case` for variables, functions, and file names.
-- Use `PascalCase` for class names.
-- Use `UPPER_CASE` for constants.
-- Keep file names short, descriptive, and focused on one clear purpose.
-- Prefer meaningful variable and function names over short or unclear names.
-- Add concise docstrings to important functions and classes.
-- Use comments only when they improve clarity, especially for assumptions, formulas, or non-obvious logic.
-- Group imports into standard library imports, third-party imports, and local project imports.
-- Avoid hardcoding important parameters such as simulation settings, reward weights, controller gains, and training hyperparameters; store them in configuration files or dedicated parameter definitions instead.
-- Keep functions reasonably short and focused on a single task whenever possible.
-- Use a consistent code layout and structure across the repository.
-
-### General naming conventions
-
-Examples of preferred naming styles:
-
-- Function name: `compute_reward()`
-- Variable name: `state_vector`
-- Constant name: `MAX_EPISODE_STEPS`
-- Class name: `DockingEnv`
-- File name: `lqr_controller.py`
-
-Examples of file names to avoid:
-
-- `stuff.py`
-- `test2.py`
-- `new_code.py`
-
-### Run and saved-file naming conventions
-
-- Use lowercase letters and underscores for run names and saved file names.
-- Include the main method, scenario, and purpose of the file whenever relevant.
-- Avoid vague names such as `final_run`, `test_new`, or `output1`.
-- Prefer names that make the content understandable without opening the file.
-- Use dates only when they add useful version information.
-- Keep naming consistent across logs, saved models, result tables, and figures.
-
-Examples of preferred run names:
-
-- `lqr_nominal_case`
-- `sac_baseline_training`
-- `sac_cbf_eval_case1`
-- `sac_warmstart_training`
-- `monte_carlo_nominal`
-
-Examples of preferred saved file names:
-
-- `lqr_nominal_trajectory.csv`
-- `sac_baseline_metrics.json`
-- `sac_cbf_model.pt`
-- `reward_training_curve.png`
-- `monte_carlo_summary.csv`
-
-A recommended file naming pattern is:
-
-`method_scenario_content`
-
-For example:
-
-- `sac_nominal_metrics.csv`
-- `sac_cbf_episode_log.csv`
-- `lqr_docking_trajectory.csv`
-
-If multiple versions of the same file are needed, use a clear suffix such as:
-
-- `sac_nominal_metrics_v2.csv`
-- `sac_cbf_model_2026_03_27.pt`
+- Changes remain limited to one task or one logically related set of tasks.
+- Commit messages are clear, concise, and action-oriented.
+- Caches, local environments, editor settings, and temporary files covered by
+  `.gitignore` are not versioned.
+- Replacement experimental artifacts include a record of how they were
+  generated.

@@ -9,7 +9,7 @@ from envs.docking3dof.core import Docking3DoFEnv
 
 
 def make_env():
-    return Docking3DoFEnv(phase="final", dt=1.0, integrator="rk4", seed=0)
+    return Docking3DoFEnv(max_time=5_000.0, phase="final", dt=1.0, integrator="rk4", seed=0)
 
 
 def test_zero_attitude_port_kinematics_matches_environment_geometry():

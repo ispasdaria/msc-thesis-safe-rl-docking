@@ -13,7 +13,6 @@ from matplotlib.transforms import blended_transform_factory
 import numpy as np
 
 
-ROOT = Path(__file__).resolve().parents[4]
 DATA_PATH = (
     Path(__file__).resolve().parent
     / "results"
@@ -21,7 +20,8 @@ DATA_PATH = (
     / "v15_trial16_400k_horizon_comparison"
     / "closing_vanilla_sac_horizon_trajectory_comparison_data.npz"
 )
-OUTPUT_PATH = ROOT / "figures" / "closing_vanilla_sac_state_convergence_seed15.png"
+OUTPUT_DIR = Path(__file__).resolve().parent / "figures"
+OUTPUT_PATH = OUTPUT_DIR / "closing_vanilla_sac_state_convergence_seed15.png"
 
 HORIZON = 20_000
 CUTOFFS = (12_000.0, 13_000.0)

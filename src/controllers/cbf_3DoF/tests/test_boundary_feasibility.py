@@ -18,7 +18,7 @@ J = np.array([[0.0, -1.0], [1.0, 0.0]], dtype=np.float64)
 
 
 def make_env(dt=1.0):
-    return Docking3DoFEnv(phase="final", dt=dt, integrator="rk4", seed=123)
+    return Docking3DoFEnv(max_time=5_000.0, phase="final", dt=dt, integrator="rk4", seed=123)
 
 
 def hard_config():

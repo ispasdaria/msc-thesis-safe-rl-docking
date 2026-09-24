@@ -11,10 +11,14 @@ from envs.docking3dof.core import Docking3DoFEnv
 
 class DockingMissionRunner:
     def __init__(self, closing_env_kwargs=None, final_env_kwargs=None):
-        if closing_env_kwargs is None:
-            closing_env_kwargs = {}
-        if final_env_kwargs is None:
-            final_env_kwargs = {}
+        closing_env_kwargs = {
+            "max_time": 12_000.0,
+            **({} if closing_env_kwargs is None else closing_env_kwargs),
+        }
+        final_env_kwargs = {
+            "max_time": 5_000.0,
+            **({} if final_env_kwargs is None else final_env_kwargs),
+        }
 
         self.closing_env_kwargs = closing_env_kwargs
         self.final_env_kwargs = final_env_kwargs

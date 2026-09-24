@@ -34,7 +34,7 @@ def test_protected_barrier_reporting_separates_strict_and_tolerance_crossings():
 
 
 def test_qp_failure_diagnosis_identifies_minimal_infeasible_cone_family():
-    env = Docking3DoFEnv(phase="final", dt=1.0, integrator="rk4", seed=123)
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final", dt=1.0, integrator="rk4", seed=123)
     config = FinalApproachCBFConfig(allow_slack=False, solver_backend="osqp")
     state = state_from_port_quantities(
         env,
@@ -51,7 +51,7 @@ def test_qp_failure_diagnosis_identifies_minimal_infeasible_cone_family():
 
 
 def test_qp_failure_diagnosis_distinguishes_solver_failure_from_infeasibility():
-    env = Docking3DoFEnv(phase="final", dt=1.0, integrator="rk4", seed=123)
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final", dt=1.0, integrator="rk4", seed=123)
     config = FinalApproachCBFConfig(allow_slack=False, solver_backend="osqp")
     state = state_from_port_quantities(
         env,

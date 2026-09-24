@@ -12,7 +12,7 @@ def test_vectorized_port_quantities_match_environment() -> None:
             [24.2, 0.0, -0.005, 0.0, -np.pi / 3.0, 0.04],
         ]
     )
-    env = Docking3DoFEnv(phase="final")
+    env = Docking3DoFEnv(max_time=5_000.0, phase="final")
 
     expected_position = np.array(
         [env.get_port_relative_position(state) for state in states]

@@ -581,7 +581,7 @@ def main():
 
     # Defaults are intentionally 1.0 / empty so the script uses the tuned
     # Q/R definitions in build_Q_final() and build_R_final() unchanged unless
-    # you explicitly request a sweep from the command line.
+    # a sweep is explicitly requested from the command line.
     parser.add_argument("--q-scales", type=str, default="1.0")
     parser.add_argument("--r-scales", type=str, default="1.0")
     parser.add_argument(

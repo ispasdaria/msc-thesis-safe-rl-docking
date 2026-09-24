@@ -7,7 +7,7 @@ from controllers.evaluation_initialization import (
     initial_ranges_from_args,
     sample_initial_state,
 )
-from controllers.cbf_3DoF.evaluate_lqr_cbf import run_rollout
+from controllers.cbf_3DoF.evaluate_lqr_cbf import resolve_initial_ranges, run_rollout
 
 
 def test_explicit_evaluation_ranges_generate_repeatable_six_component_state():
@@ -55,3 +55,9 @@ def test_plain_final_lqr_rollout_accepts_explicit_initial_ranges():
     assert row["phase"] == "final"
     assert row["intervention_count"] == 0
     assert row["qp_failure_count"] == 0
+
+
+def test_native_initialization_bypasses_explicit_evaluation_ranges():
+    args = argparse.Namespace(native_initialization=True)
+
+    assert resolve_initial_ranges(args) is None

@@ -341,7 +341,7 @@ class Docking3DoFGymEnv(gym.Env):
 
         return {
             "phase": self.phase,
-            "mode": self.mode,
+            "mode": self.core_env.mode,
             "max_time": self.max_time,
             "safe": monitor["safe"],
             "warning": monitor["warning"],

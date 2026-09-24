@@ -1,5 +1,6 @@
-import os
 import csv
+from pathlib import Path
+
 import numpy as np
 import gymnasium as gym
 
@@ -10,28 +11,19 @@ from stable_baselines3.common.noise import OrnsteinUhlenbeckActionNoise
 
 
 ENV_ID = "MountainCarContinuous-v0"
+BASE_DIR = Path(__file__).resolve().parent
 
 SEEDS = [0, 1, 2, 3, 4]
 N_TIMESTEPS = 60_000
 N_EVAL_EPISODES = 20
 
-BASE_DIR = "mountain_car_exercise"
-LOG_BASE_DIR = os.path.join(BASE_DIR, "sac_mountain_car_logs")
-MODEL_BASE_DIR = os.path.join(BASE_DIR, "models")
-RESULTS_DIR = os.path.join(BASE_DIR, "results")
+LOG_BASE_DIR = BASE_DIR / "sac_mountain_car_logs"
+MODEL_BASE_DIR = BASE_DIR / "models"
+RESULTS_DIR = BASE_DIR / "results"
 
 RUN_GROUP_NAME = "sac_mountain_car_zoo_params_60k_5seeds"
 
 GOAL_POSITION = 0.45
-
-
-def notify_done():
-    try:
-        import win32com.client
-        speaker = win32com.client.Dispatch("SAPI.SpVoice")
-        speaker.Speak("Training completed!")
-    except Exception:
-        print("Training completed!")
 
 
 def make_env(seed=None):
@@ -49,12 +41,12 @@ def make_env(seed=None):
 def train_one_seed(seed):
     run_name = f"{RUN_GROUP_NAME}_seed{seed}"
 
-    log_dir = os.path.join(LOG_BASE_DIR, run_name)
-    model_dir = os.path.join(MODEL_BASE_DIR, run_name)
-    best_model_dir = os.path.join(model_dir, "best_model")
+    log_dir = LOG_BASE_DIR / run_name
+    model_dir = MODEL_BASE_DIR / run_name
+    best_model_dir = model_dir / "best_model"
 
-    os.makedirs(log_dir, exist_ok=True)
-    os.makedirs(model_dir, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    model_dir.mkdir(parents=True, exist_ok=True)
 
     train_env = make_env(seed=seed)
     eval_env = make_env(seed=seed + 1000)
@@ -67,8 +59,8 @@ def train_one_seed(seed):
 
     eval_callback = EvalCallback(
         eval_env,
-        best_model_save_path=best_model_dir,
-        log_path=log_dir,
+        best_model_save_path=str(best_model_dir),
+        log_path=str(log_dir),
         eval_freq=5_000,
         n_eval_episodes=10,
         deterministic=True,
@@ -89,7 +81,7 @@ def train_one_seed(seed):
         learning_starts=0,
 
         verbose=1,
-        tensorboard_log=log_dir,
+        tensorboard_log=str(log_dir),
         seed=seed,
         device="auto",
         action_noise=action_noise,
@@ -105,13 +97,13 @@ def train_one_seed(seed):
         tb_log_name=run_name,
     )
 
-    final_model_path = os.path.join(model_dir, "final_model")
+    final_model_path = model_dir / "final_model"
     model.save(final_model_path)
 
     train_env.close()
     eval_env.close()
 
-    return final_model_path, os.path.join(best_model_dir, "best_model")
+    return final_model_path, best_model_dir / "best_model"
 
 
 def evaluate_model(model_path, seed, n_eval_episodes=N_EVAL_EPISODES):
@@ -123,7 +115,8 @@ def evaluate_model(model_path, seed, n_eval_episodes=N_EVAL_EPISODES):
         eval_seed = seed * 1000 + ep
 
         env = gym.make(ENV_ID)
-        obs, info = env.reset(seed=eval_seed)
+        obs, _ = env.reset(seed=eval_seed)
+        max_position = float(obs[0])
 
         position_history = []
         velocity_history = []
@@ -136,12 +129,12 @@ def evaluate_model(model_path, seed, n_eval_episodes=N_EVAL_EPISODES):
         while not (terminated or truncated):
             action, _ = model.predict(obs, deterministic=True)
 
+            obs, reward, terminated, truncated, _ = env.step(action)
             position_history.append(obs[0])
             velocity_history.append(obs[1])
             action_history.append(action[0])
-
-            obs, reward, terminated, truncated, info = env.step(action)
             reward_history.append(reward)
+            max_position = max(max_position, float(obs[0]))
 
         env.close()
 
@@ -150,7 +143,6 @@ def evaluate_model(model_path, seed, n_eval_episodes=N_EVAL_EPISODES):
         action_history = np.array(action_history)
         reward_history = np.array(reward_history)
 
-        max_position = float(np.max(position_history))
         final_position = float(position_history[-1])
         final_velocity = float(velocity_history[-1])
         total_reward = float(np.sum(reward_history))
@@ -199,18 +191,18 @@ def save_csv(path, rows):
     if not rows:
         return
 
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
 
     fieldnames = list(rows[0].keys())
 
-    with open(path, mode="w", newline="") as file:
+    with path.open(mode="w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
 
 def main():
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     all_episode_results = []
     summary_results = []
@@ -218,9 +210,8 @@ def main():
     for seed in SEEDS:
         final_model_path, best_model_path = train_one_seed(seed)
 
-        # Usually the best model is more relevant for comparison.
-        # If the best model somehow does not exist, fall back to the final model.
-        if os.path.exists(best_model_path + ".zip"):
+        # Evaluate the best checkpoint when available; otherwise evaluate the final checkpoint.
+        if best_model_path.with_suffix(".zip").exists():
             model_to_evaluate = best_model_path
             model_type = "best"
         else:
@@ -247,15 +238,9 @@ def main():
         all_episode_results.extend(episode_results)
         summary_results.append(seed_summary)
 
-    episode_csv_path = os.path.join(
-        RESULTS_DIR,
-        f"{RUN_GROUP_NAME}_episode_results.csv",
-    )
+    episode_csv_path = RESULTS_DIR / f"{RUN_GROUP_NAME}_episode_results.csv"
 
-    summary_csv_path = os.path.join(
-        RESULTS_DIR,
-        f"{RUN_GROUP_NAME}_summary.csv",
-    )
+    summary_csv_path = RESULTS_DIR / f"{RUN_GROUP_NAME}_summary.csv"
 
     save_csv(episode_csv_path, all_episode_results)
     save_csv(summary_csv_path, summary_results)
@@ -286,9 +271,6 @@ def main():
 
     print("\nSaved summary results to:")
     print(summary_csv_path)
-
-    notify_done()
-
 
 if __name__ == "__main__":
     main()

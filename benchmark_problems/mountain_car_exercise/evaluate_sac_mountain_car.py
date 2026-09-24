@@ -1,4 +1,5 @@
-import os
+from pathlib import Path
+
 import gymnasium as gym
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,41 +8,43 @@ from stable_baselines3 import SAC
 
 
 ENV_ID = "MountainCarContinuous-v0"
-MODEL_PATH = "mountain_car_exercise/models/sac_mountain_car_zoo_params_best/best_model.zip"
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "models" / "sac_mountain_car_zoo_params_best" / "best_model.zip"
+FIGURE_DIR = BASE_DIR / "figures" / "sac_mountain_car_zoo_params_best"
 
 
-def main():
-    os.makedirs("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best", exist_ok=True)
-
-    env = gym.make(ENV_ID)
-    model = SAC.load(MODEL_PATH)
-
-    obs, info = env.reset(seed=1)
-
-    position_history = []
-    velocity_history = []
-    action_history = []
-    reward_history = []
+def run_episode(env, model, seed):
+    observation, _ = env.reset(seed=seed)
+    history = {"positions": [], "velocities": [], "actions": [], "rewards": []}
 
     terminated = False
     truncated = False
-
     while not (terminated or truncated):
-        action, _ = model.predict(obs, deterministic=True)
+        action, _ = model.predict(observation, deterministic=True)
+        observation, reward, terminated, truncated, _ = env.step(action)
 
-        position_history.append(obs[0])
-        velocity_history.append(obs[1])
-        action_history.append(action[0])
+        history["positions"].append(observation[0])
+        history["velocities"].append(observation[1])
+        history["actions"].append(action[0])
+        history["rewards"].append(reward)
 
-        obs, reward, terminated, truncated, info = env.step(action)
-        reward_history.append(reward)
+    return {name: np.asarray(values) for name, values in history.items()}
 
-    env.close()
 
-    position_history = np.array(position_history)
-    velocity_history = np.array(velocity_history)
-    action_history = np.array(action_history)
-    reward_history = np.array(reward_history)
+def main():
+    FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+
+    env = gym.make(ENV_ID)
+    try:
+        model = SAC.load(MODEL_PATH)
+        history = run_episode(env, model, seed=1)
+    finally:
+        env.close()
+
+    position_history = history["positions"]
+    velocity_history = history["velocities"]
+    action_history = history["actions"]
+    reward_history = history["rewards"]
 
     time = np.arange(len(position_history))
 
@@ -60,7 +63,7 @@ def main():
     plt.ylabel("Position")
     plt.title("SAC on MountainCarContinuous-v0: Position")
     plt.grid(True)
-    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best/position.png", dpi=200, bbox_inches="tight")
+    plt.savefig(FIGURE_DIR / "position.png", dpi=200, bbox_inches="tight")
 
     plt.figure()
     plt.plot(time, velocity_history)
@@ -68,7 +71,7 @@ def main():
     plt.ylabel("Velocity")
     plt.title("SAC on MountainCarContinuous-v0: Velocity")
     plt.grid(True)
-    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best/velocity.png", dpi=200, bbox_inches="tight")
+    plt.savefig(FIGURE_DIR / "velocity.png", dpi=200, bbox_inches="tight")
 
     plt.figure()
     plt.plot(time, action_history)
@@ -76,7 +79,7 @@ def main():
     plt.ylabel("Action / Force")
     plt.title("SAC on MountainCarContinuous-v0: Action")
     plt.grid(True)
-    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best/action.png", dpi=200, bbox_inches="tight")
+    plt.savefig(FIGURE_DIR / "action.png", dpi=200, bbox_inches="tight")
 
     plt.figure()
     plt.plot(time, np.cumsum(reward_history))
@@ -84,7 +87,7 @@ def main():
     plt.ylabel("Cumulative reward")
     plt.title("SAC on MountainCarContinuous-v0: Cumulative Reward")
     plt.grid(True)
-    plt.savefig("mountain_car_exercise/figures/sac_mountain_car_zoo_params_best/cumulative_reward.png", dpi=200, bbox_inches="tight")
+    plt.savefig(FIGURE_DIR / "cumulative_reward.png", dpi=200, bbox_inches="tight")
 
 
 if __name__ == "__main__":

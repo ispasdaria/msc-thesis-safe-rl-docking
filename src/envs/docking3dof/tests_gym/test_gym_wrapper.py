@@ -81,6 +81,16 @@ def test_closing_observation_is_augmented():
     env.close()
 
 
+def test_reset_info_reports_effective_mode_override():
+    env = Docking3DoFGymEnv(phase="final", mode="nominal", seed=7)
+
+    _, info = env.reset(seed=7, options={"mode": "testing"})
+
+    assert env.core_env.mode == "testing"
+    assert info["mode"] == "testing"
+    env.close()
+
+
 def test_closing_observation_wraps_attitude_error():
     env = Docking3DoFGymEnv(phase="closing", mode="testing", seed=11)
     env.reset(seed=11)

@@ -293,8 +293,23 @@ def parse_args():
         action="store_true",
         help="Evaluate the unchanged nominal LQR without the CBF-QP filter.",
     )
+    parser.add_argument(
+        "--native-initialization",
+        action="store_true",
+        help=(
+            "Use the environment's phase-specific seeded reset distribution "
+            "instead of the explicit evaluation-range arguments."
+        ),
+    )
     add_initial_range_arguments(parser)
     return parser.parse_args()
+
+
+def resolve_initial_ranges(args):
+    """Return None when the environment should perform its native reset."""
+    if args.native_initialization:
+        return None
+    return initial_ranges_from_args(args)
 
 
 def main():
@@ -305,7 +320,7 @@ def main():
     max_time = default_max_time if args.max_time is None else args.max_time
     if max_time <= 0.0:
         raise ValueError("--max-time must be positive")
-    initial_ranges = initial_ranges_from_args(args)
+    initial_ranges = resolve_initial_ranges(args)
     args.output_dir.mkdir(parents=True, exist_ok=False)
 
     rows = []

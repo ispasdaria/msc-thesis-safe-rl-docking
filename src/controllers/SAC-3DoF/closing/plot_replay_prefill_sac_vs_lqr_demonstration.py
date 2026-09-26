@@ -181,8 +181,6 @@ def main():
     fig.tight_layout()
     fig.savefig(OUTPUT_STEM.with_suffix(".png"), dpi=400,
                 bbox_inches="tight", facecolor="white")
-    fig.savefig(OUTPUT_STEM.with_suffix(".pdf"),
-                bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
     print(f"SAC seed: {SAC_SEED} ({sac_info.get('termination_reason', 'timeout')})")
@@ -190,7 +188,6 @@ def main():
     print(f"LQR demonstration seed: {LQR_SEED} (successful handover)")
     print(f"LQR terminal position error: {np.linalg.norm(lqr[-1]):.3f} m")
     print(f"PNG: {OUTPUT_STEM.with_suffix('.png').resolve()}")
-    print(f"PDF: {OUTPUT_STEM.with_suffix('.pdf').resolve()}")
 
 
 if __name__ == "__main__":

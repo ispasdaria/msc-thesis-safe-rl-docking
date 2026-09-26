@@ -258,7 +258,6 @@ def plot_position_error(results_by_controller, representative_seed, path):
 
     figure.subplots_adjust(left=0.09, right=0.98, top=0.86, bottom=0.12)
     figure.savefig(path, dpi=300, bbox_inches="tight", facecolor="white")
-    figure.savefig(path.with_suffix(".png"), dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(figure)
 
 
@@ -330,7 +329,7 @@ def main():
         "adopted_median_final_position_error_m": adopted_median,
     }
     (OUTPUT_DIR / "representative_selection.json").write_text(json.dumps(representative, indent=2), encoding="utf-8")
-    plot_position_error(results_by_controller, representative_seed, OUTPUT_DIR / "closing_position_error_comparison.pdf")
+    plot_position_error(results_by_controller, representative_seed, OUTPUT_DIR / "closing_position_error_comparison.png")
 
     summary = {
         "models": {key: {"model": str(spec["model"]), "vecnormalize": str(spec["vecnorm"])} for key, spec in CONTROLLERS.items()},
@@ -341,7 +340,7 @@ def main():
             "per_seed": str(OUTPUT_DIR / "per_seed_results.csv"),
             "aggregate": str(OUTPUT_DIR / "aggregate_results.csv"),
             "representative_data": str(OUTPUT_DIR / "representative_axial_position_error.csv"),
-            "figure_pdf": str(OUTPUT_DIR / "closing_position_error_comparison.pdf"),
+            "figure_png": str(OUTPUT_DIR / "closing_position_error_comparison.png"),
         },
     }
     (OUTPUT_DIR / "comparison_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")

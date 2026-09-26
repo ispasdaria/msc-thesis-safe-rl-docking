@@ -26,7 +26,7 @@ DEFAULT_INPUT = (
     SCRIPT_DIR
     / "results"
     / "lqr_closing"
-    / "dt_0p1"
+    / "tuning_diagnostics_and_evaluation_dt0p1"
     / "fine_lateral_vy_q_sweep"
     / "my_1_mvy_0p85"
     / "rollouts_seeds_0_49.csv"
@@ -71,7 +71,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT,
-        help="Output path without an extension (both .png and .pdf are written).",
+        help="Output path without an extension; a PNG file is written.",
     )
     parser.add_argument(
         "--position-tolerances",
@@ -314,12 +314,10 @@ def main() -> None:
     output_base = args.output.with_suffix("")
     output_base.parent.mkdir(parents=True, exist_ok=True)
     png_path = output_base.with_suffix(".png")
-    pdf_path = output_base.with_suffix(".pdf")
     save_options = {"facecolor": "white"}
     if not args.aiaa:
         save_options["bbox_inches"] = "tight"
     figure.savefig(png_path, **save_options)
-    figure.savefig(pdf_path, **save_options)
     plt.close(figure)
 
     success_count = int(data["success"].sum())
@@ -327,7 +325,6 @@ def main() -> None:
     print(f"Plotted {success_count + timeout_count} rollouts: "
           f"{success_count} successful, {timeout_count} timeouts")
     print(f"Wrote {png_path}")
-    print(f"Wrote {pdf_path}")
 
 
 if __name__ == "__main__":

@@ -130,7 +130,7 @@
   },
   "purpose": "canonical dt=0.1 residual-SAC zero-residual baseline gate",
   "reference": {
-    "csv": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\LQR-3DoF\\results\\lqr_closing\\residual_sac_dt0p1\\lqr_dt0p1_validation_seeds100_109.csv",
+    "csv": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\LQR-3DoF\\results\\lqr_closing\\residual_sac_lqr_reference_dt0p1\\lqr_dt0p1_validation_seeds100_109.csv",
     "sha256": "990a949f75d284d2c147dbe95056b3b88136122cdc5159af735c11d44763248e"
   },
   "schema_version": 1,

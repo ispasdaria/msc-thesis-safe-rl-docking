@@ -41,7 +41,10 @@ from lqr_3dof_closing import (
 from lqr_sweep_closing import run_single_rollout
 
 
-RESULT_DIR = SCRIPT_DIR / "results" / "lqr_closing" / "dt_0p1"
+RESULT_DIR = (
+    SCRIPT_DIR / "results" / "lqr_closing"
+    / "tuning_diagnostics_and_evaluation_dt0p1"
+)
 DEFAULT_CACHE = RESULT_DIR / "closing_phase_seeds_0_49_dt0p1_error_histories.npz"
 DEFAULT_OUTPUT = RESULT_DIR / "closing_phase_seeds_0_49_dt0p1_errors"
 
@@ -528,14 +531,11 @@ def main() -> None:
     output_base = args.output.with_suffix("")
     output_base.parent.mkdir(parents=True, exist_ok=True)
     png_path = output_base.with_suffix(".png")
-    pdf_path = output_base.with_suffix(".pdf")
     figure.savefig(png_path, bbox_inches="tight", facecolor="white")
-    figure.savefig(pdf_path, bbox_inches="tight", facecolor="white")
     plt.close(figure)
 
     print_summary(histories)
     print(f"Wrote {png_path}")
-    print(f"Wrote {pdf_path}")
 
 
 if __name__ == "__main__":

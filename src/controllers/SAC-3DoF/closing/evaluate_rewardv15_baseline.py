@@ -106,7 +106,6 @@ def plot_seed_zero(result, output_path):
     )
     figure.subplots_adjust(bottom=0.73)
     figure.savefig(output_path, dpi=200)
-    figure.savefig(os.path.splitext(output_path)[0] + ".pdf")
     plt.close(figure)
 
 

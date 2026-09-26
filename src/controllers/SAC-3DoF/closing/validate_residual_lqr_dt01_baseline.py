@@ -32,7 +32,7 @@ DEFAULT_REFERENCE_CSV = (
     / "LQR-3DoF"
     / "results"
     / "lqr_closing"
-    / "residual_sac_dt0p1"
+    / "residual_sac_lqr_reference_dt0p1"
     / "lqr_dt0p1_validation_seeds100_109.csv"
 )
 DEFAULT_OUTPUT_DIR = (

@@ -596,18 +596,14 @@ def main() -> None:
     output_base = args.output.with_suffix("")
     output_base.parent.mkdir(parents=True, exist_ok=True)
     png_path = output_base.with_suffix(".png")
-    pdf_path = output_base.with_suffix(".pdf")
     figure.savefig(png_path, bbox_inches="tight", facecolor="white")
-    figure.savefig(pdf_path, bbox_inches="tight", facecolor="white")
     plt.close(figure)
 
     port_xy_figure = make_port_xy_figure(histories)
     port_xy_output_base = args.port_xy_output.with_suffix("")
     port_xy_output_base.parent.mkdir(parents=True, exist_ok=True)
     port_xy_png_path = port_xy_output_base.with_suffix(".png")
-    port_xy_pdf_path = port_xy_output_base.with_suffix(".pdf")
     port_xy_figure.savefig(port_xy_png_path, bbox_inches="tight", facecolor="white")
-    port_xy_figure.savefig(port_xy_pdf_path, bbox_inches="tight", facecolor="white")
     plt.close(port_xy_figure)
 
     success = np.asarray(histories["success"], dtype=bool)
@@ -621,9 +617,7 @@ def main() -> None:
         f"range=[{np.min(completion) / 60.0:.3f}, {np.max(completion) / 60.0:.3f}]"
     )
     print(f"Wrote {png_path}")
-    print(f"Wrote {pdf_path}")
     print(f"Wrote {port_xy_png_path}")
-    print(f"Wrote {port_xy_pdf_path}")
 
 
 if __name__ == "__main__":

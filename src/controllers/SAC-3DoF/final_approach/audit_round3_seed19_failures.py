@@ -138,7 +138,6 @@ def plot_failure_mechanism(rows: list[dict]) -> None:
     fig.subplots_adjust(left=.11, right=.98, top=.89, bottom=.13, hspace=.28)
     stem = FIGURE_OUT / "r3_s19_b300k_failure_mechanism"
     fig.savefig(stem.with_suffix(".png"), bbox_inches="tight", facecolor="white")
-    fig.savefig(stem.with_suffix(".pdf"), bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
 

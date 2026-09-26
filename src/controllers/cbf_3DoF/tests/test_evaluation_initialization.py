@@ -1,6 +1,7 @@
 import argparse
 
 import numpy as np
+import pytest
 
 from controllers.evaluation_initialization import (
     add_initial_range_arguments,
@@ -61,3 +62,13 @@ def test_native_initialization_bypasses_explicit_evaluation_ranges():
     args = argparse.Namespace(native_initialization=True)
 
     assert resolve_initial_ranges(args) is None
+
+
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+def test_evaluation_ranges_reject_nonfinite_bounds(value):
+    parser = argparse.ArgumentParser()
+    add_initial_range_arguments(parser)
+    args = parser.parse_args([f"--x-o-min={value}"])
+
+    with pytest.raises(ValueError, match="finite"):
+        initial_ranges_from_args(args)

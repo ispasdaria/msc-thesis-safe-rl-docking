@@ -397,7 +397,7 @@ def main():
         default=LQR_ROOT
         / "results"
         / "lqr_closing"
-        / "dt_0p1"
+        / "tuning_diagnostics_and_evaluation_dt0p1"
         / "targeted_lateral_q_sweep",
     )
     args = parser.parse_args()

@@ -334,7 +334,6 @@ def add_shared_labels_and_legend(
 
 def save_figure(fig, stem: str):
     fig.savefig(OUT / f"{stem}.png", dpi=400, bbox_inches="tight")
-    fig.savefig(OUT / f"{stem}.pdf", bbox_inches="tight")
 
 
 def main() -> None:

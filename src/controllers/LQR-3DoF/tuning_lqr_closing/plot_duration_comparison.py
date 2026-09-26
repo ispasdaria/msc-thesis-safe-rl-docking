@@ -38,7 +38,7 @@ DEFAULT_OUTPUT_DIR = os.path.join(
     LQR_ROOT,
     "results",
     "lqr_closing",
-    "dt_0p1",
+    "tuning_diagnostics_and_evaluation_dt0p1",
     "duration_comparison",
 )
 
@@ -235,13 +235,10 @@ def make_figure(success_seed, timeout_seed, durations, dt, mode, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     base = f"closing_duration_comparison_seed{success_seed:04d}_seed{timeout_seed:04d}"
     png_path = os.path.join(output_dir, f"{base}.png")
-    pdf_path = os.path.join(output_dir, f"{base}.pdf")
     fig.savefig(png_path, dpi=300, bbox_inches="tight")
-    fig.savefig(pdf_path, bbox_inches="tight")
     plt.close(fig)
 
     print(f"Saved: {png_path}")
-    print(f"Saved: {pdf_path}")
     for case_name, seed in (("success", success_seed), ("timeout", timeout_seed)):
         print(f"{case_name} seed {seed}:")
         for duration in durations:
@@ -252,7 +249,7 @@ def make_figure(success_seed, timeout_seed, durations, dt, mode, output_dir):
                 f"terminal_ex={item['terminal_axial_error']:.6f} m"
             )
 
-    return png_path, pdf_path
+    return png_path
 
 
 def main():

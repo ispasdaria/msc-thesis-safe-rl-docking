@@ -24,7 +24,8 @@ from matplotlib.patches import Patch, Rectangle
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 HISTORY_DIR = (
-    SCRIPT_DIR / "results" / "lqr_closing" / "dt_0p1" / "rollout_histories"
+    SCRIPT_DIR / "results" / "lqr_closing"
+    / "tuning_diagnostics_and_evaluation_dt0p1" / "rollout_histories"
 )
 DEFAULT_SUCCESS = (
     HISTORY_DIR / "q1_r1_seed0020_final_dt0p1_median_completion_success.npz"
@@ -64,7 +65,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT,
-        help="Output path without an extension (both .png and .pdf are written).",
+        help="Output path without an extension; a PNG file is written.",
     )
     parser.add_argument(
         "--xy-output",
@@ -472,24 +473,18 @@ def main() -> None:
     output_base = args.output.with_suffix("")
     output_base.parent.mkdir(parents=True, exist_ok=True)
     png_path = output_base.with_suffix(".png")
-    pdf_path = output_base.with_suffix(".pdf")
     figure.savefig(png_path, bbox_inches="tight", facecolor="white")
-    figure.savefig(pdf_path, bbox_inches="tight", facecolor="white")
     plt.close(figure)
 
     xy_figure = make_xy_figure(success, timeout)
     xy_output_base = args.xy_output.with_suffix("")
     xy_output_base.parent.mkdir(parents=True, exist_ok=True)
     xy_png_path = xy_output_base.with_suffix(".png")
-    xy_pdf_path = xy_output_base.with_suffix(".pdf")
     xy_figure.savefig(xy_png_path, bbox_inches="tight", facecolor="white")
-    xy_figure.savefig(xy_pdf_path, bbox_inches="tight", facecolor="white")
     plt.close(xy_figure)
 
     print(f"Wrote {png_path}")
-    print(f"Wrote {pdf_path}")
     print(f"Wrote {xy_png_path}")
-    print(f"Wrote {xy_pdf_path}")
 
 
 if __name__ == "__main__":

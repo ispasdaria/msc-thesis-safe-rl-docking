@@ -33,10 +33,12 @@ def add_initial_range_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def initial_ranges_from_args(args: argparse.Namespace) -> dict[str, tuple[float, float]]:
-    ranges = {}
+    ranges: dict[str, tuple[float, float]] = {}
     for key, (min_flag, max_flag, _, _) in RANGE_ARGUMENTS.items():
         low = float(getattr(args, f"{key}_min"))
         high = float(getattr(args, f"{key}_max"))
+        if not np.isfinite([low, high]).all():
+            raise ValueError(f"--{min_flag} and --{max_flag} must be finite")
         if high < low:
             raise ValueError(f"--{max_flag} must be >= --{min_flag}")
         ranges[key] = (low, high)

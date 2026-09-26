@@ -37,7 +37,11 @@ RESULTS = HERE / "results" / "lqr"
 OUTPUT = RESULTS / "publication_figures"
 CLOSING_FILTERED = RESULTS / "closing_dt0p1_full_cbf_seeds_0_49" / "per_episode_metrics.csv"
 FINAL_FILTERED = RESULTS / "final_dt1p0_full_cbf_seeds_0_49" / "per_episode_metrics.csv"
-CLOSING_NOMINAL = LQR / "results" / "lqr_closing" / "dt_0p1" / "closing_phase_0_49_dt0p1.csv"
+CLOSING_NOMINAL = (
+    LQR / "results" / "lqr_closing"
+    / "tuning_diagnostics_and_evaluation_dt0p1"
+    / "closing_phase_0_49_dt0p1.csv"
+)
 FINAL_NOMINAL = LQR / "results" / "lqr_final" / "final_approach_phase_0_49.csv"
 
 NOMINAL_COLOR = "#D55E00"
@@ -270,7 +274,6 @@ def unique_legend(fig, axes, **kwargs) -> None:
 
 def save(fig, stem: str) -> None:
     fig.savefig(OUTPUT / f"{stem}.png", dpi=400, bbox_inches="tight")
-    fig.savefig(OUTPUT / f"{stem}.pdf", bbox_inches="tight")
 
 
 def main() -> None:

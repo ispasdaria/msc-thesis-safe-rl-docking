@@ -62,7 +62,6 @@ def configure_style() -> None:
 def save_figure(fig: plt.Figure, base: Path) -> None:
     base.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(base.with_suffix(".png"), bbox_inches="tight", facecolor="white")
-    fig.savefig(base.with_suffix(".pdf"), bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
 
@@ -182,17 +181,12 @@ def main() -> None:
     print(f"last_completed_episode={episodes[-1]}")
     print(f"last_completed_episode_timestep={timesteps[-1]}")
     print(f"return_png={OUTPUT_DIR / 'training_episode_return.png'}")
-    print(f"return_pdf={OUTPUT_DIR / 'training_episode_return.pdf'}")
     print(f"learning_starts={LEARNING_STARTS}")
     print(f"learning_start_episode={learning_start_episode}")
     print(f"first_logged_timestep_at_or_after_learning_start={first_logged_timestep}")
     print(
         "cropped_return_png="
         f"{OUTPUT_DIR / 'training_episode_return_from_learning_start_10_episode_average.png'}"
-    )
-    print(
-        "cropped_return_pdf="
-        f"{OUTPUT_DIR / 'training_episode_return_from_learning_start_10_episode_average.pdf'}"
     )
     print(f"evaluation_archive={EVALUATION_PATH}")
     print(f"success_figure_written={success_written}")

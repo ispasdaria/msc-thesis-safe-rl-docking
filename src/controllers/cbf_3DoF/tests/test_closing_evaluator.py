@@ -99,6 +99,7 @@ def test_short_paired_rollouts_save_post_step_and_raw_residual_diagnostics(
         "eval_seed": 0,
         "mode": "testing",
         "max_steps": 2,
+        "max_time": 12000.0,
         "base_config": config,
         "output_dir": tmp_path,
     }

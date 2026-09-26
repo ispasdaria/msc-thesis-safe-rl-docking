@@ -293,9 +293,8 @@ def plot_trajectory(records: dict[int, dict[str, object]], seed: int, output_dir
 
     stem = output_dir / "phase_balanced_representative_p3_trajectory_three_horizons"
     fig.savefig(stem.with_suffix(".png"), dpi=350, facecolor="white")
-    fig.savefig(stem.with_suffix(".pdf"), facecolor="white")
     plt.close(fig)
-    return stem.with_suffix(".png"), stem.with_suffix(".pdf")
+    return stem.with_suffix(".png")
 
 
 def load_post_learning_episodes():
@@ -397,11 +396,9 @@ def plot_learning_curve(output_dir: Path):
 
     stem = output_dir / "phase_balanced_learning_curve_from_learning_start"
     fig.savefig(stem.with_suffix(".png"), dpi=350, facecolor="white")
-    fig.savefig(stem.with_suffix(".pdf"), facecolor="white")
     plt.close(fig)
     return (
         stem.with_suffix(".png"),
-        stem.with_suffix(".pdf"),
         int(episodes[0]),
         int(episodes[9]),
         warmup_steps,
@@ -455,9 +452,9 @@ def main():
     }
     dummy_env.close()
 
-    trajectory_png, trajectory_pdf = plot_trajectory(records, seed, output_dir)
+    trajectory_png = plot_trajectory(records, seed, output_dir)
     data_path = save_trajectory_data(output_dir, seed, records)
-    learning_png, learning_pdf, first_episode, first_average_episode, warmup, config = (
+    learning_png, first_episode, first_average_episode, warmup, config = (
         plot_learning_curve(output_dir)
     )
 
@@ -487,7 +484,6 @@ def main():
     )
     print(f"First 10-episode moving-average point: episode {first_average_episode}")
     print(f"Trajectory PNG: {trajectory_png}")
-    print(f"Trajectory PDF: {trajectory_pdf}")
     print(f"Trajectory data: {data_path}")
     print(f"Learning-curve PNG: {learning_png}")
     print(f"Learning-curve PDF: {learning_pdf}")

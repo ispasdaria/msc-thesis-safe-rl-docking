@@ -747,7 +747,8 @@ def write_summary_csv(path, summaries):
 
 def main():
     output_root = (
-        LQR_ROOT / "results" / "lqr_closing" / "dt_0p1" / "lateral_diagnostics"
+        LQR_ROOT / "results" / "lqr_closing"
+        / "tuning_diagnostics_and_evaluation_dt0p1" / "lateral_diagnostics"
     )
     history_dir = output_root / "histories"
     plot_dir = output_root / "plots"
@@ -800,14 +801,14 @@ def main():
         LQR_ROOT
         / "results"
         / "lqr_closing"
-        / "dt_0p1"
+        / "tuning_diagnostics_and_evaluation_dt0p1"
         / "closing_phase_0_49_dt0p1.csv"
     )
     population_check = population_equilibrium_check(
         LQR_ROOT
         / "results"
         / "lqr_closing"
-        / "dt_0p1"
+        / "tuning_diagnostics_and_evaluation_dt0p1"
         / "closing_phase_0_49_dt0p1.csv",
         K,
     )

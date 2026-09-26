@@ -336,8 +336,7 @@ def plot_comparison(
     )
 
     output_stem.parent.mkdir(parents=True, exist_ok=True)
-    for extension in ("png", "pdf"):
-        fig.savefig(output_stem.with_suffix(f".{extension}"), bbox_inches="tight")
+    fig.savefig(output_stem.with_suffix(".png"), bbox_inches="tight")
     plt.close(fig)
 
 
@@ -466,7 +465,7 @@ def parse_args():
         / "results"
         / "development_comparisons"
         / "closing_velocity_schedule_comparison",
-        help="Output path without an extension. PNG, PDF, and JSON are written.",
+        help="Output path without an extension. PNG and JSON are written.",
     )
     return parser.parse_args()
 
@@ -514,7 +513,6 @@ def main() -> None:
     print(f"Fixed reference:    {status_text(fixed)}")
     print(f"Scheduled reference: {status_text(scheduled)}")
     print(f"Saved: {output_stem.with_suffix('.png')}")
-    print(f"Saved: {output_stem.with_suffix('.pdf')}")
     print(f"Saved: {output_stem.with_suffix('.json')}")
 
 

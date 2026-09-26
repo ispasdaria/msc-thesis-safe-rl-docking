@@ -41,9 +41,6 @@ OUTPUT_DIR = os.path.join(
 OUTPUT_PATH = os.path.join(
     OUTPUT_DIR, f"representative_trajectory_seed{SEED}.png"
 )
-PDF_PATH = os.path.join(
-    OUTPUT_DIR, f"representative_trajectory_seed{SEED}.pdf"
-)
 
 
 def main():
@@ -136,13 +133,11 @@ def main():
     )
     figure.subplots_adjust(left=0.14, right=0.97, top=0.80, bottom=0.22)
     figure.savefig(OUTPUT_PATH, dpi=300, bbox_inches="tight")
-    figure.savefig(PDF_PATH, bbox_inches="tight")
     plt.close(figure)
 
     env.close()
     dummy_env.close()
     print(f"plot={OUTPUT_PATH}")
-    print(f"pdf={PDF_PATH}")
     print(f"steps={len(times) - 1}")
     print(f"unsafe_fraction={np.mean(unsafe):.6f}")
     print(f"termination_reason={terminal_info.get('termination_reason')}")

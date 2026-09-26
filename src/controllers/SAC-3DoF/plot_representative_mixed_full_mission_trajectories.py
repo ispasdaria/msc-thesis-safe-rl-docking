@@ -65,7 +65,7 @@ def history_arrays(core) -> tuple[np.ndarray, np.ndarray]:
 
 def rerun(seed: int, config: campaign.MissionConfiguration,
           final_sac: campaign.LoadedSAC) -> dict[str, object]:
-    closing_env = campaign.make_env("closing", seed, config.closing_dt)
+    closing_env = campaign.make_env("closing", seed, config.closing_dt, 12000.0)
     observation, _ = closing_env.reset(seed=seed)
     lqr = campaign.build_lqr(closing_env)
 
@@ -83,7 +83,7 @@ def rerun(seed: int, config: campaign.MissionConfiguration,
     transition_state = closing["terminal_state"].copy()
     closing_env.close()
 
-    final_env = campaign.make_env("final", seed, 1.0)
+    final_env = campaign.make_env("final", seed, 1.0, 5000.0)
     observation, _ = final_env.reset(
         seed=seed, options={"initial_state": transition_state, "mode": "testing"}
     )
@@ -139,7 +139,7 @@ def load_cache(path: Path) -> dict[str, object]:
 
 def port_positions(states: np.ndarray) -> np.ndarray:
     # Use the environment implementation directly to avoid duplicating port geometry.
-    env = campaign.make_env("final", 0, 1.0)
+    env = campaign.make_env("final", 0, 1.0, 5000.0)
     try:
         return np.asarray([env.core_env.get_port_relative_position(state) for state in states])
     finally:
@@ -148,7 +148,7 @@ def port_positions(states: np.ndarray) -> np.ndarray:
 
 def port_velocities(states: np.ndarray) -> np.ndarray:
     """Evaluate docking-port velocities with the environment implementation."""
-    env = campaign.make_env("final", 0, 1.0)
+    env = campaign.make_env("final", 0, 1.0, 5000.0)
     try:
         return np.asarray([env.core_env.get_port_relative_velocity(state) for state in states])
     finally:

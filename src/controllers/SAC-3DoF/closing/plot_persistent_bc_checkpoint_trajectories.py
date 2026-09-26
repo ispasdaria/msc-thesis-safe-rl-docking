@@ -175,15 +175,12 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     figure.savefig(OUTPUT_STEM.with_suffix(".png"), dpi=DPI,
                    bbox_inches="tight", facecolor="white")
-    figure.savefig(OUTPUT_STEM.with_suffix(".pdf"),
-                   bbox_inches="tight", facecolor="white")
     plt.close(figure)
 
     for checkpoint, trajectory, outcome in zip(CHECKPOINTS, trajectories, outcomes):
         print(f"{checkpoint:,} steps: {outcome}; terminal position error "
               f"{np.linalg.norm(trajectory[-1]):.3f} m")
     print(f"PNG: {OUTPUT_STEM.with_suffix('.png').resolve()}")
-    print(f"PDF: {OUTPUT_STEM.with_suffix('.pdf').resolve()}")
 
 
 if __name__ == "__main__":

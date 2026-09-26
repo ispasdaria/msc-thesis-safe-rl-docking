@@ -401,7 +401,6 @@ def plot_trajectories(results_by_controller, representative_seed, path):
     )
     figure.subplots_adjust(left=0.065, right=0.99, top=0.84, bottom=0.20, wspace=0.12)
     figure.savefig(path, dpi=300, bbox_inches="tight", facecolor="white")
-    figure.savefig(path.with_suffix(".png"), dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(figure)
 
 
@@ -507,7 +506,6 @@ def plot_port_distance_vs_timesteps(results_by_controller, representative_seed, 
 
     figure.subplots_adjust(left=0.09, right=0.98, top=0.86, bottom=0.12)
     figure.savefig(path, dpi=300, bbox_inches="tight", facecolor="white")
-    figure.savefig(path.with_suffix(".png"), dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(figure)
 
 
@@ -582,12 +580,12 @@ def main():
     plot_trajectories(
         results_by_controller,
         representative_seed,
-        OUTPUT_DIR / "observation_space_trajectory_comparison.pdf",
+        OUTPUT_DIR / "observation_space_trajectory_comparison.png",
     )
     plot_port_distance_vs_timesteps(
         results_by_controller,
         representative_seed,
-        OUTPUT_DIR / "docking_port_distance_vs_timesteps.pdf",
+        OUTPUT_DIR / "docking_port_distance_vs_timesteps.png",
     )
 
     summary = {
@@ -601,8 +599,8 @@ def main():
         "outputs": {
             "per_seed": str(OUTPUT_DIR / "per_seed_results.csv"),
             "aggregate": str(OUTPUT_DIR / "aggregate_results.csv"),
-            "figure_pdf": str(OUTPUT_DIR / "observation_space_trajectory_comparison.pdf"),
-            "distance_figure_pdf": str(OUTPUT_DIR / "docking_port_distance_vs_timesteps.pdf"),
+            "figure_png": str(OUTPUT_DIR / "observation_space_trajectory_comparison.png"),
+            "distance_figure_png": str(OUTPUT_DIR / "docking_port_distance_vs_timesteps.png"),
         },
     }
     (OUTPUT_DIR / "comparison_summary.json").write_text(

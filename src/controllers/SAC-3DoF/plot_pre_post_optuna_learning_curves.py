@@ -181,13 +181,11 @@ def plot_one(spec: Comparison) -> dict:
         "Subject": "Pre-Optuna versus post-Optuna learning curve",
     }
     png = OUTPUT_DIR / f"{spec.slug}.png"
-    pdf = OUTPUT_DIR / f"{spec.slug}.pdf"
     fig.savefig(
         png,
         dpi=300,
         metadata={**common_metadata, "Description": spec.caption},
     )
-    fig.savefig(pdf, metadata=common_metadata)
     plt.close(fig)
 
     return {
@@ -211,7 +209,7 @@ def plot_one(spec: Comparison) -> dict:
         "pre_points_plotted": len(pre),
         "post_points_plotted": len(post),
         "caption": spec.caption,
-        "outputs": [png.name, pdf.name],
+        "outputs": [png.name],
     }
 
 

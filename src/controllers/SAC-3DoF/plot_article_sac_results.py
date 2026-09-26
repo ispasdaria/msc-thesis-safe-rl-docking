@@ -57,7 +57,6 @@ def final_approach_distribution(output_dir: Path) -> None:
            ylim=(0.0, 1.02))
     ax.grid(alpha=0.25)
     ax.legend(frameon=False, fontsize=8, loc="lower right")
-    fig.savefig(output_dir / "final_approach_terminal_distance_ecdf.pdf")
     fig.savefig(output_dir / "final_approach_terminal_distance_ecdf.png", dpi=300)
     plt.close(fig)
 
@@ -98,7 +97,6 @@ def closing_comparison(output_dir: Path) -> None:
     ax.set_xticks(x, [label for _, label in metrics])
     ax.grid(axis="y", alpha=0.25)
     ax.legend(frameon=False, fontsize=8, ncol=3)
-    fig.savefig(output_dir / "closing_terminal_ratio_comparison.pdf")
     fig.savefig(output_dir / "closing_terminal_ratio_comparison.png", dpi=300)
     plt.close(fig)
 

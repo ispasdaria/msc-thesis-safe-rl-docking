@@ -139,7 +139,6 @@ def save_figure(figure, stem, layout_rect=None):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     figure.tight_layout(rect=layout_rect)
     figure.savefig(OUTPUT_DIR / f"{stem}.png", dpi=DPI, bbox_inches="tight")
-    figure.savefig(OUTPUT_DIR / f"{stem}.pdf", bbox_inches="tight")
     plt.close(figure)
 
 

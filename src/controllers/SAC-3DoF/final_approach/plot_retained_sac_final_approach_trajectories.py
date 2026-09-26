@@ -234,9 +234,7 @@ def main() -> None:
 
     figure = make_figure(histories)
     png_path = OUTPUT_BASE.with_suffix(".png")
-    pdf_path = OUTPUT_BASE.with_suffix(".pdf")
     figure.savefig(png_path, bbox_inches="tight", facecolor="white")
-    figure.savefig(pdf_path, bbox_inches="tight", facecolor="white")
     plt.close(figure)
 
     distance = float(histories["terminal_port_distances"][representative_index])
@@ -244,7 +242,6 @@ def main() -> None:
     print(f"Representative seed: {REPRESENTATIVE_SEED}")
     print(f"Representative terminal port distance: {distance:.9f} m")
     print(f"Wrote {png_path}")
-    print(f"Wrote {pdf_path}")
 
 
 if __name__ == "__main__":

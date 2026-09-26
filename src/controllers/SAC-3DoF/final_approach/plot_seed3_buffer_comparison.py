@@ -157,13 +157,11 @@ def main() -> None:
 
     stem = OUT_DIR / "sac_seed3_round2_vs_round5_learning_curves"
     fig.savefig(stem.with_suffix(".png"), dpi=400, bbox_inches="tight")
-    fig.savefig(stem.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
     audit_path = stem.with_name(stem.name + "_audit.json")
     audit_path.write_text(json.dumps(audit, indent=2), encoding="utf-8")
     print(json.dumps(audit, indent=2))
     print(f"Saved {stem.with_suffix('.png')}")
-    print(f"Saved {stem.with_suffix('.pdf')}")
     print(f"Saved {audit_path}")
 
 

@@ -364,10 +364,8 @@ def main() -> None:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     png_path = args.output.with_suffix(".png")
-    pdf_path = args.output.with_suffix(".pdf")
     csv_path = args.output.with_suffix(".csv")
     figure.savefig(png_path, bbox_inches="tight", facecolor="white")
-    figure.savefig(pdf_path, bbox_inches="tight", facecolor="white")
     plt.close(figure)
     write_records(csv_path, records)
 
@@ -380,7 +378,6 @@ def main() -> None:
             f"rho={record['spectral_radius']:.12f} ({status})"
         )
     print(f"Wrote {png_path}")
-    print(f"Wrote {pdf_path}")
     print(f"Wrote {csv_path}")
 
 

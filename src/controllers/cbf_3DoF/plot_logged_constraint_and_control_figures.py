@@ -134,9 +134,7 @@ def closing_figure() -> dict:
         loc="upper center", bbox_to_anchor=(0.5, 0.95), ncol=3, frameon=False,
     )
     png = OUT / "closing_phase_balanced_seed25_constraint_values_vs_time.png"
-    pdf = png.with_suffix(".pdf")
     fig.savefig(png, dpi=400, bbox_inches="tight")
-    fig.savefig(pdf, bbox_inches="tight")
     plt.close(fig)
 
     names = {
@@ -270,7 +268,6 @@ def closing_physical_figure() -> dict:
     )
     png = OUT / "closing_phase_balanced_seed25_physical_constraints_vs_time.png"
     fig.savefig(png, dpi=400, bbox_inches="tight")
-    fig.savefig(png.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
 
     limits = {
@@ -377,9 +374,7 @@ def final_control_figure() -> list[dict]:
         loc="upper center", bbox_to_anchor=(0.5, 0.94), ncol=3, frameon=False, fontsize=8.2,
     )
     png = OUT / "final_approach_control_outputs_and_cbf_interventions_vs_time.png"
-    pdf = png.with_suffix(".pdf")
     fig.savefig(png, dpi=400, bbox_inches="tight")
-    fig.savefig(pdf, bbox_inches="tight")
     plt.close(fig)
     return reports
 

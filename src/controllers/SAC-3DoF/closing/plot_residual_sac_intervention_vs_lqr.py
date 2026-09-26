@@ -248,7 +248,6 @@ def plot(direct_baseline, direct_residual, reference_baseline, reference_residua
     fig.subplots_adjust(left=0.075, right=0.985, bottom=0.13, top=0.79, wspace=0.16)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUTPUT_STEM.with_suffix(".png"), dpi=350, facecolor="white", bbox_inches="tight")
-    fig.savefig(OUTPUT_STEM.with_suffix(".pdf"), facecolor="white", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -285,7 +284,6 @@ def main():
     print_row("Reference-residual SAC", reference_residual)
     print("Interpretation: the direct-action residual remains almost coincident with LQR and slightly worsens the limiting ratio. The reference residual visibly departs from LQR and produces a larger terminal tolerance-ratio degradation; neither learned correction improves the timeout outcome.")
     print(f"PNG: {OUTPUT_STEM.with_suffix('.png').resolve()}")
-    print(f"PDF: {OUTPUT_STEM.with_suffix('.pdf').resolve()}")
 
 
 if __name__ == "__main__":

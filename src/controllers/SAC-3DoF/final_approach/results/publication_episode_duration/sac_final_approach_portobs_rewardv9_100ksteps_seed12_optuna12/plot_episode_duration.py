@@ -30,7 +30,6 @@ SOURCE_CSV = (
     / "learning_curve.csv"
 )
 OUTPUT_PNG = SCRIPT_PATH.with_name("episode_duration_vs_training_episode.png")
-OUTPUT_PDF = SCRIPT_PATH.with_name("episode_duration_vs_training_episode.pdf")
 
 
 def load_episode_durations(csv_path: Path) -> pd.DataFrame:
@@ -101,7 +100,6 @@ def make_plot(data: pd.DataFrame) -> None:
     ax.legend(frameon=False, loc="upper left")
 
     fig.savefig(OUTPUT_PNG, bbox_inches="tight")
-    fig.savefig(OUTPUT_PDF, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -114,7 +112,6 @@ def main() -> None:
     print(f"Last completed episode timestep: {int(data['timestep'].iloc[-1])}")
     print(f"Duration min/mean/max (s): {duration.min():.2f} / {duration.mean():.2f} / {duration.max():.2f}")
     print(f"Saved: {OUTPUT_PNG}")
-    print(f"Saved: {OUTPUT_PDF}")
 
 
 if __name__ == "__main__":

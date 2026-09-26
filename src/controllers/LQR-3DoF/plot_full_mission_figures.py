@@ -492,10 +492,9 @@ def make_time_history_figure(history: dict[str, object]) -> plt.Figure:
 
 def save_figure(figure: plt.Figure, output_base: Path) -> None:
     output_base.parent.mkdir(parents=True, exist_ok=True)
-    for suffix in (".png", ".pdf"):
-        path = output_base.with_suffix(suffix)
-        figure.savefig(path, bbox_inches="tight", facecolor="white")
-        print(f"saved {path}")
+    path = output_base.with_suffix(".png")
+    figure.savefig(path, bbox_inches="tight", facecolor="white")
+    print(f"saved {path}")
     plt.close(figure)
 
 

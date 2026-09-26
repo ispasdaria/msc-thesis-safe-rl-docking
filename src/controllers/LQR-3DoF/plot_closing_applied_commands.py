@@ -517,32 +517,22 @@ def main() -> None:
     output_base = args.output.with_suffix("")
     output_base.parent.mkdir(parents=True, exist_ok=True)
     png_path = output_base.with_suffix(".png")
-    pdf_path = output_base.with_suffix(".pdf")
     command_figure.savefig(png_path, bbox_inches="tight", facecolor="white")
-    command_figure.savefig(pdf_path, bbox_inches="tight", facecolor="white")
     plt.close(command_figure)
 
     detail_output_base = args.detail_output.with_suffix("")
     detail_output_base.parent.mkdir(parents=True, exist_ok=True)
     detail_png_path = detail_output_base.with_suffix(".png")
-    detail_pdf_path = detail_output_base.with_suffix(".pdf")
     detail_figure.savefig(
         detail_png_path, bbox_inches="tight", facecolor="white"
-    )
-    detail_figure.savefig(
-        detail_pdf_path, bbox_inches="tight", facecolor="white"
     )
     plt.close(detail_figure)
 
     velocity_output_base = args.velocity_output.with_suffix("")
     velocity_output_base.parent.mkdir(parents=True, exist_ok=True)
     velocity_png_path = velocity_output_base.with_suffix(".png")
-    velocity_pdf_path = velocity_output_base.with_suffix(".pdf")
     velocity_figure.savefig(
         velocity_png_path, bbox_inches="tight", facecolor="white"
-    )
-    velocity_figure.savefig(
-        velocity_pdf_path, bbox_inches="tight", facecolor="white"
     )
     plt.close(velocity_figure)
 
@@ -552,11 +542,8 @@ def main() -> None:
     print(f"Duration: {history['times'][-1]:.1f} s")
     print(f"Sampling interval: {history['dt']:.1f} s")
     print(f"Wrote {png_path}")
-    print(f"Wrote {pdf_path}")
     print(f"Wrote {detail_png_path}")
-    print(f"Wrote {detail_pdf_path}")
     print(f"Wrote {velocity_png_path}")
-    print(f"Wrote {velocity_pdf_path}")
 
 
 if __name__ == "__main__":

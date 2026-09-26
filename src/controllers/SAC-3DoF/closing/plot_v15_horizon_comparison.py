@@ -167,7 +167,7 @@ def save_trajectory_data(path: str, seed: int, records: dict[int, dict]) -> None
     np.savez_compressed(path, **payload)
 
 
-def plot(records: dict[int, dict], seed: int, png_path: str, pdf_path: str) -> None:
+def plot(records: dict[int, dict], seed: int, png_path: str) -> None:
     plt.rcParams.update(
         {
             "font.size": 10,
@@ -263,11 +263,10 @@ def plot(records: dict[int, dict], seed: int, png_path: str, pdf_path: str) -> N
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.965), ncol=7, frameon=False)
     fig.subplots_adjust(left=0.065, right=0.99, bottom=0.13, top=0.79, wspace=0.08)
     fig.savefig(png_path, dpi=350, facecolor="white")
-    fig.savefig(pdf_path, facecolor="white")
     plt.close(fig)
 
 
-def plot_overlay(records: dict[int, dict], seed: int, png_path: str, pdf_path: str) -> None:
+def plot_overlay(records: dict[int, dict], seed: int, png_path: str) -> None:
     """Plot all evaluation horizons together, with horizon-consistent markers."""
 
     plt.rcParams.update(
@@ -378,7 +377,6 @@ def plot_overlay(records: dict[int, dict], seed: int, png_path: str, pdf_path: s
     )
     fig.subplots_adjust(left=0.11, right=0.98, bottom=0.12, top=0.76)
     fig.savefig(png_path, dpi=350, facecolor="white")
-    fig.savefig(pdf_path, facecolor="white")
     plt.close(fig)
 
 
@@ -404,9 +402,9 @@ def main() -> None:
     dummy_env.close()
 
     stem = os.path.join(args.output_dir, "closing_vanilla_sac_horizon_trajectory_comparison")
-    png_path, pdf_path, data_path = stem + ".png", stem + ".pdf", stem + "_data.npz"
+    png_path, data_path = stem + ".png", stem + "_data.npz"
     save_trajectory_data(data_path, seed, records)
-    plot_overlay(records, seed, png_path, pdf_path)
+    plot_overlay(records, seed, png_path)
 
     print(f"selected_seed={seed}")
     print("selection_reason=12,000-s terminal position error closest to the seeds 0--49 mean")
@@ -422,7 +420,6 @@ def main() -> None:
             f"{record['termination_reason']}"
         )
     print(f"png={png_path}")
-    print(f"pdf={pdf_path}")
     print(f"trajectory_data={data_path}")
     print(f"model={MODEL_PATH}")
     print(f"vecnormalize={VECNORM_PATH}")

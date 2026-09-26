@@ -171,11 +171,10 @@ def add_geometry(ax, record, xgrid):
 
 
 def save(fig, output, stem):
-    png, pdf = output / f"{stem}.png", output / f"{stem}.pdf"
+    png = output / f"{stem}.png"
     fig.savefig(png, dpi=350, facecolor="white", bbox_inches="tight")
-    fig.savefig(pdf, facecolor="white", bbox_inches="tight")
     plt.close(fig)
-    return png, pdf
+    return (png,)
 
 
 def figure_seed_trajectories(records, output):

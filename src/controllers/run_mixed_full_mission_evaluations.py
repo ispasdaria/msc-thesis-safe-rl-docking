@@ -1,8 +1,7 @@
 """Run retained LQR/SAC full-mission evaluations, optionally with closing CBF.
 
-Seed ranges are inclusive.  The script intentionally writes one independent
-directory per range, so the 300--349 smoke test cannot be overwritten by the
-later 350--899 campaign.
+Seed ranges are inclusive. Results for each range are written to a separate
+directory, preserving earlier campaign blocks.
 """
 
 from __future__ import annotations
@@ -45,6 +44,7 @@ from lqr_3dof_closing import (
 SAC_ROOT = SRC_ROOT / "controllers" / "SAC-3DoF"
 FINAL_ROOT = SAC_ROOT / "final_approach" / "models"
 CLOSING_ROOT = SAC_ROOT / "closing" / "models"
+DEFAULT_PHASE_HORIZONS = {"closing": 12000.0, "final": 5000.0}
 
 FINAL_100K_NAME = "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12"
 FINAL_100K_DIR = FINAL_ROOT / "optuna12_100ksteps_buffer100k"
@@ -112,7 +112,9 @@ CONFIGURATIONS = {
 class LoadedSAC:
     def __init__(self, files: PolicyFiles, phase: str, dt: float):
         self.files = files
-        dummy = DummyVecEnv([lambda: Monitor(make_env(phase, 999_999, dt))])
+        dummy = DummyVecEnv([
+            lambda: Monitor(make_env(phase, 999_999, dt, DEFAULT_PHASE_HORIZONS[phase]))
+        ])
         self.vecnorm = VecNormalize.load(str(files.vecnorm), dummy)
         self.vecnorm.training = False
         self.vecnorm.norm_reward = False
@@ -128,9 +130,9 @@ class LoadedSAC:
         self.dummy.close()
 
 
-def make_env(phase: str, seed: int, dt: float) -> Docking3DoFGymEnv:
+def make_env(phase: str, seed: int, dt: float, max_time: float) -> Docking3DoFGymEnv:
     return Docking3DoFGymEnv(
-        phase=phase, mode="testing", dt=dt, max_time=None, integrator="rk4",
+        phase=phase, mode="testing", dt=dt, max_time=max_time, integrator="rk4",
         normalize_action=True, seed=seed,
     )
 
@@ -144,6 +146,8 @@ def build_lqr(env: Docking3DoFGymEnv) -> LQRClosingController:
 
 
 def run_phase(env, observation, action_function, max_steps, cbf_filter=None):
+    if max_steps <= 0:
+        raise ValueError("max_steps must be positive")
     info = {}
     saturation_steps = 0
     intervention_steps = 0
@@ -201,35 +205,40 @@ def run_phase(env, observation, action_function, max_steps, cbf_filter=None):
 
 
 def run_mission(config, seed, closing_sac, final_sac, closing_max_time, final_max_time):
-    closing_env = make_env("closing", seed, config.closing_dt)
-    closing_obs, _ = closing_env.reset(seed=seed)
-    closing_steps = math.ceil(closing_max_time / config.closing_dt)
-    if config.closing_kind == "lqr":
-        lqr = build_lqr(closing_env)
-        def closing_action(_):
-            physical = lqr.compute_action(closing_env.core_env, closing_env.core_env.state)
-            return closing_env.physical_action_to_normalized(physical)
-    else:
-        closing_action = closing_sac.action
-    closing_cbf = None
-    if config.closing_cbf:
-        closing_cbf = ClosingCBFFilter(
-            closing_env.core_env,
-            ClosingCBFConfig(allow_slack=False),
+    closing_env = make_env("closing", seed, config.closing_dt, closing_max_time)
+    try:
+        closing_obs, _ = closing_env.reset(seed=seed)
+        closing_steps = math.ceil(closing_max_time / config.closing_dt)
+        if config.closing_kind == "lqr":
+            lqr = build_lqr(closing_env)
+
+            def closing_action(_):
+                physical = lqr.compute_action(closing_env.core_env, closing_env.core_env.state)
+                return closing_env.physical_action_to_normalized(physical)
+        else:
+            closing_action = closing_sac.action
+        closing_cbf = None
+        if config.closing_cbf:
+            closing_cbf = ClosingCBFFilter(
+                closing_env.core_env,
+                ClosingCBFConfig(allow_slack=False),
+            )
+        closing = run_phase(
+            closing_env, closing_obs, closing_action, closing_steps, closing_cbf
         )
-    closing = run_phase(
-        closing_env, closing_obs, closing_action, closing_steps, closing_cbf
-    )
-    closing_env.close()
+    finally:
+        closing_env.close()
 
     final = None
     if closing["success"]:
-        final_env = make_env("final", seed, 1.0)
-        final_obs, _ = final_env.reset(
-            seed=seed, options={"initial_state": closing["terminal_state"], "mode": "testing"}
-        )
-        final = run_phase(final_env, final_obs, final_sac.action, math.ceil(final_max_time))
-        final_env.close()
+        final_env = make_env("final", seed, 1.0, final_max_time)
+        try:
+            final_obs, _ = final_env.reset(
+                seed=seed, options={"initial_state": closing["terminal_state"], "mode": "testing"}
+            )
+            final = run_phase(final_env, final_obs, final_sac.action, math.ceil(final_max_time))
+        finally:
+            final_env.close()
 
     return flatten_result(config, seed, closing, final)
 
@@ -329,6 +338,8 @@ def summary(config, rows, seed_start, seed_end):
 def validate(configs):
     missing = []
     for config in configs:
+        if config.closing_kind == "sac" and config.closing_policy is None:
+            raise ValueError(f"SAC configuration {config.key} requires a closing policy")
         policies = [config.final_policy] + ([] if config.closing_policy is None else [config.closing_policy])
         missing.extend(str(path) for policy in policies for path in (policy.model, policy.vecnorm) if not path.is_file())
     if missing:
@@ -348,6 +359,10 @@ def main():
     args = parser.parse_args()
     if args.seed_start < 0 or args.seed_end < args.seed_start:
         parser.error("Require 0 <= --seed-start <= --seed-end")
+    if not math.isfinite(args.closing_max_time) or args.closing_max_time <= 0:
+        parser.error("--closing-max-time must be finite and positive")
+    if not math.isfinite(args.final_max_time) or args.final_max_time <= 0:
+        parser.error("--final-max-time must be finite and positive")
     configs = [CONFIGURATIONS[key] for key in args.configs]
     validate(configs)
     print("Validated configurations:")

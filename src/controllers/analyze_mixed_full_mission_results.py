@@ -42,8 +42,13 @@ def rows_for(config: str) -> list[dict]:
     blocks = BLOCKS if config in LQR_CONFIGS else BLOCKS[:1]
     rows = []
     for block in blocks:
-        with (RESULTS / block / f"{config}.csv").open(newline="", encoding="utf-8") as stream:
+        path = RESULTS / block / f"{config}.csv"
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing campaign results: {path}")
+        with path.open(newline="", encoding="utf-8") as stream:
             rows.extend(csv.DictReader(stream))
+    if not rows:
+        raise ValueError(f"No campaign rows found for {config}")
     return rows
 
 
@@ -52,6 +57,8 @@ def numbers(rows: list[dict], field: str) -> np.ndarray:
 
 
 def stats(values: np.ndarray) -> dict:
+    if values.size == 0:
+        return {"n": 0, "mean": None, "sample_std": None, "min": None, "max": None}
     return {
         "n": int(values.size), "mean": float(values.mean()),
         "sample_std": float(values.std(ddof=1)) if values.size > 1 else 0.0,
@@ -60,6 +67,10 @@ def stats(values: np.ndarray) -> dict:
 
 
 def wilson(successes: int, n: int, z: float = 1.959963984540054) -> list[float]:
+    if n <= 0:
+        raise ValueError("Wilson interval sample size must be positive")
+    if not 0 <= successes <= n:
+        raise ValueError("Success count must be between zero and the sample size")
     p = successes / n
     denominator = 1.0 + z * z / n
     center = (p + z * z / (2.0 * n)) / denominator
@@ -141,7 +152,10 @@ def lqr_campaign_audit(config: str) -> dict:
         "closing_termination_counts": dict(Counter(row["closing_termination_reason"] for row in rows)),
         "final_termination_counts": dict(Counter(row["final_termination_reason"] for row in handovers)),
         "handover_count": len(handovers), "final_success_count": sum(row["final_success"] == "True" for row in handovers),
-        "final_success_given_handover_percent": 100.0 * sum(row["final_success"] == "True" for row in handovers) / len(handovers),
+        "final_success_given_handover_percent": (
+            100.0 * sum(row["final_success"] == "True" for row in handovers) / len(handovers)
+            if handovers else None
+        ),
         "post_handover_failures": sum(row["final_success"] != "True" for row in handovers),
         "duration_s": {
             "mission_all": stats(numbers(rows, "mission_elapsed_time_s")),
@@ -158,14 +172,16 @@ def lqr_campaign_audit(config: str) -> dict:
         "closing_attitude_error_deg", "closing_angular_rate_error_deg_s",
     )
     labels = ("rx", "ry", "vx", "vy", "psi", "omega")
-    timeout_errors = np.array([[float(row[field]) for field in error_fields] for row in timeout_rows])
     result["timeout_handover_tolerance_failures"] = {
         label: {
-            "outside_count": int((np.abs(timeout_errors[:, i]) > P3_TOLERANCE[i]).sum()),
-            "outside_percent_of_timeouts": float(100.0 * (np.abs(timeout_errors[:, i]) > P3_TOLERANCE[i]).mean()),
+            "outside_count": int((np.abs(numbers(timeout_rows, field)) > P3_TOLERANCE[i]).sum()),
+            "outside_percent_of_timeouts": (
+                float(100.0 * (np.abs(numbers(timeout_rows, field)) > P3_TOLERANCE[i]).mean())
+                if timeout_rows else None
+            ),
             "tolerance": float(P3_TOLERANCE[i]),
         }
-        for i, label in enumerate(labels)
+        for i, (label, field) in enumerate(zip(labels, error_fields))
     }
     result["handover_terminal_state"] = {
         label: stats(numbers(handovers, field)) for label, field in zip(labels, STATE_FIELDS)

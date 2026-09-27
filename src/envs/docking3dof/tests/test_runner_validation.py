@@ -23,7 +23,7 @@ for path in (SRC_PATH, LQR_PATH):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from run_lqr_full_mission import create_runner, run_full_mission
+from evaluation.run_lqr_full_mission import create_runner, run_full_mission
 
 
 def test_full_mission_runner_supports_phase_specific_time_steps():

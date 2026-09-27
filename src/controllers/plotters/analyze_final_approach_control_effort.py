@@ -23,10 +23,9 @@ CONTROLLERS_ROOT = HERE.parent
 REPO_ROOT = CONTROLLERS_ROOT.parents[1]
 SRC = REPO_ROOT / "src"
 LQR_DIR = CONTROLLERS_ROOT / "LQR-3DoF"
-LQR_TUNING_DIR = LQR_DIR / "tuning_lqr_final_approach"
 SAC_FINAL_DIR = CONTROLLERS_ROOT / "SAC-3DoF" / "final_approach"
 CBF_DIR = CONTROLLERS_ROOT / "cbf_3DoF"
-for import_path in (SRC, LQR_DIR, LQR_TUNING_DIR):
+for import_path in (SRC, LQR_DIR):
     if str(import_path) not in sys.path:
         sys.path.insert(0, str(import_path))
 

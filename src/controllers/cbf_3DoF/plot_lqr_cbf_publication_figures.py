@@ -39,7 +39,7 @@ CLOSING_FILTERED = RESULTS / "closing_dt0p1_full_cbf_seeds_0_49" / "per_episode_
 FINAL_FILTERED = RESULTS / "final_dt1p0_full_cbf_seeds_0_49" / "per_episode_metrics.csv"
 CLOSING_NOMINAL = (
     LQR / "results" / "lqr_closing"
-    / "tuning_diagnostics_and_evaluation_dt0p1"
+    / "closing_controller_dt0p1_evaluation_and_tuning"
     / "closing_phase_0_49_dt0p1.csv"
 )
 FINAL_NOMINAL = LQR / "results" / "lqr_final" / "final_approach_phase_0_49.csv"

@@ -193,7 +193,7 @@ implemented workflows:
   [`src/envs/docking3dof/core.py`](src/envs/docking3dof/core.py) and
   [`src/envs/docking3dof/gym_env.py`](src/envs/docking3dof/gym_env.py)
 - LQR full mission:
-  [`src/controllers/LQR-3DoF/run_lqr_full_mission.py`](src/controllers/LQR-3DoF/run_lqr_full_mission.py)
+  [`src/controllers/LQR-3DoF/evaluation/run_lqr_full_mission.py`](src/controllers/LQR-3DoF/evaluation/run_lqr_full_mission.py)
 - SAC closing:
   [`src/controllers/SAC-3DoF/closing/`](src/controllers/SAC-3DoF/closing/)
 - SAC final approach:

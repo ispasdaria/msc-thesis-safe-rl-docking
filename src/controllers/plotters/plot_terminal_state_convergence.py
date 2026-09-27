@@ -22,11 +22,12 @@ SAC_CACHE = (
 )
 LQR_FINAL_CACHE = (
     CONTROLLERS_ROOT / "LQR-3DoF" / "results" / "lqr_final"
-    / "final_approach_seeds_0_49_requirement_histories.npz"
+    / "terminal_state_convergence"
+    / "lqr_final_approach_terminal_state_histories.npz"
 )
 LQR_CLOSING_CACHE = (
     CONTROLLERS_ROOT / "LQR-3DoF" / "results" / "lqr_closing"
-    / "tuning_diagnostics_and_evaluation_dt0p1"
+    / "closing_controller_dt0p1_evaluation_and_tuning"
     / "closing_phase_seeds_0_49_dt0p1_error_histories.npz"
 )
 SAC_OUTPUT_DIR = (

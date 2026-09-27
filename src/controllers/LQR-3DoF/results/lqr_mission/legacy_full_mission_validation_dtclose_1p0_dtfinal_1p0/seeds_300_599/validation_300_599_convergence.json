@@ -1,0 +1,20 @@
+{
+  "input": "src\\controllers\\LQR-3DoF\\results\\lqr_mission\\legacy_full_mission_validation_dtclose_1p0_dtfinal_1p0\\seeds_300_599\\validation_300_599.csv",
+  "metric": "closing_final_error_norm",
+  "num_records": 300,
+  "permutations": 1000,
+  "sample_sizes": [
+    10,
+    20,
+    30,
+    40,
+    50,
+    75,
+    100,
+    150,
+    200,
+    250,
+    300
+  ],
+  "output": "src\\controllers\\LQR-3DoF\\results\\lqr_mission\\legacy_full_mission_validation_dtclose_1p0_dtfinal_1p0\\seeds_300_599\\validation_300_599_convergence.csv"
+}

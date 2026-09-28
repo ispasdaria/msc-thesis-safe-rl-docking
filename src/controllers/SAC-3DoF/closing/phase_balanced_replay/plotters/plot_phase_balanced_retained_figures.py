@@ -1,4 +1,4 @@
-"""Create publication figures for the retained phase-balanced closing SAC.
+"""Create retained-policy figures for the phase-balanced closing SAC.
 
 Outputs
 -------
@@ -32,8 +32,11 @@ import numpy as np
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-SRC_PATH = SCRIPT_DIR.parents[2]
-for path in (SCRIPT_DIR, SRC_PATH):
+FAMILY_DIR = SCRIPT_DIR.parent
+CLOSING_DIR = FAMILY_DIR.parent
+VANILLA_DIR = CLOSING_DIR / "vanilla_sac"
+SRC_PATH = SCRIPT_DIR.parents[4]
+for path in (FAMILY_DIR, CLOSING_DIR, VANILLA_DIR, SRC_PATH):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -41,13 +44,13 @@ import evaluate_sac_closing as evaluator
 
 
 EXPERIMENT = "sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0"
-MODEL_DIR = SCRIPT_DIR / "models" / "multiseed" / EXPERIMENT / "seed_0"
+MODEL_DIR = FAMILY_DIR / "models" / "multiseed" / EXPERIMENT / "seed_0"
 MODEL_PATH = MODEL_DIR / "model_0100000_steps.zip"
 VECNORM_PATH = MODEL_DIR / "model_0100000_steps_vecnormalize.pkl"
-TRAINING_DIR = SCRIPT_DIR / "results" / "multiseed" / EXPERIMENT
+TRAINING_DIR = FAMILY_DIR / "results" / "multiseed" / EXPERIMENT
 LEARNING_CURVE_PATH = TRAINING_DIR / "seed_0" / "learning_curve.csv"
 VANILLA_LEARNING_CURVE_PATH = (
-    SCRIPT_DIR
+    VANILLA_DIR
     / "results"
     / "reward_shaping_trials"
     / "episode_return_learning_curves"
@@ -57,7 +60,7 @@ VANILLA_LEARNING_CURVE_PATH = (
 VANILLA_LEARNING_STARTS = 10_000
 CONFIG_PATH = TRAINING_DIR / "experiment_config.json"
 RETAINED_CHECKPOINT_STEPS = 100_000
-TRANSFER_ROOT = SCRIPT_DIR / "results" / "timestep_transfer"
+TRANSFER_ROOT = CLOSING_DIR / "results" / "timestep_transfer"
 HORIZONS = (12_000, 13_000, 20_000)
 EVALUATION_DIRS = {
     horizon: TRANSFER_ROOT
@@ -65,10 +68,7 @@ EVALUATION_DIRS = {
     for horizon in HORIZONS
 }
 DEFAULT_OUTPUT_DIR = (
-    SCRIPT_DIR
-    / "results"
-    / "publication_figures"
-    / "phase_balanced_retained100k"
+    FAMILY_DIR / "results" / "retained_figures" / "retained_checkpoint"
 )
 
 

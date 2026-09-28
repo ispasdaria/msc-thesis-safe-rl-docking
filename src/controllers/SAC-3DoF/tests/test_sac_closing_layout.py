@@ -180,3 +180,16 @@ def test_curriculum_and_p3_reach_scripts_import_from_repository_root():
             failures.append(f"{script.name}: {completed.stderr}")
 
     assert failures == []
+
+
+def test_phase_balanced_replay_family_contains_code_and_artifacts():
+    family = CLOSING_DIR / "phase_balanced_replay"
+
+    assert (family / "phase_balanced_replay_buffer.py").is_file()
+    assert (family / "phase_balanced_replay_buffer_v2.py").is_file()
+    assert (family / "train_sac_closing_v15_phase_balanced_replay.py").is_file()
+    assert (family / "tests" / "test_phase_balanced_replay_buffer.py").is_file()
+    assert (family / "models" / "multiseed").is_dir()
+    assert (family / "logs" / "multiseed").is_dir()
+    assert (family / "results" / "multiseed").is_dir()
+    assert (family / "results" / "retained_figures").is_dir()

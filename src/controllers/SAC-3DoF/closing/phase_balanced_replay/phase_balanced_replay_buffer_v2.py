@@ -8,10 +8,16 @@ event categories so repeated braking detections cannot dominate replay.
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
+import sys
 from typing import Any
 
 import numpy as np
 from stable_baselines3.common.buffers import ReplayBuffer
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
 from phase_balanced_replay_buffer import PhaseBalancedReplayBuffer
 

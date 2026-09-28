@@ -9,9 +9,13 @@ from pathlib import Path
 import sys
 
 
-CURRICULUM_DIR = Path(__file__).resolve().parent / "curriculum_and_p3_reach"
-if str(CURRICULUM_DIR) not in sys.path:
-    sys.path.insert(0, str(CURRICULUM_DIR))
+CURRICULUM_DIR = (
+    Path(__file__).resolve().parent.parent / "curriculum_and_p3_reach"
+)
+SCRIPT_DIR = Path(__file__).resolve().parent
+for path in (SCRIPT_DIR, CURRICULUM_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 import train_sac_closing_p3reach_from_scratch as training
 

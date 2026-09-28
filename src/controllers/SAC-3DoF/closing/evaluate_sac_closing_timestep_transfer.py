@@ -47,7 +47,12 @@ SOURCE_EXPERIMENT = (
     "sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0"
 )
 SOURCE_SEED_DIR = (
-    SCRIPT_DIR / "models" / "multiseed" / SOURCE_EXPERIMENT / "seed_0"
+    SCRIPT_DIR
+    / "phase_balanced_replay"
+    / "models"
+    / "multiseed"
+    / SOURCE_EXPERIMENT
+    / "seed_0"
 )
 DEFAULT_MODEL_PATH = SOURCE_SEED_DIR / "model_0100000_steps.zip"
 DEFAULT_VECNORMALIZE_PATH = (

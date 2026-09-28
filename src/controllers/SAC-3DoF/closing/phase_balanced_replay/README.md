@@ -1,3 +1,24 @@
-# Phase-Balanced Replay
+# Phase-Balanced Replay Experiments
 
-Replay-buffer variants that balance closing phases, including guarded training and CBF-filtered variants.
+This directory contains SAC closing experiments that partition online experience by mission phase so terminal and safety-relevant transitions remain represented during training.
+
+## Variants
+
+- `train_sac_closing_phase_balanced_replay_v12.py` applies phase-balanced replay to the isolated V12 P3-reaching environment.
+- `train_sac_closing_v15_phase_balanced_replay.py` continues the selected reward-v15 checkpoint with global and capture replay partitions.
+- `train_sac_closing_v15_phase_balanced_replay_v2.py` adds protected replay partitions and guarded checkpoint selection.
+- `train_sac_closing_v15_phase_balanced_replay_v21.py` configures the V2.1 continuation preset.
+- `train_sac_closing_v15_phase_balanced_replay_v21_cbf.py` configures the CBF-assisted V2.1 variant.
+
+The short variant launchers are retained because they encode distinct replay and checkpoint-selection configurations.
+
+## Contents
+
+- `phase_balanced_replay_buffer.py` and `phase_balanced_replay_buffer_v2.py` implement the replay partitions.
+- `models/multiseed/`, `logs/multiseed/`, and `results/multiseed/` contain the associated training runs.
+- `results/multiseed_evaluation/` contains deterministic held-out evaluations.
+- `results/retained_figures/` contains figures and diagnostics for the retained checkpoint.
+- `plotters/` regenerates retained-policy comparisons and diagnostics.
+- `tests/` verifies replay sampling, partition protection, and checkpoint readiness.
+
+The continuation source checkpoint remains under `../vanilla_sac/models/`. Timestep-transfer results used by retained-policy comparisons remain with the timestep-transfer family until that family is migrated.

@@ -25,14 +25,15 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
 )
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
-if SCRIPT_DIR not in sys.path:
-    sys.path.insert(0, SCRIPT_DIR)
+CLOSING_DIR = os.path.dirname(SCRIPT_DIR)
+VANILLA_DIR = os.path.join(CLOSING_DIR, "vanilla_sac")
+for path in (SCRIPT_DIR, CLOSING_DIR, VANILLA_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from phase_balanced_replay_buffer import (  # noqa: E402
     PhaseBalancedReplayBuffer,
@@ -49,15 +50,26 @@ from train_sac_closing_multiseed import (  # noqa: E402
 from tune_sac_closing_optuna import make_training_env  # noqa: E402
 
 
+MODEL_ROOT = os.path.join(SCRIPT_DIR, "models", "multiseed")
+RESULTS_ROOT = os.path.join(SCRIPT_DIR, "results", "multiseed")
+
+
+def seed_output_paths(experiment_name, seed):
+    return (
+        os.path.join(MODEL_ROOT, experiment_name, f"seed_{seed}"),
+        os.path.join(RESULTS_ROOT, experiment_name, f"seed_{seed}"),
+    )
+
+
 DEFAULT_SOURCE_MODEL = os.path.join(
-    SCRIPT_DIR,
+    VANILLA_DIR,
     "models",
     "reward_shaping_trials",
     "sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_"
     "seed0_buffer300k.zip",
 )
 DEFAULT_SOURCE_VECNORMALIZE = os.path.join(
-    SCRIPT_DIR,
+    VANILLA_DIR,
     "models",
     "reward_shaping_trials",
     "sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_"

@@ -1,6 +1,6 @@
-"""Publication diagnostics for the retained 100k phase-balanced closing SAC.
+"""Diagnostics for the retained 100k phase-balanced closing SAC.
 
-The aggregate figures use the saved deterministic seeds 0--49 CSV files.
+The aggregate figures use the saved deterministic seeds 0-49 CSV files.
 Full histories are regenerated only for selected seeds because the aggregate
 evaluation intentionally stores metrics rather than time series. No training
 is performed and no inset/embedded axes are created.
@@ -25,8 +25,11 @@ import numpy as np
 
 
 HERE = Path(__file__).resolve().parent
-SRC = HERE.parents[2]
-for path in (HERE, SRC):
+FAMILY_DIR = HERE.parent
+CLOSING_DIR = FAMILY_DIR.parent
+VANILLA_DIR = CLOSING_DIR / "vanilla_sac"
+SRC = HERE.parents[4]
+for path in (FAMILY_DIR, CLOSING_DIR, VANILLA_DIR, SRC):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -34,17 +37,20 @@ import evaluate_sac_closing as evaluator
 
 
 EXPERIMENT = "sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0"
-MODEL_DIR = HERE / "models" / "multiseed" / EXPERIMENT / "seed_0"
+MODEL_DIR = FAMILY_DIR / "models" / "multiseed" / EXPERIMENT / "seed_0"
 MODEL_PATH = MODEL_DIR / "model_0100000_steps.zip"
 VECNORM_PATH = MODEL_DIR / "model_0100000_steps_vecnormalize.pkl"
-RESULT_ROOT = HERE / "results" / "timestep_transfer"
+RESULT_ROOT = CLOSING_DIR / "results" / "timestep_transfer"
 HORIZONS = (12_000, 13_000, 20_000)
 EVAL_DIRS = {
     h: RESULT_ROOT / f"phase_balanced_guarded100k_seeds0_49_horizon{h}"
     for h in HORIZONS
 }
 DEFAULT_OUTPUT = (
-    HERE / "results" / "publication_figures" / "phase_balanced_retained100k_diagnostics"
+    FAMILY_DIR
+    / "results"
+    / "retained_figures"
+    / "retained_checkpoint_diagnostics"
 )
 
 # Match the trajectory blue used by the vanilla V15 state-convergence figure
@@ -83,7 +89,7 @@ def load_metrics():
         paths[horizon] = path
     common = set.intersection(*(set(rows) for rows in result.values()))
     if common != set(range(50)):
-        raise ValueError("Expected identical evaluation seeds 0--49 at every horizon.")
+        raise ValueError("Expected identical evaluation seeds 0-49 at every horizon.")
     return result, paths
 
 

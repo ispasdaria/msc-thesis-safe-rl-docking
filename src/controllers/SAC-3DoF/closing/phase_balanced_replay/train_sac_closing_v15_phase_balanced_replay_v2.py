@@ -19,14 +19,14 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
 )
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
-if SCRIPT_DIR not in sys.path:
-    sys.path.insert(0, SCRIPT_DIR)
+CLOSING_DIR = os.path.dirname(SCRIPT_DIR)
+for path in (SCRIPT_DIR, CLOSING_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from envs.docking3dof.gym_env import Docking3DoFGymEnv  # noqa: E402
 from envs.docking3dof.closing_cbf_shield_env import (  # noqa: E402
@@ -53,6 +53,17 @@ from train_sac_closing_v15_phase_balanced_replay import (  # noqa: E402
     file_sha256,
     resolve_checkpoint_steps,
 )
+
+
+MODEL_ROOT = os.path.join(SCRIPT_DIR, "models", "multiseed")
+RESULTS_ROOT = os.path.join(SCRIPT_DIR, "results", "multiseed")
+
+
+def seed_output_paths(experiment_name, seed):
+    return (
+        os.path.join(MODEL_ROOT, experiment_name, f"seed_{seed}"),
+        os.path.join(RESULTS_ROOT, experiment_name, f"seed_{seed}"),
+    )
 
 
 def build_parser():

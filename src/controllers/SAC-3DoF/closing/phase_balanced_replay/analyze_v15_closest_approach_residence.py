@@ -1,4 +1,4 @@
-"""Measure closest-approach residence for vanilla V15 SAC, seeds 0--49.
+"""Measure closest-approach residence for vanilla V15 SAC, seeds 0-49.
 
 No training is performed.  Each policy rollout is deterministic and uses the
 retained 400k Optuna-trial-16 model and its matching VecNormalize statistics.
@@ -19,8 +19,10 @@ import numpy as np
 
 
 HERE = Path(__file__).resolve().parent
-SRC = HERE.parents[2]
-for path in (HERE, SRC):
+CLOSING_DIR = HERE.parent
+VANILLA_DIR = CLOSING_DIR / "vanilla_sac"
+SRC = HERE.parents[3]
+for path in (HERE, CLOSING_DIR, VANILLA_DIR, SRC):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -28,9 +30,9 @@ import evaluate_sac_closing as evaluator
 
 
 MODEL_NAME = "sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k"
-MODEL_PATH = HERE / "models" / "reward_shaping_trials" / f"{MODEL_NAME}.zip"
+MODEL_PATH = VANILLA_DIR / "models" / "reward_shaping_trials" / f"{MODEL_NAME}.zip"
 VECNORM_PATH = (
-    HERE / "models" / "reward_shaping_trials" / f"{MODEL_NAME}_vecnormalize.pkl"
+    VANILLA_DIR / "models" / "reward_shaping_trials" / f"{MODEL_NAME}_vecnormalize.pkl"
 )
 PHASE_MODEL_PATH = (
     HERE / "models" / "multiseed"
@@ -41,7 +43,7 @@ PHASE_VECNORM_PATH = PHASE_MODEL_PATH.with_name(
     "model_0100000_steps_vecnormalize.pkl"
 )
 DEFAULT_OUTPUT = (
-    HERE / "results" / "publication_figures" / "v15_trial16_400k_horizon_comparison"
+    VANILLA_DIR / "results" / "retained_figures" / "horizon_comparison"
     / "closest_approach_residence_seeds0_49.csv"
 )
 HORIZON = 20_000
@@ -113,8 +115,8 @@ def main():
     if args.policy == "phase-balanced":
         model_path, vecnorm_path = PHASE_MODEL_PATH, PHASE_VECNORM_PATH
         default_output = (
-            HERE / "results" / "publication_figures"
-            / "phase_balanced_retained100k_diagnostics"
+            HERE / "results" / "retained_figures"
+            / "retained_checkpoint_diagnostics"
             / "closest_approach_residence_seeds0_49.csv"
         )
     else:

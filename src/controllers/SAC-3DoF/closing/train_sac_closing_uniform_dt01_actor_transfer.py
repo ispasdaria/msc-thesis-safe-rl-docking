@@ -33,7 +33,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[3]
 SRC_PATH = REPO_ROOT / "src"
 CURRICULUM_DIR = SCRIPT_DIR / "curriculum_and_p3_reach"
-for path in (SCRIPT_DIR, CURRICULUM_DIR, SRC_PATH):
+PHASE_BALANCED_DIR = SCRIPT_DIR / "phase_balanced_replay"
+for path in (SCRIPT_DIR, CURRICULUM_DIR, PHASE_BALANCED_DIR, SRC_PATH):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 

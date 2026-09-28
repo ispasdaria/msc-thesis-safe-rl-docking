@@ -22,9 +22,10 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]
+REPO_ROOT = SCRIPT_DIR.parents[4]
 SRC_PATH = REPO_ROOT / "src"
-for import_path in (SRC_PATH, SCRIPT_DIR):
+CLOSING_DIR = SCRIPT_DIR.parent
+for import_path in (SRC_PATH, CLOSING_DIR, SCRIPT_DIR):
     import_path_string = str(import_path)
     if import_path_string not in sys.path:
         sys.path.insert(0, import_path_string)

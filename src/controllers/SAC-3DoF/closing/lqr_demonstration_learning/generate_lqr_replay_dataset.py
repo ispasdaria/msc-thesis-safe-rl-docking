@@ -24,11 +24,12 @@ import numpy as np
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]
+REPO_ROOT = SCRIPT_DIR.parents[4]
 SRC_PATH = REPO_ROOT / "src"
 LQR_PATH = SRC_PATH / "controllers" / "LQR-3DoF"
 
-for import_path in (SRC_PATH, LQR_PATH):
+CLOSING_DIR = SCRIPT_DIR.parent
+for import_path in (SCRIPT_DIR, CLOSING_DIR, SRC_PATH, LQR_PATH):
     import_path_string = str(import_path)
     if import_path_string not in sys.path:
         sys.path.insert(0, import_path_string)

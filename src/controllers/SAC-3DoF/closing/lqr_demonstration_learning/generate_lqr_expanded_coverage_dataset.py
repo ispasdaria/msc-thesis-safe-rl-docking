@@ -13,8 +13,13 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 
 import numpy as np
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
 from generate_lqr_replay_dataset import (
     DEFAULT_OUTPUT_DIR,
@@ -29,7 +34,6 @@ from generate_lqr_replay_dataset import (
 )
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_BASE_DATASET = (
     DEFAULT_OUTPUT_DIR
     / "lqr_closing_training_rewardv15_28successes.npz"

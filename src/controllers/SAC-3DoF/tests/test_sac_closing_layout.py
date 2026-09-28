@@ -193,3 +193,23 @@ def test_phase_balanced_replay_family_contains_code_and_artifacts():
     assert (family / "logs" / "multiseed").is_dir()
     assert (family / "results" / "multiseed").is_dir()
     assert (family / "results" / "retained_figures").is_dir()
+
+
+def test_lqr_demonstration_family_contains_code_data_and_artifacts():
+    family = CLOSING_DIR / "lqr_demonstration_learning"
+
+    assert (family / "generate_lqr_replay_dataset.py").is_file()
+    assert (family / "train_sac_closing_lqr_replay.py").is_file()
+    assert (family / "train_sac_closing_lqr_bc_warmstart.py").is_file()
+    assert (family / "plotters" / "plot_behavior_cloning_sac_figures.py").is_file()
+    assert (family / "tests" / "test_lqr_replay_dataset.py").is_file()
+    assert (family / "demonstrations" / "lqr_closing_training_rewardv15_28successes.npz").is_file()
+    for artifact_dir in (
+        "lqr_replay",
+        "lqr_mixed_replay",
+        "lqr_bc_warmstart",
+        "lqr_bc_constrained",
+    ):
+        assert (family / "models" / artifact_dir).is_dir()
+        assert (family / "logs" / artifact_dir).is_dir()
+        assert (family / "results" / artifact_dir).is_dir()

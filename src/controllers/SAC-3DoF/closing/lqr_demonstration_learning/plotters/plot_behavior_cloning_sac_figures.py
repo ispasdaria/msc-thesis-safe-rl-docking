@@ -1,4 +1,4 @@
-"""Generate the four thesis figures for the behaviour-cloning SAC run."""
+"""Generate four diagnostic figures for the behavior-cloning SAC run."""
 
 from __future__ import annotations
 
@@ -23,11 +23,12 @@ import matplotlib.pyplot as plt  # noqa: E402
 # Paths and column/tag names: keep these together so the script is easy to edit.
 # -----------------------------------------------------------------------------
 SCRIPT_DIR = Path(__file__).resolve().parent
+FAMILY_DIR = SCRIPT_DIR.parent
 EXPERIMENT = "sac_closing_rewardv15_lqr_bc_warmstart_expanded200_600000steps"
-MODEL_DIR = SCRIPT_DIR / "models" / "lqr_bc_warmstart" / EXPERIMENT / "seed_0"
-RESULT_DIR = SCRIPT_DIR / "results" / "lqr_bc_warmstart" / EXPERIMENT / "seed_0"
-LOG_DIR = SCRIPT_DIR / "logs" / "lqr_bc_warmstart" / EXPERIMENT
-OUTPUT_DIR = RESULT_DIR / "publication_figures"
+MODEL_DIR = FAMILY_DIR / "models" / "lqr_bc_warmstart" / EXPERIMENT / "seed_0"
+RESULT_DIR = FAMILY_DIR / "results" / "lqr_bc_warmstart" / EXPERIMENT / "seed_0"
+LOG_DIR = FAMILY_DIR / "logs" / "lqr_bc_warmstart" / EXPERIMENT
+OUTPUT_DIR = RESULT_DIR / "retained_figures"
 
 LEARNING_CURVE_FILE = RESULT_DIR / "learning_curve.csv"
 EPISODE_COLUMN = "episode"
@@ -52,8 +53,9 @@ COLORS = {
     "grey": "#6E6E6E",
 }
 
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+for path in (FAMILY_DIR, FAMILY_DIR.parent):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from train_sac_closing_lqr_replay import make_closing_env  # noqa: E402
 
@@ -207,7 +209,7 @@ def plot_trajectories():
 
     axis.scatter(0, 0, s=82, marker="*", color=COLORS["green"], edgecolor="white", linewidth=0.5, label="$P_3$ target", zorder=6)
     # Proxy markers give the legend the same compact marker vocabulary as the
-    # reference thesis figure without duplicating labels for both policies.
+    # Use one shared annotation set to avoid duplicate policy labels.
     axis.scatter([], [], s=38, marker="D", facecolor="white", edgecolor=COLORS["grey"], label="Initial state")
     axis.scatter([], [], s=40, marker="X", color=COLORS["grey"], label="Terminal state")
     axis.set_xlabel("Axial position error relative to $P_3$ [m]")

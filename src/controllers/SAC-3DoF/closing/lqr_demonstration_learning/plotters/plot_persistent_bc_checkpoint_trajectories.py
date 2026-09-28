@@ -16,17 +16,19 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
+FAMILY_DIR = HERE.parent
+for path in (FAMILY_DIR, FAMILY_DIR.parent):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from train_sac_closing_lqr_replay import make_closing_env
 
 
 EXPERIMENT = "sac_closing_rewardv15_lqr_bc_constrained_600000steps"
-MODEL_DIR = HERE / "models" / "lqr_bc_constrained" / EXPERIMENT / "seed_0"
+MODEL_DIR = FAMILY_DIR / "models" / "lqr_bc_constrained" / EXPERIMENT / "seed_0"
 OUTPUT_DIR = (
-    HERE / "results" / "lqr_bc_constrained" / EXPERIMENT / "seed_0"
-    / "publication_figures"
+    FAMILY_DIR / "results" / "lqr_bc_constrained" / EXPERIMENT / "seed_0"
+    / "retained_figures"
 )
 OUTPUT_STEM = OUTPUT_DIR / "persistent_bc_50k_vs_600k_trajectories"
 

@@ -11,8 +11,13 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 
 import numpy as np
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
 from generate_lqr_replay_dataset import (
     _metadata_from_dataset,
@@ -22,7 +27,6 @@ from generate_lqr_replay_dataset import (
 )
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
 DEMONSTRATION_DIR = SCRIPT_DIR / "demonstrations"
 DEFAULT_SOURCE = (
     DEMONSTRATION_DIR

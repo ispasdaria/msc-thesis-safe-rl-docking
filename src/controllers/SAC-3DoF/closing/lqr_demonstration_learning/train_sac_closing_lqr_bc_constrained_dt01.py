@@ -10,10 +10,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
 from train_sac_closing_lqr_bc_constrained import main as train_bc_constrained
 
-
-SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_BC_DEMONSTRATIONS = (
     SCRIPT_DIR
     / "demonstrations"

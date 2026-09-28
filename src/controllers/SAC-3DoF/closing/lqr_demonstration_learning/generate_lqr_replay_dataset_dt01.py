@@ -5,8 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 
 import numpy as np
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
 from generate_lqr_expanded_coverage_dataset import (
     checkpoint_paths,
@@ -24,7 +29,6 @@ from generate_lqr_replay_dataset import (
 )
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
 DT_SECONDS = 0.1
 MAX_TIME_SECONDS = 12_000.0
 ACTION_HOLD_STEPS = 1
@@ -195,7 +199,7 @@ def main(argv=None):
     print(f"First seed:          {seed_start}")
     print(f"Maximum attempts:    {args.max_attempts}")
     print(f"Output:              {output_path}")
-    print("Held-out seeds 300--899 are not used by this default campaign.")
+    print("Held-out seeds 300-899 are not used by this default campaign.")
     print("=" * 88, flush=True)
 
     interrupted = False

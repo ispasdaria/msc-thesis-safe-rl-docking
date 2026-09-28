@@ -21,23 +21,25 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[3]
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
+FAMILY_DIR = HERE.parent
+REPO = HERE.parents[4]
+for path in (FAMILY_DIR, FAMILY_DIR.parent):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from train_sac_closing_lqr_replay import make_closing_env
 
 
 MODEL_DIR = (
-    HERE / "models" / "lqr_replay"
+    FAMILY_DIR / "models" / "lqr_replay"
     / "sac_closing_rewardv15_lqr_replay_600000steps" / "seed_0"
 )
 MODEL_PATH = MODEL_DIR / "model_0600000_steps.zip"
 VECNORMALIZE_PATH = MODEL_DIR / "model_0600000_steps_vecnormalize.pkl"
 DEMONSTRATION_PATH = (
-    HERE / "demonstrations" / "lqr_closing_training_rewardv15_28successes.npz"
+    FAMILY_DIR / "demonstrations" / "lqr_closing_training_rewardv15_28successes.npz"
 )
-OUTPUT_DIR = HERE / "results" / "publication_figures" / "demonstration_replay"
+OUTPUT_DIR = FAMILY_DIR / "results" / "retained_figures" / "demonstration_replay"
 OUTPUT_STEM = OUTPUT_DIR / "replay_prefill_sac_vs_successful_lqr"
 
 SAC_SEED = 1

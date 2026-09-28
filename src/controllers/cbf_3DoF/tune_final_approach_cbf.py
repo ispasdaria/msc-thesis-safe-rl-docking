@@ -51,6 +51,7 @@ MODEL_DIR = (
     / "SAC-3DoF"
     / "final_approach"
     / "models"
+    / "retained_policies"
     / "optuna12_600ksteps_buffer600k"
 )
 RESULTS_DIR = (
@@ -132,7 +133,7 @@ def make_env(seed, mode, dt):
         phase="final",
         mode=mode,
         dt=dt,
-        max_time=None,
+        max_time=5_000.0,
         integrator="rk4",
         normalize_action=True,
         seed=seed,

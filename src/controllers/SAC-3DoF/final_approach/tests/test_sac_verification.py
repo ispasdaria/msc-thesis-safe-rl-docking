@@ -48,12 +48,26 @@ def make_model(env, *, seed=0, learning_starts=4, train_freq=2,
 
 
 def load_evaluator():
-    path = Path(__file__).parents[1] / "evaluate_sac_final.py"
-    spec = importlib.util.spec_from_file_location("evaluate_sac_final_test", path)
+    path = Path(__file__).parents[1] / "evaluate_sac_final_rollouts.py"
+    spec = importlib.util.spec_from_file_location("evaluate_sac_final_rollouts_test", path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def test_final_approach_scripts_use_explicit_environment_horizons():
+    final_approach_dir = Path(__file__).parents[1]
+    scripts = list(final_approach_dir.glob("*.py"))
+    scripts.extend((final_approach_dir / "plotters").glob("*.py"))
+
+    offenders = [
+        path.name
+        for path in scripts
+        if "max_time=None" in path.read_text(encoding="utf-8")
+    ]
+
+    assert offenders == []
 
 
 def test_environment_contract_observations_and_action_normalization():

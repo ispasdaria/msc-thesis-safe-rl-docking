@@ -22,16 +22,16 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from observation_space_env import FinalApproachObservationEnv, OBSERVATION_MODES
-from train_sac_final import (
+from train_sac_final_single_run import (
     LearningCurveCallback,
     SaveBestModelAndVecNormalizeCallback,
 )
 
 
-MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "observation_comparison")
-LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "observation_comparison")
+MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "development_experiments", "observation_comparison")
+LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "development_experiments", "observation_comparison")
 RESULTS_DIR = os.path.join(
-    SCRIPT_DIR, "results", "observation_comparison", "learning_curves"
+    SCRIPT_DIR, "results", "development_experiments", "observation_comparison", "learning_curves"
 )
 
 SEED = 12
@@ -45,7 +45,7 @@ def make_env(observation_mode, seed, mode):
         observation_mode=observation_mode,
         mode=mode,
         dt=1.0,
-        max_time=None,
+        max_time=5_000.0,
         integrator="rk4",
         normalize_action=True,
         seed=seed,

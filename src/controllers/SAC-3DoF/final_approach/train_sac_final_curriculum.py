@@ -43,14 +43,9 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(SCRIPT_DIR, "models")
-LOG_DIR = os.path.join(SCRIPT_DIR, "logs")
-RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "learning_curves")
-
-os.makedirs(MODEL_DIR, exist_ok=True)
-os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(RESULTS_DIR, exist_ok=True)
-
+MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "development_experiments", "curriculum_experiment")
+LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "development_experiments", "curriculum_experiment")
+RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "development_experiments", "curriculum_experiment", "learning_curves")
 
 @dataclass(frozen=True)
 class CurriculumStage:
@@ -191,7 +186,7 @@ def make_training_env(seed, stage):
         phase="final",
         mode="training",
         dt=1.0,
-        max_time=None,
+        max_time=5_000.0,
         integrator="rk4",
         normalize_action=True,
         seed=seed,
@@ -472,6 +467,9 @@ def parse_args():
 
 
 def main():
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    os.makedirs(LOG_DIR, exist_ok=True)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     args = parse_args()
 
     if args.seed_end < args.seed_start:

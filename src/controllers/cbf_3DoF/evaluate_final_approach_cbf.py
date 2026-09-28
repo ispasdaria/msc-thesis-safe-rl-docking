@@ -48,7 +48,10 @@ DEFAULT_MODEL_STEM = (
     "sac_final_approach_portobs_rewardv9_600ksteps_"
     "seed10_optuna12_buffer600k_best"
 )
-DEFAULT_MODEL_DIR = SAC_FINAL_DIR / "models" / "optuna12_600ksteps_buffer600k"
+DEFAULT_MODEL_DIR = (
+    SAC_FINAL_DIR / "models" / "retained_policies"
+    / "optuna12_600ksteps_buffer600k"
+)
 DEFAULT_MODEL_PATH = DEFAULT_MODEL_DIR / f"{DEFAULT_MODEL_STEM}.zip"
 DEFAULT_VECNORM_PATH = DEFAULT_MODEL_DIR / f"{DEFAULT_MODEL_STEM}_vecnormalize.pkl"
 DEFAULT_RESULTS_DIR = (
@@ -90,7 +93,7 @@ def make_env(seed: int, mode: str) -> Docking3DoFGymEnv:
         phase="final",
         mode=mode,
         dt=1.0,
-        max_time=None,
+        max_time=5_000.0,
         integrator="rk4",
         normalize_action=True,
         seed=seed,

@@ -42,7 +42,7 @@ from lqr_3dof_closing import (
 
 
 SAC_ROOT = SRC_ROOT / "controllers" / "SAC-3DoF"
-FINAL_ROOT = SAC_ROOT / "final_approach" / "models"
+FINAL_ROOT = SAC_ROOT / "final_approach" / "models" / "retained_policies"
 CLOSING_ROOT = SAC_ROOT / "closing" / "models"
 DEFAULT_PHASE_HORIZONS = {"closing": 12000.0, "final": 5000.0}
 

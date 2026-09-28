@@ -35,3 +35,4 @@ htmlcov/
 
 # Repository-specific temporary files
 .tmp_pdf_tools/
+.superpowers/

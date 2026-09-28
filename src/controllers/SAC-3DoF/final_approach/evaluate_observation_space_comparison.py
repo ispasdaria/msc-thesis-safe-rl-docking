@@ -30,26 +30,29 @@ from observation_space_env import FinalApproachObservationEnv
 
 SEEDS = tuple(range(10))
 MODEL_DIR = SCRIPT_DIR / "models"
-OUTPUT_DIR = SCRIPT_DIR / "results" / "observation_comparison" / "evaluation"
+OUTPUT_DIR = (
+    SCRIPT_DIR / "results" / "development_experiments"
+    / "observation_comparison" / "evaluation"
+)
 
 CONTROLLERS = {
     "com": {
         "label": "CoM-based observation space",
         "mode": "com",
-        "model": MODEL_DIR / "observation_comparison" / "final_sac_com_observation.zip",
-        "vecnorm": MODEL_DIR / "observation_comparison" / "final_sac_com_observation_vecnormalize.pkl",
+        "model": MODEL_DIR / "development_experiments" / "observation_comparison" / "final_sac_com_observation.zip",
+        "vecnorm": MODEL_DIR / "development_experiments" / "observation_comparison" / "final_sac_com_observation_vecnormalize.pkl",
     },
     "docking_port": {
         "label": "Docking-port-based observation space",
         "mode": "docking_port",
-        "model": MODEL_DIR / "optuna12_100ksteps_buffer100k" / "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
-        "vecnorm": MODEL_DIR / "optuna12_100ksteps_buffer100k" / "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
+        "model": MODEL_DIR / "retained_policies" / "optuna12_100ksteps_buffer100k" / "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+        "vecnorm": MODEL_DIR / "retained_policies" / "optuna12_100ksteps_buffer100k" / "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
     },
     "combined": {
         "label": "Combined CoM + docking-port observation space",
         "mode": "combined",
-        "model": MODEL_DIR / "observation_comparison" / "final_sac_combined_observation.zip",
-        "vecnorm": MODEL_DIR / "observation_comparison" / "final_sac_combined_observation_vecnormalize.pkl",
+        "model": MODEL_DIR / "development_experiments" / "observation_comparison" / "final_sac_combined_observation.zip",
+        "vecnorm": MODEL_DIR / "development_experiments" / "observation_comparison" / "final_sac_combined_observation_vecnormalize.pkl",
     },
 }
 
@@ -60,7 +63,7 @@ def make_env(observation_mode, seed=0):
             observation_mode=observation_mode,
             mode="testing",
             dt=1.0,
-            max_time=None,
+            max_time=5_000.0,
             integrator="rk4",
             normalize_action=True,
             seed=seed,

@@ -23,7 +23,10 @@ sys.path.insert(0, str(ROOT / "src"))
 from envs.docking3dof.core import Docking3DoFEnv
 
 RESULTS = ROOT / "src/controllers/SAC-3DoF/results/full_mission_mixed"
-BLOCKS = ("seeds_300_349", "seeds_350_899")
+BLOCKS = (
+    "closing_controller_comparison_seeds_300_349",
+    "retained_lqr_closing_sac_final_seeds_350_899",
+)
 LQR_CONFIGS = ("lqr_final_r1_s12_100k", "lqr_final_r5_s11_600k")
 CLOSING_CONFIGS = ("balanced100k_final_r1_s12_100k", "vanilla400k_final_r1_s12_100k")
 

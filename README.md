@@ -201,7 +201,7 @@ implemented workflows:
 - Mixed LQR/SAC full-mission evaluation:
   [`src/controllers/run_mixed_full_mission_evaluations.py`](src/controllers/run_mixed_full_mission_evaluations.py)
 - Retained full-mission figures:
-  [`src/controllers/SAC-3DoF/figures/full_mission/`](src/controllers/SAC-3DoF/figures/full_mission/)
+  [`src/controllers/SAC-3DoF/figures/representative_full_mission_figures/`](src/controllers/SAC-3DoF/figures/representative_full_mission_figures/)
 - CBF-QP evaluation and tuning:
   [`src/controllers/cbf_3DoF/`](src/controllers/cbf_3DoF/)
 - Benchmark problems:

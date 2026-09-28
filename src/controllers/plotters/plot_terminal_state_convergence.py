@@ -16,7 +16,8 @@ from matplotlib.transforms import blended_transform_factory
 HERE = Path(__file__).resolve().parent
 CONTROLLERS_ROOT = HERE.parent
 SAC_CACHE = (
-    CONTROLLERS_ROOT / "SAC-3DoF" / "final_approach" / "results" / "eval_lqr_phase_50"
+    CONTROLLERS_ROOT / "SAC-3DoF" / "final_approach" / "results"
+    / "retained_policy_evaluations" / "eval_lqr_phase_50"
     / "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12"
     / "testing_seeds_0_49" / "trajectory_histories.npz"
 )
@@ -32,7 +33,7 @@ LQR_CLOSING_CACHE = (
 )
 SAC_OUTPUT_DIR = (
     CONTROLLERS_ROOT / "SAC-3DoF" / "final_approach" / "results"
-    / "terminal_state_convergence"
+    / "retained_policy_evaluations" / "terminal_state_convergence"
 )
 LQR_FINAL_OUTPUT_DIR = (
     CONTROLLERS_ROOT / "LQR-3DoF" / "results" / "lqr_final"

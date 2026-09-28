@@ -43,8 +43,8 @@ CLOSING_FILTERED = {
     "phase-balanced": CBF_DIR / "results/closing/evaluations/campaign_phase_balanced_100k_seeds_0_49",
     "vanilla": CBF_DIR / "results/closing/evaluations/campaign_v15_optuna_selected_seeds_0_49",
 }
-FINAL_NOMINAL_SELECTED = REPO / "src/controllers/SAC-3DoF/final_approach/results/reconstructed_selected_policies_50rollouts/all_rollouts.csv"
-FINAL_NOMINAL_SUPPLEMENTAL = REPO / "src/controllers/SAC-3DoF/final_approach/results/reconstructed_supplemental_policies_50rollouts/all_rollouts.csv"
+FINAL_NOMINAL_SELECTED = REPO / "src/controllers/SAC-3DoF/final_approach/results/retained_policy_evaluations/reconstructed_selected_policies_50rollouts/all_rollouts.csv"
+FINAL_NOMINAL_SUPPLEMENTAL = REPO / "src/controllers/SAC-3DoF/final_approach/results/retained_policy_evaluations/reconstructed_supplemental_policies_50rollouts/all_rollouts.csv"
 FINAL_CASES = {
     "round1": (1, 12, CBF_DIR / "results/final_approach/evaluations/campaign_round1_seed12_final100k_seeds_0_49"),
     "round3": (3, 19, CBF_DIR / "results/final_approach/evaluations/campaign_round3_seed19_best160k_seeds_0_49"),

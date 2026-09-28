@@ -38,7 +38,10 @@ CONTROLLERS = (
     "SAC+CBF R5-S10-best490k",
 )
 RETAINED_STEM = "sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12"
-RETAINED_MODEL_DIR = SAC_FINAL_DIR / "models" / "optuna12_100ksteps_buffer100k"
+RETAINED_MODEL_DIR = (
+    SAC_FINAL_DIR / "models" / "retained_policies"
+    / "optuna12_100ksteps_buffer100k"
+)
 RETAINED_MODEL = RETAINED_MODEL_DIR / f"{RETAINED_STEM}.zip"
 RETAINED_VECNORM = RETAINED_MODEL_DIR / f"{RETAINED_STEM}_vecnormalize.pkl"
 CBF_CAMPAIGN = (

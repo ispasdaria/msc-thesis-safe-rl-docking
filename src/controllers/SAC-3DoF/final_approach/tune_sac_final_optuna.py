@@ -29,19 +29,15 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_DIR = os.path.join(SCRIPT_DIR, "logs")
-RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "optuna")
-
-os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(RESULTS_DIR, exist_ok=True)
-
+LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "development_experiments", "optuna")
+RESULTS_DIR = os.path.join(SCRIPT_DIR, "results", "development_experiments", "optuna")
 
 def make_training_env(seed=0):
     env = Docking3DoFGymEnv(
         phase="final",
         mode="training",
         dt=1.0,
-        max_time=None,
+        max_time=5_000.0,
         integrator="rk4",
         normalize_action=True,
         seed=seed,
@@ -54,7 +50,7 @@ def make_eval_env(seed=0):
         phase="final",
         mode="testing",
         dt=1.0,
-        max_time=None,
+        max_time=5_000.0,
         integrator="rk4",
         normalize_action=True,
         seed=seed,
@@ -338,7 +334,10 @@ def parse_args():
     parser.add_argument(
         "--storage",
         default=None,
-        help="Optuna storage URL. Defaults to a SQLite DB in results/optuna.",
+        help=(
+            "Optuna storage URL. Defaults to a SQLite database in "
+            "results/development_experiments/optuna."
+        ),
     )
     parser.add_argument(
         "--fresh",
@@ -349,6 +348,8 @@ def parse_args():
 
 
 def main():
+    os.makedirs(LOG_DIR, exist_ok=True)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     args = parse_args()
 
     study_dir = os.path.join(RESULTS_DIR, args.study_name)

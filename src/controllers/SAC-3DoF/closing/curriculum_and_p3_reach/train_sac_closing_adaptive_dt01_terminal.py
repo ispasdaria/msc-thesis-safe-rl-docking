@@ -1,4 +1,4 @@
-"""Last-chance adaptive-cadence SAC continuation at 0.1 s integration.
+"""Adaptive-cadence SAC continuation at 0.1 s integration.
 
 The experiment is isolated from the shared environment and existing model
 artifacts.  It starts from the audited guarded 1 Hz checkpoint, integrates at
@@ -33,9 +33,11 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]
+REPO_ROOT = SCRIPT_DIR.parents[4]
 SRC_PATH = REPO_ROOT / "src"
-for path in (SCRIPT_DIR, SRC_PATH):
+CLOSING_DIR = SCRIPT_DIR.parent
+PHASE_BALANCED_DIR = CLOSING_DIR / "phase_balanced_replay"
+for path in (SCRIPT_DIR, CLOSING_DIR, PHASE_BALANCED_DIR, SRC_PATH):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -67,7 +69,7 @@ SOURCE_EXPERIMENT = (
     "sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0"
 )
 SOURCE_DIR = (
-    SCRIPT_DIR / "models" / "multiseed" / SOURCE_EXPERIMENT / "seed_0"
+    CLOSING_DIR / "models" / "multiseed" / SOURCE_EXPERIMENT / "seed_0"
 )
 DEFAULT_SOURCE_MODEL = SOURCE_DIR / "model_0100000_steps.zip"
 DEFAULT_SOURCE_VECNORMALIZE = (
@@ -429,7 +431,7 @@ def build_config(args, checkpoints, source_num_timesteps, source_alpha):
     return {
         "experiment_name": args.experiment_name,
         "purpose": (
-            "last-chance warm-started SAC with 0.1 s integration, adaptive "
+            "warm-started SAC with 0.1 s integration, adaptive "
             "far/terminal cadence, and simultaneous-target training coverage"
         ),
         "method": "warm-started adaptive-cadence SAC",

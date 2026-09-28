@@ -7,12 +7,13 @@ import torch
 from stable_baselines3 import SAC
 
 
-SRC_PATH = Path(__file__).resolve().parents[4]
-if str(SRC_PATH) not in sys.path:
-    sys.path.insert(0, str(SRC_PATH))
-CLOSING_PATH = Path(__file__).resolve().parents[1]
-if str(CLOSING_PATH) not in sys.path:
-    sys.path.insert(0, str(CLOSING_PATH))
+FAMILY_PATH = Path(__file__).resolve().parents[1]
+CLOSING_PATH = Path(__file__).resolve().parents[2]
+SRC_PATH = Path(__file__).resolve().parents[5]
+PHASE_BALANCED_PATH = CLOSING_PATH / "phase_balanced_replay"
+for path in (FAMILY_PATH, CLOSING_PATH, PHASE_BALANCED_PATH, SRC_PATH):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from near_p3_reset_wrapper import FixedNearP3ResetWrapper
 from train_sac_closing_adaptive_dt01_terminal import (

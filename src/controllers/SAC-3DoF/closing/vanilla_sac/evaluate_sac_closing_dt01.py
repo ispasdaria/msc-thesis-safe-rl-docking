@@ -16,8 +16,9 @@ REPO_ROOT = os.path.abspath(
     os.path.join(SCRIPT_DIR, "..", "..", "..", "..", "..")
 )
 CLOSING_DIR = os.path.dirname(SCRIPT_DIR)
+CURRICULUM_DIR = os.path.join(CLOSING_DIR, "curriculum_and_p3_reach")
 SRC_PATH = os.path.join(REPO_ROOT, "src")
-for path in (SCRIPT_DIR, CLOSING_DIR, SRC_PATH):
+for path in (SCRIPT_DIR, CLOSING_DIR, CURRICULUM_DIR, SRC_PATH):
     if path not in sys.path:
         sys.path.insert(0, path)
 

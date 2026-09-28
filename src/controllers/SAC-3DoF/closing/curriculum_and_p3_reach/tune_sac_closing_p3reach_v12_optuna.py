@@ -31,11 +31,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
 )
 SRC_PATH = os.path.join(REPO_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+for path in (SCRIPT_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from envs.docking3dof.closing_safety_exploration_env import (
     ClosingSafetyExplorationV12GymEnv,
@@ -47,7 +49,6 @@ from train_sac_closing_no_safety_termination import (
 )
 
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 STUDY_VERSION = "p3reach_v12"
 LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "optuna", STUDY_VERSION)
 RESULTS_DIR = os.path.join(

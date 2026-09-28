@@ -32,7 +32,8 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[3]
 SRC_PATH = REPO_ROOT / "src"
-for path in (SCRIPT_DIR, SRC_PATH):
+CURRICULUM_DIR = SCRIPT_DIR / "curriculum_and_p3_reach"
+for path in (SCRIPT_DIR, CURRICULUM_DIR, SRC_PATH):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 

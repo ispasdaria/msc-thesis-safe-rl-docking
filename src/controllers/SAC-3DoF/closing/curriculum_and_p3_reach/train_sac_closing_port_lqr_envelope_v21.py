@@ -1,5 +1,13 @@
 """Train the V21 port-level LQR-envelope vanilla SAC pilot."""
 
+from pathlib import Path
+import sys
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
 import train_sac_closing_p3reach_from_scratch as training
 
 from envs.docking3dof.closing_safety_exploration_env import (

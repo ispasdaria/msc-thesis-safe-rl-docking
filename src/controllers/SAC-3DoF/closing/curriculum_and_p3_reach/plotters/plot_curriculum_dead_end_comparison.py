@@ -3,6 +3,7 @@
 import contextlib
 import io
 from pathlib import Path
+import sys
 
 import matplotlib
 
@@ -14,20 +15,27 @@ from stable_baselines3 import SAC
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
-from train_sac_closing_curriculum import (
+SCRIPT_DIR = Path(__file__).resolve().parent
+FAMILY_DIR = SCRIPT_DIR.parent
+CLOSING_DIR = FAMILY_DIR.parent
+VANILLA_DIR = CLOSING_DIR / "vanilla_sac"
+for path in (FAMILY_DIR, CLOSING_DIR, VANILLA_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
+
+from train_sac_closing_curriculum import (  # noqa: E402
     DEFAULT_CLOSING_CURRICULUM_STAGES,
     Docking3DoFGymEnv,
     make_curriculum_env,
 )
-from tune_sac_closing_optuna import normalize_observation, target_error
+from tune_sac_closing_optuna import normalize_observation, target_error  # noqa: E402
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
 EXPERIMENT = "curriculum_v20_seed0"
-MODEL_DIR = SCRIPT_DIR / "models" / "curriculum" / EXPERIMENT
+MODEL_DIR = FAMILY_DIR / "models" / "curriculum" / EXPERIMENT
 MODEL_PATH = MODEL_DIR / "stage_00_best_model.zip"
 VECNORM_PATH = MODEL_DIR / "stage_00_best_vecnormalize.pkl"
-OUTPUT_DIR = SCRIPT_DIR / "results" / "curriculum" / EXPERIMENT / "figures"
+OUTPUT_DIR = FAMILY_DIR / "results" / "curriculum" / EXPERIMENT / "figures"
 PLOT_PATH = OUTPUT_DIR / "curriculum_v20_local_vs_p2_trajectory.png"
 SUMMARY_PATH = OUTPUT_DIR / "curriculum_v20_local_vs_p2_trajectory_summary.txt"
 

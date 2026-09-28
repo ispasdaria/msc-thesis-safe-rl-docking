@@ -34,13 +34,14 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]
+REPO_ROOT = SCRIPT_DIR.parents[4]
 SRC_PATH = REPO_ROOT / "src"
+CLOSING_DIR = SCRIPT_DIR.parent
+VANILLA_DIR = CLOSING_DIR / "vanilla_sac"
 
-if str(SRC_PATH) not in sys.path:
-    sys.path.insert(0, str(SRC_PATH))
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+for path in (SCRIPT_DIR, CLOSING_DIR, VANILLA_DIR, SRC_PATH):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from envs.docking3dof.gym_env import Docking3DoFGymEnv  # noqa: E402
 from train_sac_closing import LearningCurveCallback  # noqa: E402
@@ -61,7 +62,7 @@ RESULTS_ROOT = SCRIPT_DIR / "results" / "curriculum"
 
 SOURCE_EXPERIMENT = "sac_closing_rewardv15_trial16_multiseed_600ksteps"
 DEFAULT_SOURCE_ROOT = (
-    SCRIPT_DIR / "models" / "multiseed" / SOURCE_EXPERIMENT / "seed_0"
+    VANILLA_DIR / "models" / "multiseed" / SOURCE_EXPERIMENT / "seed_0"
 )
 DEFAULT_SOURCE_MODEL = DEFAULT_SOURCE_ROOT / "model_0400000_steps.zip"
 DEFAULT_SOURCE_VECNORM = (

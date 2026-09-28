@@ -137,3 +137,46 @@ def test_vanilla_sac_scripts_import_from_repository_root():
             failures.append(f"{script.name}: {completed.stderr}")
 
     assert failures == []
+
+
+def test_curriculum_and_p3_reach_family_contains_entry_points_and_artifacts():
+    family = CLOSING_DIR / "curriculum_and_p3_reach"
+
+    assert (family / "train_sac_closing_curriculum.py").is_file()
+    assert (family / "train_sac_closing_p3reach_from_scratch.py").is_file()
+    assert (family / "evaluate_sac_closing_p3reach.py").is_file()
+    assert (family / "tune_sac_closing_p3reach_v12_optuna.py").is_file()
+    assert (family / "plotters" / "plot_p3_relative_trajectory.py").is_file()
+    assert (family / "tests" / "test_p3reach_evaluator_diagnostics.py").is_file()
+    for artifact_dir in (
+        "adaptive_dt01_terminal",
+        "curriculum",
+        "no_safety_termination",
+        "p3reach_from_scratch",
+    ):
+        assert (family / "models" / artifact_dir).is_dir()
+        assert (family / "logs" / artifact_dir).is_dir()
+        assert (family / "results" / artifact_dir).is_dir()
+
+
+def test_curriculum_and_p3_reach_scripts_import_from_repository_root():
+    family = CLOSING_DIR / "curriculum_and_p3_reach"
+    failures = []
+    for script in sorted(family.rglob("*.py")):
+        if "tests" in script.parts:
+            continue
+        command = (
+            "import runpy; "
+            f"runpy.run_path({str(script)!r}, run_name='__import_test__')"
+        )
+        completed = subprocess.run(
+            [sys.executable, "-c", command],
+            cwd=CLOSING_DIR.parents[3],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.returncode:
+            failures.append(f"{script.name}: {completed.stderr}")
+
+    assert failures == []

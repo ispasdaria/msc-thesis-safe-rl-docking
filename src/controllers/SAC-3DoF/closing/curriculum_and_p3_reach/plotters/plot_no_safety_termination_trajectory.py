@@ -15,7 +15,10 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "..", ".."))
+FAMILY_DIR = os.path.dirname(SCRIPT_DIR)
+REPO_ROOT = os.path.abspath(
+    os.path.join(SCRIPT_DIR, "..", "..", "..", "..", "..", "..")
+)
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
@@ -30,13 +33,13 @@ EXPERIMENT = (
     "400k_add300k_seed0_20260813_220234"
 )
 MODEL_DIR = os.path.join(
-    SCRIPT_DIR, "models", "no_safety_termination", EXPERIMENT
+    FAMILY_DIR, "models", "no_safety_termination", EXPERIMENT
 )
 MODEL_PATH = os.path.join(MODEL_DIR, "final_model.zip")
 VECNORM_PATH = os.path.join(MODEL_DIR, "final_vecnormalize.pkl")
 SEED = 105
 OUTPUT_DIR = os.path.join(
-    SCRIPT_DIR, "results", "no_safety_termination", EXPERIMENT, "plots"
+    FAMILY_DIR, "results", "no_safety_termination", EXPERIMENT, "plots"
 )
 OUTPUT_PATH = os.path.join(
     OUTPUT_DIR, f"representative_trajectory_seed{SEED}.png"

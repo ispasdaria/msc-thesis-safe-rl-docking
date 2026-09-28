@@ -1,4 +1,4 @@
-"""Continue the best closing SAC while safety violations remain non-terminal.
+"""Continue the selected closing SAC while safety violations remain non-terminal.
 
 This is an isolated experiment.  It does not modify the ordinary closing
 environment, existing reward-v15 code, or source checkpoints.  Training and
@@ -37,12 +37,14 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
 )
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+CLOSING_DIR = os.path.dirname(SCRIPT_DIR)
+for path in (SCRIPT_DIR, CLOSING_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from envs.docking3dof.closing_safety_exploration_env import (  # noqa: E402
     ClosingSafetyExplorationGymEnv,
@@ -53,7 +55,9 @@ SOURCE_STEM = (
     "sac_closing_p3augobs_rewardv15_optuna_trial16_"
     "400ksteps_seed0_buffer300k"
 )
-SOURCE_DIR = os.path.join(SCRIPT_DIR, "models", "reward_shaping_trials")
+SOURCE_DIR = os.path.join(
+    CLOSING_DIR, "vanilla_sac", "models", "reward_shaping_trials"
+)
 DEFAULT_SOURCE_MODEL = os.path.join(SOURCE_DIR, f"{SOURCE_STEM}.zip")
 DEFAULT_SOURCE_VECNORMALIZE = os.path.join(
     SOURCE_DIR,

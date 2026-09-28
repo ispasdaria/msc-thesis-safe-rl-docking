@@ -15,10 +15,16 @@ import numpy as np
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SRC_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
+FAMILY_DIR = os.path.dirname(SCRIPT_DIR)
+CLOSING_DIR = os.path.dirname(FAMILY_DIR)
+VANILLA_DIR = os.path.join(CLOSING_DIR, "vanilla_sac")
+SRC_PATH = os.path.abspath(
+    os.path.join(SCRIPT_DIR, "..", "..", "..", "..", "..")
+)
 
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+for path in (VANILLA_DIR, CLOSING_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 import evaluate_sac_closing as evaluator
 
@@ -27,11 +33,11 @@ MODEL_NAME = "sac_closing_p3augobs_rewardv17_300ksteps_seed0_buffer300k"
 ARTIFACT_GROUP = "reward_shaping_trials"
 EVALUATION_SEED = 1
 
-MODEL_DIR = os.path.join(SCRIPT_DIR, "models", ARTIFACT_GROUP)
+MODEL_DIR = os.path.join(VANILLA_DIR, "models", ARTIFACT_GROUP)
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
 VECNORM_PATH = os.path.join(MODEL_DIR, MODEL_NAME + "_vecnormalize.pkl")
 RESULTS_DIR = os.path.join(
-    SCRIPT_DIR,
+    VANILLA_DIR,
     "results",
     ARTIFACT_GROUP,
     "p3_relative_trajectory",

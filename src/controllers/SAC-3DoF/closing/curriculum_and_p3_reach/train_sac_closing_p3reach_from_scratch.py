@@ -22,11 +22,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
 )
 SRC_PATH = os.path.join(REPO_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+for path in (SCRIPT_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from envs.docking3dof.closing_safety_exploration_env import (
     ClosingSafetyExplorationV18GymEnv,
@@ -41,7 +43,6 @@ from train_sac_closing_no_safety_termination import (
 )
 
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 EXPERIMENT_FAMILY = "p3reach_from_scratch"
 EXPERIMENT_ENV_CLASS = ClosingSafetyExplorationV18GymEnv
 EXPERIMENT_REWARD_SCHEME = EXPERIMENT_ENV_CLASS.reward_scheme

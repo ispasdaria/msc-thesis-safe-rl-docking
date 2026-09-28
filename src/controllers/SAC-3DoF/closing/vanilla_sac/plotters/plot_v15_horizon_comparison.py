@@ -23,10 +23,12 @@ from matplotlib.lines import Line2D
 import numpy as np
 
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SRC_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CLOSING_DIR = os.path.dirname(SCRIPT_DIR)
+SRC_PATH = os.path.abspath(os.path.join(CLOSING_DIR, "..", "..", ".."))
+for path in (SCRIPT_DIR, CLOSING_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 import evaluate_sac_closing as evaluator
 
@@ -46,8 +48,8 @@ METRICS_12000 = os.path.join(
 DEFAULT_OUTPUT_DIR = os.path.join(
     SCRIPT_DIR,
     "results",
-    "publication_figures",
-    "v15_trial16_400k_horizon_comparison",
+    "retained_figures",
+    "horizon_comparison",
 )
 HORIZONS = (12000, 13000, 20000)
 

@@ -12,10 +12,14 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "..", ".."))
+REPO_ROOT = os.path.abspath(
+    os.path.join(SCRIPT_DIR, "..", "..", "..", "..", "..")
+)
+CLOSING_DIR = os.path.dirname(SCRIPT_DIR)
 SRC_PATH = os.path.join(REPO_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+for path in (SCRIPT_DIR, CLOSING_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
 from train_sac_closing_no_safety_termination import (

@@ -3,6 +3,12 @@
 import argparse
 import json
 import os
+import sys
+from pathlib import Path
+
+CLOSING_DIR = Path(__file__).resolve().parents[2]
+if str(CLOSING_DIR) not in sys.path:
+    sys.path.insert(0, str(CLOSING_DIR))
 
 from train_sac_closing_multiseed import (
     RESULTS_ROOT,

@@ -20,8 +20,11 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+CLOSING_DIR = SCRIPT_DIR.parent
+SRC_DIR = CLOSING_DIR.parents[2]
+for path in (SCRIPT_DIR, CLOSING_DIR, SRC_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from closing_port_observation_env import ClosingDockingPortObservationEnv
 from envs.docking3dof.gym_env import Docking3DoFGymEnv

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import subprocess
+import sys
 
 
 CLOSING_DIR = Path(__file__).resolve().parents[1] / "closing"
@@ -97,3 +99,41 @@ def test_non_her_model_directories_include_normalization_state():
             offenders.append(relative)
 
     assert offenders == []
+
+
+def test_vanilla_sac_family_contains_entry_points_and_artifacts():
+    family = CLOSING_DIR / "vanilla_sac"
+
+    assert (family / "train_sac_closing.py").is_file()
+    assert (family / "evaluate_sac_closing.py").is_file()
+    assert (family / "tune_sac_closing_optuna.py").is_file()
+    assert (family / "plotters" / "plot_sac_closing_rollouts.py").is_file()
+    assert (family / "models" / "reward_shaping_trials").is_dir()
+    assert (family / "results" / "reward_shaping_trials").is_dir()
+    assert (
+        family
+        / "results"
+        / "terminal_state_convergence"
+        / "closing_vanilla_sac_state_convergence_seed15.png"
+    ).is_file()
+
+
+def test_vanilla_sac_scripts_import_from_repository_root():
+    family = CLOSING_DIR / "vanilla_sac"
+    failures = []
+    for script in sorted(family.rglob("*.py")):
+        command = (
+            "import runpy; "
+            f"runpy.run_path({str(script)!r}, run_name='__import_test__')"
+        )
+        completed = subprocess.run(
+            [sys.executable, "-c", command],
+            cwd=CLOSING_DIR.parents[3],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.returncode:
+            failures.append(f"{script.name}: {completed.stderr}")
+
+    assert failures == []

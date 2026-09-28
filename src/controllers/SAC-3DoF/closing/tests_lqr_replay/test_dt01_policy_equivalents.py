@@ -29,10 +29,10 @@ from train_sac_closing_lqr_bc_constrained import (
 from train_sac_closing_lqr_bc_constrained_dt01 import (
     build_argv as bc_dt01_argv,
 )
-from train_sac_closing_best_standard_dt01 import (
+from vanilla_sac.train_sac_closing_best_standard_dt01 import (
     build_argv as standard_dt01_argv,
 )
-from train_sac_closing_dt01 import (
+from vanilla_sac.train_sac_closing_dt01 import (
     build_experiment_config as build_standard_config,
     parse_args as parse_standard_args,
 )

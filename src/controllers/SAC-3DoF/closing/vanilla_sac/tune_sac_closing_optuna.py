@@ -23,7 +23,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
 )
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 

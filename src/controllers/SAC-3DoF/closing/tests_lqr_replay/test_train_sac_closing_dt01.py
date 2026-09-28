@@ -12,7 +12,7 @@ CLOSING_PATH = Path(__file__).resolve().parents[1]
 if str(CLOSING_PATH) not in sys.path:
     sys.path.insert(0, str(CLOSING_PATH))
 
-from train_sac_closing_dt01 import (
+from vanilla_sac.train_sac_closing_dt01 import (
     BASE_GAMMA,
     EXPERIMENT_DT,
     EXPERIMENT_GAMMA,
@@ -22,7 +22,7 @@ from train_sac_closing_dt01 import (
     task_first_checkpoint_rank,
     validate_args,
 )
-from evaluate_sac_closing_dt01 import (
+from vanilla_sac.evaluate_sac_closing_dt01 import (
     ClosingV15Dt01EvaluationEnv,
     ClosingV15DtSafe01EvaluationEnv,
     load_and_validate_training_config,

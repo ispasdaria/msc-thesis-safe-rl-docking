@@ -27,12 +27,17 @@ def test_full_mission_plotter_uses_retained_figure_directory_and_formats() -> No
 
 
 def test_closing_plotter_uses_closing_figure_directory() -> None:
-    source = (SAC_DIR / "closing" / "plot_v15_state_convergence_seed15.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        SAC_DIR
+        / "closing"
+        / "vanilla_sac"
+        / "plotters"
+        / "plot_v15_state_convergence_seed15.py"
+    ).read_text(encoding="utf-8")
 
-    assert 'Path(__file__).resolve().parent / "figures"' in source
-    assert 'ROOT / "figures"' not in source
+    assert 'Path(__file__).resolve().parents[1]' in source
+    assert '/ "results"' in source
+    assert '/ "terminal_state_convergence"' in source
 
 
 def test_evaluation_summary_uses_headless_backend_before_pyplot() -> None:

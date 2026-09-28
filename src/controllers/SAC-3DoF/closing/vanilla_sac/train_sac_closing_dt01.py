@@ -20,10 +20,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "..", ".."))
+REPO_ROOT = os.path.abspath(
+    os.path.join(SCRIPT_DIR, "..", "..", "..", "..", "..")
+)
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 
-for path in (SCRIPT_DIR, SRC_PATH):
+CLOSING_DIR = os.path.dirname(SCRIPT_DIR)
+for path in (SCRIPT_DIR, CLOSING_DIR, SRC_PATH):
     if path not in sys.path:
         sys.path.insert(0, path)
 

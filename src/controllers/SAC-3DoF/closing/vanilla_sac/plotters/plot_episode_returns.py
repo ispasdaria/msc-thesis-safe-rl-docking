@@ -2,7 +2,7 @@
 
 The input is the ``learning_curve.csv`` produced by ``train_sac_closing.py``.
 By default, the plot is saved to
-``closing/results/reward_shaping_trials/episode_return_learning_curves/<model_name>.png``.
+``closing/vanilla_sac/results/reward_shaping_trials/episode_return_learning_curves/<model_name>.png``.
 
 Examples:
     python plot_episode_returns.py results/reward_shaping_trials/learning_curves/<model_name>/learning_curve.csv
@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = (
     SCRIPT_DIR
     / "results"
@@ -195,7 +195,7 @@ def parse_args():
         default=None,
         help=(
             "Output PNG path. By default, uses "
-            "closing/results/reward_shaping_trials/"
+            "closing/vanilla_sac/results/reward_shaping_trials/"
             "episode_return_learning_curves/<model_name>.png."
         ),
     )

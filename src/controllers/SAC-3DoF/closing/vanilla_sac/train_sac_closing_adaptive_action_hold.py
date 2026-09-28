@@ -10,6 +10,14 @@ original V15 vanilla baseline. Checkpoints are selected by task outcome and
 safety before target quality and shaped return.
 """
 
+import sys
+from pathlib import Path
+
+
+CLOSING_DIR = Path(__file__).resolve().parent.parent
+if str(CLOSING_DIR) not in sys.path:
+    sys.path.insert(0, str(CLOSING_DIR))
+
 import train_sac_closing_multiseed as training
 
 

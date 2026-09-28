@@ -17,10 +17,11 @@ import numpy as np
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SRC_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
+SRC_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "..", ".."))
 
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+for path in (SCRIPT_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 import evaluate_sac_closing as evaluator
 

@@ -15,8 +15,11 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-if SCRIPT_DIR not in sys.path:
-    sys.path.insert(0, SCRIPT_DIR)
+CLOSING_DIR = os.path.dirname(SCRIPT_DIR)
+SRC_PATH = os.path.abspath(os.path.join(CLOSING_DIR, "..", "..", ".."))
+for path in (SCRIPT_DIR, CLOSING_DIR, SRC_PATH):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 import train_sac_closing as original
 from closing_port_observation_env import ClosingDockingPortObservationEnv

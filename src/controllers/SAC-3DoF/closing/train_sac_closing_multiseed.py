@@ -47,11 +47,14 @@ REPO_ROOT = os.path.abspath(
 )
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+VANILLA_DIR = os.path.join(SCRIPT_DIR, "vanilla_sac")
 
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
+if VANILLA_DIR not in sys.path:
+    sys.path.insert(0, VANILLA_DIR)
 
 from tune_sac_closing_optuna import (  # noqa: E402
     evaluate_model,
@@ -61,9 +64,9 @@ from tune_sac_closing_optuna import (  # noqa: E402
 )
 
 
-MODEL_ROOT = os.path.join(SCRIPT_DIR, "models", "multiseed")
-LOG_ROOT = os.path.join(SCRIPT_DIR, "logs", "multiseed")
-RESULTS_ROOT = os.path.join(SCRIPT_DIR, "results", "multiseed")
+MODEL_ROOT = os.path.join(VANILLA_DIR, "models", "multiseed")
+LOG_ROOT = os.path.join(VANILLA_DIR, "logs", "multiseed")
+RESULTS_ROOT = os.path.join(VANILLA_DIR, "results", "multiseed")
 DEFAULT_TRAINING_SEEDS = list(range(6))
 DEFAULT_TOTAL_TIMESTEPS = 500_000
 DEFAULT_REWARD_VERSION = "v18"

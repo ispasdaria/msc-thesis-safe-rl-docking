@@ -14,13 +14,17 @@ import numpy as np
 
 
 DATA_PATH = (
-    Path(__file__).resolve().parent
+    Path(__file__).resolve().parents[1]
     / "results"
-    / "publication_figures"
-    / "v15_trial16_400k_horizon_comparison"
+    / "retained_figures"
+    / "horizon_comparison"
     / "closing_vanilla_sac_horizon_trajectory_comparison_data.npz"
 )
-OUTPUT_DIR = Path(__file__).resolve().parent / "figures"
+OUTPUT_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "results"
+    / "terminal_state_convergence"
+)
 OUTPUT_PATH = OUTPUT_DIR / "closing_vanilla_sac_state_convergence_seed15.png"
 
 HORIZON = 20_000

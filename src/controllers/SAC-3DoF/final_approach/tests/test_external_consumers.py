@@ -10,9 +10,9 @@ CONSUMERS = (
     REPO_ROOT / "src/controllers/plotters/analyze_final_approach_control_effort.py",
     REPO_ROOT / "src/controllers/plotters/plot_terminal_state_convergence.py",
     REPO_ROOT / "src/controllers/SAC-3DoF/plotters/plot_sac_evaluation_summary.py",
-    REPO_ROOT / "src/controllers/cbf_3DoF/tune_final_approach_cbf.py",
-    REPO_ROOT / "src/controllers/cbf_3DoF/evaluate_final_approach_cbf.py",
-    REPO_ROOT / "src/controllers/cbf_3DoF/plot_sac_cbf_trajectory_comparisons.py",
+    REPO_ROOT / "src/controllers/CBF-3DoF/tuning/tune_final_approach_cbf.py",
+    REPO_ROOT / "src/controllers/CBF-3DoF/evaluations/evaluate_final_approach_cbf.py",
+    REPO_ROOT / "src/controllers/CBF-3DoF/plotters/plot_sac_cbf_trajectory_comparisons.py",
 )
 
 

@@ -25,13 +25,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = REPO_ROOT / "src"
 LQR_ROOT = SRC_ROOT / "controllers" / "LQR-3DoF"
 CLOSING_CODE_ROOT = SRC_ROOT / "controllers" / "SAC-3DoF" / "closing"
-for path in (SRC_ROOT, LQR_ROOT, CLOSING_CODE_ROOT):
+CBF_ROOT = SRC_ROOT / "controllers" / "CBF-3DoF"
+for path in (SRC_ROOT, LQR_ROOT, CLOSING_CODE_ROOT, CBF_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
-from controllers.cbf_3DoF.closing_barriers import ClosingCBFConfig
-from controllers.cbf_3DoF.qp_filter import ClosingCBFFilter
+from cbf_3dof.closing_barriers import ClosingCBFConfig
+from cbf_3dof.qp_filter import ClosingCBFFilter
 from lqr_3dof_closing import (
     LQRClosingController,
     build_Q_closing,

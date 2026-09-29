@@ -12,8 +12,8 @@ from dataclasses import asdict, replace
 
 import numpy as np
 
-from controllers.cbf_3DoF.closing_barriers import ClosingCBFConfig
-from controllers.cbf_3DoF.qp_filter import ClosingCBFFilter
+from cbf_3dof.closing_barriers import ClosingCBFConfig
+from cbf_3dof.qp_filter import ClosingCBFFilter
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 

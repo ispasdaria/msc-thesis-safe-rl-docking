@@ -37,7 +37,8 @@ REPO_ROOT = SCRIPT_DIR.parents[4]
 SRC_PATH = REPO_ROOT / "src"
 CLOSING_DIR = SCRIPT_DIR.parent
 PHASE_BALANCED_DIR = CLOSING_DIR / "phase_balanced_replay"
-for path in (SCRIPT_DIR, CLOSING_DIR, PHASE_BALANCED_DIR, SRC_PATH):
+CBF_DIR = SRC_PATH / "controllers" / "CBF-3DoF"
+for path in (SCRIPT_DIR, CLOSING_DIR, PHASE_BALANCED_DIR, CBF_DIR, SRC_PATH):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 

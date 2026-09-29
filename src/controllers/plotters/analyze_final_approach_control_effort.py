@@ -2,7 +2,7 @@
 
 The retained full-CBF seed-0--49 campaign is reused. With
 ``--generate-missing``, only absent LQR and retained-SAC canonical histories
-are evaluated.  ``--analyze`` validates all histories and writes thesis-ready
+are evaluated.  ``--analyze`` validates all histories and writes retained
 tables and figures.
 """
 
@@ -24,7 +24,7 @@ REPO_ROOT = CONTROLLERS_ROOT.parents[1]
 SRC = REPO_ROOT / "src"
 LQR_DIR = CONTROLLERS_ROOT / "LQR-3DoF"
 SAC_FINAL_DIR = CONTROLLERS_ROOT / "SAC-3DoF" / "final_approach"
-CBF_DIR = CONTROLLERS_ROOT / "cbf_3DoF"
+CBF_DIR = CONTROLLERS_ROOT / "CBF-3DoF"
 for import_path in (SRC, LQR_DIR):
     if str(import_path) not in sys.path:
         sys.path.insert(0, str(import_path))

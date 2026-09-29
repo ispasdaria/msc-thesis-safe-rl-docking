@@ -7,6 +7,8 @@ import numpy as np
 
 @dataclass(frozen=True)
 class PortKinematics:
+    """Target-frame docking-port position and velocity quantities."""
+
     s: float
     y_p: float
     s_dot: float
@@ -37,6 +39,8 @@ class CBFConstraintSet:
 
 @dataclass(frozen=True)
 class FilterResult:
+    """Filtered action and solver diagnostics returned for one control step."""
+
     action_filtered: np.ndarray
     action_nominal: np.ndarray
     solver_status: str

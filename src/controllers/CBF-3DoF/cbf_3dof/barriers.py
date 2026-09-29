@@ -4,11 +4,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .cbf_types import CBFConstraintSet
 from .port_dynamics import (
     compute_port_acceleration_affine,
     compute_port_kinematics,
 )
-from .cbf_types import CBFConstraintSet
 
 
 @dataclass(frozen=True)
@@ -78,10 +78,12 @@ class FinalApproachCBFConfig:
 
 
 def cone_barrier_values(s, y_p, kappa):
+    """Return the upper and lower final-approach cone barriers."""
     return float(kappa * s - y_p), float(kappa * s + y_p)
 
 
 def cone_barrier_derivatives(s_dot, y_p_dot, kappa):
+    """Return the time derivatives of the two cone barriers."""
     return (
         float(kappa * s_dot - y_p_dot),
         float(kappa * s_dot + y_p_dot),
@@ -89,6 +91,7 @@ def cone_barrier_derivatives(s_dot, y_p_dot, kappa):
 
 
 def speed_barrier_value(v_p, v_max):
+    """Return the squared docking-port speed margin."""
     v_p = np.asarray(v_p, dtype=np.float64)
     return float(v_max**2 - np.dot(v_p, v_p))
 

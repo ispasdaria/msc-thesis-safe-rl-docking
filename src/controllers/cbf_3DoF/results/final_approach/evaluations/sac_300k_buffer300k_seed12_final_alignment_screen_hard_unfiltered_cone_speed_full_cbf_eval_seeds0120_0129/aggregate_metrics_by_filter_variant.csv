@@ -1,4 +1,0 @@
-variant,episodes,success_rate,failure_rate,mean_steps,mean_intervention_fraction,qp_failure_count,protected_barrier_violation_count,maximum_slack,termination_reasons,violated_constraints,protected_barriers_violated
-baseline,10,0.0,1.0,4853.1,0.0,0,10,0.0,safety_violation:10,geometry:10,cone_upper:10
-both,10,0.0,1.0,4853.7,0.0016723270266216148,0,0,0.0,safety_violation:10,alignment:10,
-all,10,0.5,0.1,4905.3,0.009402035223999737,0,1,0.0,timeout:4;success_docking:5;safety_violation:1,geometry:1,cone_upper:1

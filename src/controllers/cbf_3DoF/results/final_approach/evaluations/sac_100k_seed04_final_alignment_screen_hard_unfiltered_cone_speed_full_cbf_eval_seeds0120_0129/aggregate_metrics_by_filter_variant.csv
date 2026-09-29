@@ -1,4 +1,0 @@
-variant,episodes,success_rate,failure_rate,mean_steps,mean_intervention_fraction,qp_failure_count,protected_barrier_violation_count,maximum_slack,termination_reasons,violated_constraints,protected_barriers_violated
-baseline,10,0.0,1.0,2696.0,0.0,0,10,0.0,safety_violation:10,geometry:10,cone_upper:10
-both,10,0.0,1.0,2696.8,0.0032651437491190926,0,0,0.0,safety_violation:10,alignment:10,
-all,10,0.0,1.0,2758.4,0.025943855939147914,0,0,0.0,safety_violation:10,geometry:10,

@@ -1,3 +1,0 @@
-variant,episodes,success_rate,failure_rate,mean_steps,mean_intervention_fraction,qp_failure_count,maximum_slack,termination_reasons,violated_constraints
-cone,3,1.0,0.0,3066.0,0.016866392711316878,0,0.0,success_docking:3,
-speed,3,0.0,1.0,3047.6666666666665,0.0,0,0.0,safety_violation:3,geometry:3

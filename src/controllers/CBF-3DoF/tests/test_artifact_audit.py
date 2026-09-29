@@ -211,3 +211,25 @@ def test_audit_does_not_change_source_hashes(tmp_path: Path) -> None:
     audit_tree(tmp_path)
 
     assert hashlib.sha256(source.read_bytes()).hexdigest() == before
+
+
+def test_outputs_account_for_themselves_on_second_run(tmp_path: Path) -> None:
+    root = tmp_path / "tree"
+    root.mkdir()
+    inventory = root / "artifact_inventory.csv"
+    summary = root / "artifact_validation_summary.json"
+    report = root / "AUDIT_REPORT.md"
+    report.write_text("# Audit report\n", encoding="utf-8")
+    args = [str(root), "--inventory", str(inventory), "--summary", str(summary)]
+
+    assert main(args) == 0
+    with inventory.open(encoding="utf-8", newline="") as handle:
+        first_paths = [row["path"] for row in csv.DictReader(handle)]
+    assert first_paths.count("artifact_inventory.csv") == 1
+    assert first_paths.count("artifact_validation_summary.json") == 1
+    assert first_paths.count("AUDIT_REPORT.md") == 1
+
+    assert main(args) == 0
+    with inventory.open(encoding="utf-8", newline="") as handle:
+        second_paths = [row["path"] for row in csv.DictReader(handle)]
+    assert second_paths == first_paths == sorted(first_paths)

@@ -223,6 +223,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--inventory", type=Path, required=True)
     parser.add_argument("--summary", type=Path, required=True)
     args = parser.parse_args(argv)
+    args.inventory.parent.mkdir(parents=True, exist_ok=True)
+    args.summary.parent.mkdir(parents=True, exist_ok=True)
+    args.inventory.write_text(
+        "path,artifact_class,size_bytes,status,metadata_json,issues_json\n",
+        encoding="utf-8",
+    )
+    args.summary.write_text("{}\n", encoding="utf-8")
     records, issues = audit_tree(args.root)
     write_inventory(records, args.inventory)
     write_summary(records, issues, args.summary)

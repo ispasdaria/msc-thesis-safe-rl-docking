@@ -30,6 +30,11 @@ EXECUTABLE_PREFIXES = (
     "validate_",
 )
 PURPOSE_BASED_NAMES = ("article", "publication", "thesis")
+SHARED_ROOT_MODULES = {
+    "behavior_cloned_warmup_sac.py",
+    "near_p3_reset_wrapper.py",
+    "train_sac_closing_multiseed.py",
+}
 UNNORMALIZED_MODEL_FAMILIES = (
     "her",
     "her_lqr_reference_residual",
@@ -64,6 +69,14 @@ def test_approved_experiment_families_have_readmes():
         if path.is_dir() and path.name in EXPECTED_FAMILIES
     } == EXPECTED_FAMILIES
     assert all((CLOSING_DIR / family / "README.md").is_file() for family in EXPECTED_FAMILIES)
+
+
+def test_closing_root_contains_only_shared_support_modules():
+    assert {path.name for path in CLOSING_DIR.glob("*.py")} == SHARED_ROOT_MODULES
+    assert not any(
+        (CLOSING_DIR / name).exists()
+        for name in ("demonstrations", "figures", "logs", "models", "results", "tests_lqr_replay")
+    )
 
 
 def test_active_paths_use_content_based_names():
@@ -108,6 +121,9 @@ def test_vanilla_sac_family_contains_entry_points_and_artifacts():
     assert (family / "evaluate_sac_closing.py").is_file()
     assert (family / "tune_sac_closing_optuna.py").is_file()
     assert (family / "plotters" / "plot_sac_closing_rollouts.py").is_file()
+    assert (family / "closing_port_observation_env.py").is_file()
+    assert (family / "tests" / "test_train_sac_closing_dt01.py").is_file()
+    assert (family / "results" / "multiseed").is_dir()
     assert (family / "models" / "reward_shaping_trials").is_dir()
     assert (family / "results" / "reward_shaping_trials").is_dir()
     assert (
@@ -233,6 +249,7 @@ def test_timestep_transfer_family_contains_code_tests_and_artifacts():
 
     assert (family / "evaluate_sac_closing_timestep_transfer.py").is_file()
     assert (family / "train_sac_closing_uniform_dt01_actor_transfer.py").is_file()
+    assert (family / "episode_stratified_replay_buffer.py").is_file()
     assert (family / "plotters" / "plot_v15_horizon_comparison.py").is_file()
     assert (family / "tests" / "test_evaluate_sac_closing_timestep_transfer.py").is_file()
     assert (family / "models" / "uniform_dt01_actor_transfer").is_dir()

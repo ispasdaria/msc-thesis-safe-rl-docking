@@ -1,18 +1,15 @@
 """Isolated six-component observation variant for vanilla closing SAC."""
 
-import os
 import sys
+from pathlib import Path
 
 import numpy as np
 from gymnasium import spaces
 
 
-REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
-)
-SRC_PATH = os.path.join(REPO_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+SRC_PATH = Path(__file__).resolve().parents[4]
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
 

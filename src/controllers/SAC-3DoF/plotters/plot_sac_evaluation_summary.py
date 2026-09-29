@@ -71,16 +71,16 @@ def final_approach_distribution(output_dir: Path) -> None:
 def closing_comparison(output_dir: Path) -> None:
     vanilla_path = (
         SAC_ROOT
-        / "closing/results/multiseed_evaluation"
+        / "closing/vanilla_sac/results/multiseed_evaluation"
         / "sac_closing_rewardv15_trial16_multiseed_600ksteps"
         / "test_seeds_1000_1099__final-ckpt_300k-400k-500k-600k"
         / "checkpoint_0300000_steps/seed_0/summary.json"
     )
     balanced_path = (
         SAC_ROOT
-        / "closing/results/multiseed_evaluation"
+        / "closing/phase_balanced_replay/results/multiseed_evaluation"
         / "sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0"
-        / "article_model_comparison_seeds3000_3049"
+        / "best_and_100k_checkpoint_seeds3000_3049"
         / "checkpoint_0100000_steps/seed_0/summary.json"
     )
     rows = [load_json(vanilla_path), load_json(balanced_path)]

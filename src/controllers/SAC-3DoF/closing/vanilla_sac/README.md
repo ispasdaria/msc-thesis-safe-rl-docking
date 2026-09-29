@@ -15,9 +15,11 @@ This family contains closing-phase SAC experiments that do not use demonstration
 
 - Training, evaluation, and tuning entry points are stored in this directory.
 - `plotters/` contains figure-generation scripts.
+- `tests/` contains the 0.1 s training and evaluation contract checks.
 - `models/`, `logs/`, and `results/` use matching experiment-group names.
 - `results/retained_figures/horizon_comparison` contains the extended-horizon trajectory comparison.
 - `results/terminal_state_convergence` contains the seed-15 state-convergence plot.
+- `closing_port_observation_env.py` defines the six-component docking-port observation variant used only by this family.
 
 Run scripts from the repository root, for example:
 

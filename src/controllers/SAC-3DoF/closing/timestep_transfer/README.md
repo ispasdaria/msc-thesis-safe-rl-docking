@@ -17,5 +17,6 @@ This directory evaluates how closing policies behave when the simulator integrat
 - `results/timestep_transfer/` contains paired evaluation groups named by policy, seed range, horizon, and execution mode.
 - `plotters/` contains timing-comparison plotting code.
 - `tests/` verifies physical-time conversions, evaluation modes, actor copying, replay warm-up, and source-checkpoint resolution.
+- `episode_stratified_replay_buffer.py` implements the family-specific episode-balanced replay used by actor-transfer training.
 
 The retained source checkpoints remain in the phase-balanced and vanilla families and are referenced through paths derived from each script location.

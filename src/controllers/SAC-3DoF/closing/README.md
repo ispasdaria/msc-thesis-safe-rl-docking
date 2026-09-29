@@ -12,4 +12,10 @@ This directory contains SAC controllers and experiments for the closing phase of
 - `timestep_transfer` - comparisons and training across 1 Hz and 10 Hz execution.
 - `two_stage_capture` - systematic and learned two-stage capture experiments.
 
-Python modules that support more than one family remain in this directory. Each family README documents its scripts, experiment variants, and artifacts.
+## Shared support modules
+
+- `train_sac_closing_multiseed.py` provides common training configuration, callbacks, metric writers, and checkpoint selection used by the vanilla, curriculum, phase-balanced, demonstration-learning, and timestep-transfer families.
+- `near_p3_reset_wrapper.py` provides the fixed near-P3 reset distribution used by curriculum, phase-balanced, and timestep-transfer experiments.
+- `behavior_cloned_warmup_sac.py` provides the behavior-cloning warm-up implementation used by demonstration-learning and residual-LQR experiments.
+
+Each family README documents its entry points, experiment variants, and artifacts. Family-specific tests and support modules are stored inside the corresponding family directory.

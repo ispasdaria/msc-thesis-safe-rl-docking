@@ -45,7 +45,7 @@ results/final_approach/evaluations/cbf_development_and_holdout/sac_seed00_cone_t
 ## Non-degradation controller
 
 SAC training seed 10 was evaluated with all seven rows on scenario seeds
-0--9. It retained 10/10 successful dockings, with zero QP failures and no
+0-9. It retained 10/10 successful dockings, with zero QP failures and no
 negative cone, speed, attitude, or angular-rate barrier samples. Mean
 intervention frequency was approximately 0.288%.
 

@@ -50,5 +50,6 @@ specifications for every gain label.
 Directories whose names contain `combined_cbf` were generated before the
 alignment CBF was added, so that label means cone plus port speed. New
 evaluations use `all_cbf` when cone, port speed, attitude, and angular-rate
-protection are enabled together. See `../../ALIGNMENT_CBF_RESULTS.md` for the
+protection are enabled together. See
+`final_approach_alignment_cbf_initial_evaluation.md` for the
 scope and interpretation of the initial alignment-filter runs.

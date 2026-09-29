@@ -226,3 +226,16 @@ def test_residual_lqr_family_contains_code_data_and_artifacts():
     assert (family / "demonstrations" / "terminal_reference_residual_final_lqr_dt0p1_bank.npz").is_file()
     assert (family / "models" / "lqr_reference_residual_final_dt01").is_dir()
     assert (family / "results" / "residual_lqr_baseline").is_dir()
+
+
+def test_timestep_transfer_family_contains_code_tests_and_artifacts():
+    family = CLOSING_DIR / "timestep_transfer"
+
+    assert (family / "evaluate_sac_closing_timestep_transfer.py").is_file()
+    assert (family / "train_sac_closing_uniform_dt01_actor_transfer.py").is_file()
+    assert (family / "plotters" / "plot_v15_horizon_comparison.py").is_file()
+    assert (family / "tests" / "test_evaluate_sac_closing_timestep_transfer.py").is_file()
+    assert (family / "models" / "uniform_dt01_actor_transfer").is_dir()
+    assert (family / "logs" / "uniform_dt01_actor_transfer").is_dir()
+    assert (family / "results" / "uniform_dt01_actor_transfer").is_dir()
+    assert (family / "results" / "timestep_transfer").is_dir()

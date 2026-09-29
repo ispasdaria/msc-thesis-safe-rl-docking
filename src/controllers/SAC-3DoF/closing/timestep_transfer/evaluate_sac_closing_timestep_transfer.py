@@ -26,10 +26,11 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]
+REPO_ROOT = SCRIPT_DIR.parents[4]
 SRC_PATH = REPO_ROOT / "src"
-CURRICULUM_DIR = SCRIPT_DIR / "curriculum_and_p3_reach"
-for path in (SCRIPT_DIR, CURRICULUM_DIR, SRC_PATH):
+CLOSING_DIR = SCRIPT_DIR.parent
+CURRICULUM_DIR = CLOSING_DIR / "curriculum_and_p3_reach"
+for path in (SCRIPT_DIR, CLOSING_DIR, CURRICULUM_DIR, SRC_PATH):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -47,7 +48,7 @@ SOURCE_EXPERIMENT = (
     "sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0"
 )
 SOURCE_SEED_DIR = (
-    SCRIPT_DIR
+    CLOSING_DIR
     / "phase_balanced_replay"
     / "models"
     / "multiseed"

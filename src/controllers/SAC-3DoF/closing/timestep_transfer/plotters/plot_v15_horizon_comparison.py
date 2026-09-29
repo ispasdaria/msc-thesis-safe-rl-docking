@@ -1,6 +1,6 @@
 """Compare one frozen closing-SAC policy at three evaluation horizons.
 
-The representative seed is selected from the existing 12,000-s, seeds 0--49
+The representative seed is selected from the existing 12,000-s, seeds 0-49
 evaluation as the rollout whose terminal position error is closest to the
 50-rollout mean.  Only that seed is then replayed deterministically; no model
 parameters or normalization statistics are changed.
@@ -25,8 +25,9 @@ import numpy as np
 
 SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLOSING_DIR = os.path.dirname(SCRIPT_DIR)
-SRC_PATH = os.path.abspath(os.path.join(CLOSING_DIR, "..", "..", ".."))
-for path in (SCRIPT_DIR, CLOSING_DIR, SRC_PATH):
+VANILLA_DIR = os.path.join(CLOSING_DIR, "vanilla_sac")
+SRC_PATH = os.path.abspath(os.path.join(CLOSING_DIR, "..", "..", "..", ".."))
+for path in (SCRIPT_DIR, CLOSING_DIR, VANILLA_DIR, SRC_PATH):
     if path not in sys.path:
         sys.path.insert(0, path)
 
@@ -34,14 +35,14 @@ import evaluate_sac_closing as evaluator
 
 
 MODEL_NAME = "sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k"
-MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "reward_shaping_trials")
+MODEL_DIR = os.path.join(VANILLA_DIR, "models", "reward_shaping_trials")
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME + ".zip")
 VECNORM_PATH = os.path.join(MODEL_DIR, MODEL_NAME + "_vecnormalize.pkl")
 METRICS_12000 = os.path.join(
     SCRIPT_DIR,
     "results",
     "timestep_transfer",
-    "article_trial16_400k_seeds0_49",
+    "vanilla_trial16_400k_native_and_dt0p1_seeds0_49_horizon12000",
     "native_1hz",
     "rollout_metrics.csv",
 )
@@ -80,7 +81,7 @@ def select_representative_seed(metrics_path: str) -> tuple[int, float, float]:
     )
     expected = np.arange(50, dtype=int)
     if not np.array_equal(np.sort(seeds), expected):
-        raise ValueError("The 12,000-s metrics must contain exactly seeds 0--49.")
+        raise ValueError("The 12,000-s metrics must contain exactly seeds 0-49.")
 
     mean_distance = float(np.mean(distances))
     selected_index = int(np.argmin(np.abs(distances - mean_distance)))
@@ -409,7 +410,7 @@ def main() -> None:
     plot_overlay(records, seed, png_path)
 
     print(f"selected_seed={seed}")
-    print("selection_reason=12,000-s terminal position error closest to the seeds 0--49 mean")
+    print("selection_reason=12,000-s terminal position error closest to the seeds 0-49 mean")
     print(f"mean_12000_terminal_position_error_m={mean_12000:.9f}")
     print(f"selected_12000_csv_terminal_position_error_m={selected_12000:.9f}")
     for horizon in HORIZONS:

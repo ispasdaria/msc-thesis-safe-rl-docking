@@ -116,3 +116,24 @@ the model, normalization state, result directory, or study storage used by a
 completed run; they are retained as historical provenance and are not consumed
 as active defaults by the reviewed programs. No JSON or CSV artifact was
 modified, so all recorded numeric values and provenance fields remain intact.
+
+## NPZ, PNG, and SQLite review
+
+All 4,081 NPZ archives opened without error and form 13 member-name schemas.
+Non-finite numeric values occur in 2,613 archives. They are confined to
+diagnostic fields for inactive constraint families, unavailable post-step
+fields in earlier schemas, or QP-failure feasibility margins on steps where no
+failure diagnosis applies. State, action, reward, time, and termination arrays
+were not identified among the non-finite fields. These sentinel values are
+retained because replacing them would change recorded experiment data.
+
+All 48 PNG files decoded successfully and form 15 dimension/mode groups; every
+image uses RGBA storage. Both Optuna SQLite databases return `ok` from
+`PRAGMA integrity_check` and expose the expected study, trial, parameter,
+value, attribute, heartbeat, version, and migration tables. SHA-256 comparison
+confirmed that all 4,131 NPZ, PNG, and SQLite files match the baseline exactly.
+
+The inventory fixed-point check identified and corrected an audit-tool issue:
+self-records initially captured placeholder output sizes. The CLI now iterates
+until the inventory and summary record their final on-disk sizes. The fix is
+covered by `test_outputs_account_for_themselves_on_second_run`.

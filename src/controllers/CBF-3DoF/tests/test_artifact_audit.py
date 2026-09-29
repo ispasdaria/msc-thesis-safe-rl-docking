@@ -231,5 +231,9 @@ def test_outputs_account_for_themselves_on_second_run(tmp_path: Path) -> None:
 
     assert main(args) == 0
     with inventory.open(encoding="utf-8", newline="") as handle:
-        second_paths = [row["path"] for row in csv.DictReader(handle)]
+        second_rows = list(csv.DictReader(handle))
+    second_paths = [row["path"] for row in second_rows]
     assert second_paths == first_paths == sorted(first_paths)
+    recorded_sizes = {row["path"]: int(row["size_bytes"]) for row in second_rows}
+    assert recorded_sizes["artifact_inventory.csv"] == inventory.stat().st_size
+    assert recorded_sizes["artifact_validation_summary.json"] == summary.stat().st_size

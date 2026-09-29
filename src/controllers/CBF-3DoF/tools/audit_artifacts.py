@@ -225,14 +225,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     args.inventory.parent.mkdir(parents=True, exist_ok=True)
     args.summary.parent.mkdir(parents=True, exist_ok=True)
-    args.inventory.write_text(
-        "path,artifact_class,size_bytes,status,metadata_json,issues_json\n",
-        encoding="utf-8",
-    )
-    args.summary.write_text("{}\n", encoding="utf-8")
+    if not args.inventory.exists():
+        args.inventory.write_text(
+            "path,artifact_class,size_bytes,status,metadata_json,issues_json\n",
+            encoding="utf-8",
+        )
+    if not args.summary.exists():
+        args.summary.write_text("{}\n", encoding="utf-8")
     records, issues = audit_tree(args.root)
-    write_inventory(records, args.inventory)
-    write_summary(records, issues, args.summary)
+    for _ in range(10):
+        write_inventory(records, args.inventory)
+        write_summary(records, issues, args.summary)
+        recorded_sizes = {record.path: record.size_bytes for record in records}
+        root = args.root.resolve()
+        output_sizes_are_stable = all(
+            not destination.resolve().is_relative_to(root)
+            or recorded_sizes.get(destination.resolve().relative_to(root).as_posix())
+            == destination.stat().st_size
+            for destination in (args.inventory, args.summary)
+        )
+        if output_sizes_are_stable:
+            break
+        by_path = {record.path: index for index, record in enumerate(records)}
+        for destination in (args.inventory, args.summary):
+            resolved = destination.resolve()
+            if resolved.is_relative_to(root):
+                refreshed = validate_artifact(resolved, root)
+                records[by_path[refreshed.path]] = refreshed
+        issues = [issue for record in records for issue in record.issues]
     return int(any(issue.severity == "error" for issue in issues))
 
 

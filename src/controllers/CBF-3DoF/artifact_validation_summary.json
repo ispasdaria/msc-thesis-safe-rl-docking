@@ -316,9 +316,6 @@
       ]
     },
     "json": {
-      "": [
-        "artifact_validation_summary.json"
-      ],
       "alignment_attitude_violation_count|angular_rate_active_intervention_rollout_count|angular_rate_binding_intervention_steps|angular_rate_violation_count|attitude_active_intervention_rollout_count|attitude_binding_intervention_steps|axial_velocity_active_intervention_rollout_count|axial_velocity_binding_intervention_steps|axial_velocity_violation_count|cone_active_intervention_rollout_count|cone_binding_intervention_steps|docking_cone_violation_count|episodes|hard_safety_violation_count|intervention_count|mean_closest_p3_position_error|mean_intervention_fraction|mean_phase_duration_seconds|mean_terminal_angular_rate_error|mean_terminal_attitude_error|mean_terminal_axial_error|mean_terminal_lateral_error|mean_terminal_p3_position_error|mean_terminal_velocity_error|phase|qp_failure_count|success_count|success_rate|termination_reasons|total_relative_velocity_active_intervention_rollout_count|total_relative_velocity_binding_intervention_steps|total_relative_velocity_violation_count": [
         "results/lqr/closing_dt0p1_full_cbf_family_breakdown_seeds_0_49/aggregate_metrics.json",
         "results/lqr/closing_dt0p1_no_cbf_native_initialization_seeds_0_49/aggregate_metrics.json",
@@ -456,7 +453,7 @@
         "results/final_approach/evaluations/cbf_development_and_holdout/sac_seed16_untuned_hard_combined_cbf_eval_seeds0000_0009/run_configuration.json",
         "results/final_approach/evaluations/cbf_development_and_holdout/sac_seed19_alignment_screen_hard_cone_speed_vs_full_cbf_eval_seeds0120_0129/run_configuration.json"
       ],
-      "closing_constraints|final_controls": [
+      "closing_physical_constraints|final_controls": [
         "results/trajectory_figures/constraint_and_control_figure_summary.json"
       ],
       "closing|diagnostic_verification|final_approach": [
@@ -464,6 +461,9 @@
       ],
       "closing|final_approach": [
         "results/trajectory_figures/selected_seeds.json"
+      ],
+      "counts_by_class|counts_by_status|file_count|issues|schema_families|total_size_bytes": [
+        "artifact_validation_summary.json"
       ],
       "metrics|objectives|parameters|trial_number": [
         "results/final_approach/tuning/alignment_cbf_competent_controllers_grid/selected_cbf_gain_configuration.json",
@@ -476,5 +476,5 @@
       ]
     }
   },
-  "total_size_bytes": 6328110610
+  "total_size_bytes": 6347124524
 }

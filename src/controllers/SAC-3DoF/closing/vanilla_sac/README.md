@@ -11,6 +11,16 @@ This family contains closing-phase SAC experiments that do not use demonstration
 - Action-hold presets compare one-second control, fixed two-second holds, and distance-dependent holds.
 - The `dt=0.1` scripts reproduce the standard controller with timestep-consistent physical durations.
 
+## Entry points
+
+- `train_sac_closing.py` trains the configurable vanilla baseline.
+- `train_sac_closing_dt01.py` trains the configurable 0.1 s V15-dt formulation.
+- `train_sac_closing_v15dt_full_budget_dt01.py` applies the fixed full-budget V15-dt preset.
+- `evaluate_sac_closing.py` evaluates one configured closing policy.
+- `evaluate_sac_closing_multiseed.py` evaluates retained multiseed checkpoints.
+- `evaluate_sac_closing_v15_baseline.py` evaluates the fixed pre-Optuna V15 baseline.
+- `tune_sac_closing_optuna.py` runs the retained closing-phase hyperparameter search.
+
 ## Layout
 
 - Training, evaluation, and tuning entry points are stored in this directory.

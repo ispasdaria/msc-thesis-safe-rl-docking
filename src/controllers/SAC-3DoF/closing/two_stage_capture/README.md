@@ -32,7 +32,7 @@ membership in the exact P3 testing box:
 - `omega`: -0.05--0.05 deg/s.
 
 Geometry, velocity, attitude, and angular-rate unsafe states terminate. The
-The v7 reward persistently penalizes P3-target errors in `vx`, `ry`, `vy`,
+The systematic capture reward persistently penalizes P3-target errors in `vx`, `ry`, `vy`,
 attitude, and angular rate using pseudo-Huber costs with linear tails. There is no
 distance-dependent `vx` reference: `vx` is always compared with the sampled P3
 target. Only its penalty weight increases near P3, so the controller is not
@@ -43,7 +43,7 @@ and lateral-velocity improvement rewards teach recovery direction. Geometry
 warnings use a stronger continuous violation depth, and velocity/alignment
 warnings remain separate.
 
-v7 restores the v5 approach weights outside the terminal zone. Only within 30
+The approach weights retain their far-field values outside the terminal zone. Only within 30
 m of the upper P3 face does it strengthen `vx` tracking and reward potential
 reduction toward the actual global six-component P3 box. Inward motion is
 penalized while any non-axial terminal component is invalid, using a reduced
@@ -57,11 +57,10 @@ gives -1500, and timeout gives -500. Per-step costs are deliberately scaled so
 terminal outcomes dominate the return. The SAC entropy coefficient remains
 fixed at 0.01.
 
-v7 retains the v5 replacement of failure-dominated adaptive observation normalization with
+The systematic trainer replaces failure-dominated adaptive observation normalization with
 fixed physical component scales. Lateral divergence beyond 50 m position error
-or 0.15 m/s velocity error terminates early as a failed capture. These changes
-apply only to new v5 models; the evaluator detects legacy v3/v4 normalization
-files and preserves their original observation path.
+or 0.15 m/s velocity error terminates early as a failed capture. The evaluator
+detects legacy normalization files and preserves their original observation path.
 The replay-buffer size always equals `--total-timesteps`.
 
 Dry-run the new trainer:
@@ -72,7 +71,7 @@ Dry-run the new trainer:
   --total-timesteps 150000 `
   --checkpoint-frequency 50000 `
   --max-time 2000 `
-  --experiment-name systematic_capture_v7_h150_pilot_seed0 `
+  --experiment-name systematic_capture_v10_h150_seed0 `
   --dry-run
 ```
 

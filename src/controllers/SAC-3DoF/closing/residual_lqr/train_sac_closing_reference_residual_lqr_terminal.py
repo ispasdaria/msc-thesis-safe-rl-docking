@@ -41,7 +41,7 @@ from train_sac_closing_her import HerEvaluationCheckpointCallback
 from train_sac_closing_her_reference_residual_lqr import (
     collect_reference_residual_trajectories,
 )
-from train_sac_closing_her_v4_residual_v15 import (
+from train_sac_closing_v15_baseline_residual_her import (
     initialize_zero_residual_actor,
 )
 from train_sac_closing_reference_residual_lqr_no_her import (

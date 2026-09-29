@@ -26,4 +26,4 @@ The short training presets are retained because replay prefill, mixed replay, be
 - `plotters/` regenerates family-specific comparisons.
 - `tests/` verifies dataset integrity, timing equivalence, replay partitioning, and behavior-cloning losses.
 
-`behavior_cloned_warmup_sac.py` remains at the closing root because the residual-LQR family also imports it. Terminal-reference residual datasets remain under the shared demonstration directory until the residual family is organized.
+`behavior_cloned_warmup_sac.py` remains at the closing root because the residual-LQR family also imports it.

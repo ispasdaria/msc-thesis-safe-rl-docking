@@ -35,7 +35,7 @@ from her_closing_utils import (
     physical_goal_metrics,
     summarize_rollouts,
 )
-from train_sac_closing_her_v4_residual_v15 import (
+from train_sac_closing_v15_baseline_residual_her import (
     collect_residual_source_trajectories,
     initialize_zero_residual_actor,
 )

@@ -31,16 +31,16 @@ from her_source_warmstart import prefill_her_replay_buffer
 from train_sac_closing_her_reference_residual_lqr import (
     collect_reference_residual_trajectories,
 )
-from train_sac_closing_her_v4_residual_v15 import (
+from train_sac_closing_v15_baseline_residual_her import (
     initialize_zero_residual_actor,
 )
 from train_sac_closing_reference_residual_lqr_no_her import (
     prefill_standard_replay_buffer,
 )
-from train_sac_closing_reference_residual_lqr_pilot_e_dt01 import (
+from train_sac_closing_reference_residual_lqr_annealed_actor_prior_dt01 import (
     DEFAULT_ARGUMENTS as PILOT_E_DT01_ARGUMENTS,
 )
-from train_sac_closing_reference_residual_lqr_pilot_g_dt01_reward_v2 import (
+from train_sac_closing_reference_residual_lqr_lateral_reward_v2_dt01 import (
     DEFAULT_ARGUMENTS as PILOT_G_DT01_ARGUMENTS,
 )
 from train_sac_closing_reference_residual_lqr_stratified import (

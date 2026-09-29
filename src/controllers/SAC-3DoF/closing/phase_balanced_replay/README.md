@@ -6,15 +6,15 @@ This directory contains SAC closing experiments that partition online experience
 
 - `train_sac_closing_phase_balanced_replay_v12.py` applies phase-balanced replay to the isolated V12 P3-reaching environment.
 - `train_sac_closing_v15_phase_balanced_replay.py` continues the selected reward-v15 checkpoint with global and capture replay partitions.
-- `train_sac_closing_v15_phase_balanced_replay_v2.py` adds protected replay partitions and guarded checkpoint selection.
-- `train_sac_closing_v15_phase_balanced_replay_v21.py` configures the V2.1 continuation preset.
-- `train_sac_closing_v15_phase_balanced_replay_v21_cbf.py` configures the CBF-assisted V2.1 variant.
+- `train_sac_closing_v15_guarded_simultaneous_target_replay.py` adds protected replay partitions and guarded checkpoint selection.
+- `train_sac_closing_v15_deterministic_near_p3_replay.py` configures deterministic near-P3 resets without event-priority sampling.
+- `train_sac_closing_v15_deterministic_near_p3_replay_cbf.py` adds the deployment CBF to the deterministic near-P3 configuration.
 
 The short variant launchers are retained because they encode distinct replay and checkpoint-selection configurations.
 
 ## Contents
 
-- `phase_balanced_replay_buffer.py` and `phase_balanced_replay_buffer_v2.py` implement the replay partitions.
+- `phase_balanced_replay_buffer.py` and `guarded_simultaneous_target_replay_buffer.py` implement the replay partitions.
 - `models/multiseed/`, `logs/multiseed/`, and `results/multiseed/` contain the associated training runs.
 - `results/multiseed_evaluation/` contains deterministic held-out evaluations.
 - `results/retained_figures/` contains figures and diagnostics for the retained checkpoint.

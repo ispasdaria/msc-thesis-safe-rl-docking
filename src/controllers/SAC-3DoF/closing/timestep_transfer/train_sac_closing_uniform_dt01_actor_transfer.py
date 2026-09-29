@@ -42,7 +42,7 @@ for path in (SCRIPT_DIR, CLOSING_DIR, CURRICULUM_DIR, PHASE_BALANCED_DIR, SRC_PA
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
 from episode_stratified_replay_buffer import EpisodeStratifiedReplayBuffer
 from near_p3_reset_wrapper import FixedNearP3ResetWrapper
-from train_sac_closing_adaptive_dt01_terminal import (
+from train_p3_reach_v15dt_ten_hz_adaptive_cadence import (
     DEFAULT_SOURCE_MODEL,
     DEFAULT_SOURCE_VECNORMALIZE,
     ResetSpecificTimeLimit,
@@ -55,7 +55,7 @@ from train_sac_closing_v15_phase_balanced_replay import (
     resolve_checkpoint_steps,
     write_csv,
 )
-from train_sac_closing_v15_phase_balanced_replay_v2 import (
+from train_sac_closing_v15_guarded_simultaneous_target_replay import (
     GuardedV2CheckpointCallback,
     find_reset_wrapper,
     simultaneous_capture_checkpoint_rank,

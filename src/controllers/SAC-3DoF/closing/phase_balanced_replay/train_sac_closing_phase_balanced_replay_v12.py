@@ -17,7 +17,7 @@ for path in (SCRIPT_DIR, CURRICULUM_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-import train_sac_closing_p3reach_from_scratch as training
+import train_p3_reach_reward_from_scratch as training
 
 from envs.docking3dof.closing_safety_exploration_env import (
     ClosingSafetyExplorationV12GymEnv,

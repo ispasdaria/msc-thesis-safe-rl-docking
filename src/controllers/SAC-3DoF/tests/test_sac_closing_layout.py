@@ -118,7 +118,9 @@ def test_vanilla_sac_family_contains_entry_points_and_artifacts():
     family = CLOSING_DIR / "vanilla_sac"
 
     assert (family / "train_sac_closing.py").is_file()
+    assert (family / "train_sac_closing_v15dt_full_budget_dt01.py").is_file()
     assert (family / "evaluate_sac_closing.py").is_file()
+    assert (family / "evaluate_sac_closing_v15_baseline.py").is_file()
     assert (family / "tune_sac_closing_optuna.py").is_file()
     assert (family / "plotters" / "plot_sac_closing_rollouts.py").is_file()
     assert (family / "closing_port_observation_env.py").is_file()
@@ -132,6 +134,8 @@ def test_vanilla_sac_family_contains_entry_points_and_artifacts():
         / "terminal_state_convergence"
         / "closing_vanilla_sac_state_convergence_seed15.png"
     ).is_file()
+    assert not (family / "train_sac_closing_best_standard_dt01.py").exists()
+    assert not (family / "evaluate_rewardv15_baseline.py").exists()
 
 
 def test_vanilla_sac_scripts_import_from_repository_root():
@@ -158,21 +162,41 @@ def test_vanilla_sac_scripts_import_from_repository_root():
 def test_curriculum_and_p3_reach_family_contains_entry_points_and_artifacts():
     family = CLOSING_DIR / "curriculum_and_p3_reach"
 
-    assert (family / "train_sac_closing_curriculum.py").is_file()
-    assert (family / "train_sac_closing_p3reach_from_scratch.py").is_file()
-    assert (family / "evaluate_sac_closing_p3reach.py").is_file()
-    assert (family / "tune_sac_closing_p3reach_v12_optuna.py").is_file()
-    assert (family / "plotters" / "plot_p3_relative_trajectory.py").is_file()
-    assert (family / "tests" / "test_p3reach_evaluator_diagnostics.py").is_file()
+    assert (family / "train_p3_reach_reset_distribution_curriculum.py").is_file()
+    assert (family / "train_p3_reach_reward_from_scratch.py").is_file()
+    assert (family / "evaluate_p3_reach_checkpoints.py").is_file()
+    assert (family / "tune_p3_reach_v12_from_scratch_optuna.py").is_file()
+    assert (
+        family / "plotters" / "plot_vanilla_v17_p3_relative_trajectory.py"
+    ).is_file()
+    assert (family / "tests" / "test_evaluate_p3_reach_checkpoints.py").is_file()
     for artifact_dir in (
-        "adaptive_dt01_terminal",
-        "curriculum",
-        "no_safety_termination",
-        "p3reach_from_scratch",
+        "ten_hz_adaptive_terminal_continuation",
+        "reset_distribution_curriculum",
+        "nonterminal_safety_continuation",
+        "from_scratch_reward_progression",
+        "safety_terminal_braking_experiments",
     ):
         assert (family / "models" / artifact_dir).is_dir()
         assert (family / "logs" / artifact_dir).is_dir()
         assert (family / "results" / artifact_dir).is_dir()
+        assert (family / "results" / artifact_dir / "README.md").is_file()
+
+    assert (family / "logs" / "p3_reach_v12_optuna").is_dir()
+    assert (family / "results" / "p3_reach_v12_optuna" / "README.md").is_file()
+
+    old_entry_points = {
+        "evaluate_sac_closing_p3reach.py",
+        "train_sac_closing_adaptive_dt01_terminal.py",
+        "train_sac_closing_braking_envelope.py",
+        "train_sac_closing_braking_terminal_v20.py",
+        "train_sac_closing_curriculum.py",
+        "train_sac_closing_no_safety_termination.py",
+        "train_sac_closing_p3reach_from_scratch.py",
+        "train_sac_closing_port_lqr_envelope_v21.py",
+        "tune_sac_closing_p3reach_v12_optuna.py",
+    }
+    assert not any((family / name).exists() for name in old_entry_points)
 
 
 def test_curriculum_and_p3_reach_scripts_import_from_repository_root():
@@ -202,13 +226,33 @@ def test_phase_balanced_replay_family_contains_code_and_artifacts():
     family = CLOSING_DIR / "phase_balanced_replay"
 
     assert (family / "phase_balanced_replay_buffer.py").is_file()
-    assert (family / "phase_balanced_replay_buffer_v2.py").is_file()
+    assert (family / "guarded_simultaneous_target_replay_buffer.py").is_file()
     assert (family / "train_sac_closing_v15_phase_balanced_replay.py").is_file()
+    assert (
+        family / "train_sac_closing_v15_guarded_simultaneous_target_replay.py"
+    ).is_file()
+    assert (
+        family / "train_sac_closing_v15_deterministic_near_p3_replay.py"
+    ).is_file()
+    assert (
+        family / "train_sac_closing_v15_deterministic_near_p3_replay_cbf.py"
+    ).is_file()
     assert (family / "tests" / "test_phase_balanced_replay_buffer.py").is_file()
+    assert (
+        family / "tests" / "test_guarded_simultaneous_target_replay.py"
+    ).is_file()
     assert (family / "models" / "multiseed").is_dir()
     assert (family / "logs" / "multiseed").is_dir()
     assert (family / "results" / "multiseed").is_dir()
     assert (family / "results" / "retained_figures").is_dir()
+
+    old_names = {
+        "phase_balanced_replay_buffer_v2.py",
+        "train_sac_closing_v15_phase_balanced_replay_v2.py",
+        "train_sac_closing_v15_phase_balanced_replay_v21.py",
+        "train_sac_closing_v15_phase_balanced_replay_v21_cbf.py",
+    }
+    assert not any((family / name).exists() for name in old_names)
 
 
 def test_lqr_demonstration_family_contains_code_data_and_artifacts():
@@ -242,6 +286,41 @@ def test_residual_lqr_family_contains_code_data_and_artifacts():
     assert (family / "demonstrations" / "terminal_reference_residual_final_lqr_dt0p1_bank.npz").is_file()
     assert (family / "models" / "lqr_reference_residual_final_dt01").is_dir()
     assert (family / "results" / "residual_lqr_baseline").is_dir()
+
+    assert (family / "train_sac_closing_v15_source_warmstarted_her.py").is_file()
+    assert (family / "train_sac_closing_v15_baseline_residual_her.py").is_file()
+    assert (family / "train_sac_closing_exploratory_residual_her.py").is_file()
+    assert (
+        family
+        / "train_sac_closing_reference_residual_lqr_annealed_actor_prior_1hz.py"
+    ).is_file()
+    assert (
+        family
+        / "train_sac_closing_reference_residual_lqr_annealed_actor_prior_dt01.py"
+    ).is_file()
+    assert (
+        family
+        / "train_sac_closing_reference_residual_lqr_lateral_reward_v2_dt01.py"
+    ).is_file()
+    assert (
+        family / "train_sac_closing_her_lateral_balanced_residual_200k.py"
+    ).is_file()
+    assert (
+        family / "train_sac_closing_her_terminal_fade_residual_200k.py"
+    ).is_file()
+    assert not any(
+        (family / name).exists()
+        for name in {
+            "train_sac_closing_her_v3_source_warmstart.py",
+            "train_sac_closing_her_v4_residual_v15.py",
+            "train_sac_closing_her_v5_exploratory_residual.py",
+            "train_sac_closing_reference_residual_lqr_pilot_e.py",
+            "train_sac_closing_reference_residual_lqr_pilot_e_dt01.py",
+            "train_sac_closing_reference_residual_lqr_pilot_g_dt01_reward_v2.py",
+            "train_sac_closing_her_residual_lqr_pilot_lateral_balanced_200k.py",
+            "train_sac_closing_her_residual_lqr_pilot_terminal_fade_200k.py",
+        }
+    )
 
 
 def test_timestep_transfer_family_contains_code_tests_and_artifacts():

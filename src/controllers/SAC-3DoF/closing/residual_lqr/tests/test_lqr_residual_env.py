@@ -35,16 +35,16 @@ from train_sac_closing_her_residual_lqr import (
     reward_environment_kwargs,
     _validate_args,
 )
-from train_sac_closing_her_residual_lqr_pilot_lateral_balanced_200k import (
+from train_sac_closing_her_lateral_balanced_residual_200k import (
     DEFAULT_ARGUMENTS as LATERAL_BALANCED_200K_ARGUMENTS,
 )
-from train_sac_closing_her_residual_lqr_pilot_terminal_fade_200k import (
+from train_sac_closing_her_terminal_fade_residual_200k import (
     DEFAULT_ARGUMENTS as TERMINAL_FADE_200K_ARGUMENTS,
 )
 from train_sac_closing_residual_lqr_no_her_stable_200k import (
     DEFAULT_ARGUMENTS as NO_HER_STABLE_200K_ARGUMENTS,
 )
-from train_sac_closing_her_v4_residual_v15 import (
+from train_sac_closing_v15_baseline_residual_her import (
     initialize_zero_residual_actor,
 )
 from zero_residual_constrained_sac import ZeroResidualConstrainedSAC

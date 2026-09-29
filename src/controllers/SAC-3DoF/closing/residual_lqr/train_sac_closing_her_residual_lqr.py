@@ -42,7 +42,7 @@ from residual_lqr_config import (
     discount_for_dt,
     steps_for_duration,
 )
-from train_sac_closing_her_v4_residual_v15 import (
+from train_sac_closing_v15_baseline_residual_her import (
     ResidualSafetyGuardCallback,
     initialize_zero_residual_actor,
 )

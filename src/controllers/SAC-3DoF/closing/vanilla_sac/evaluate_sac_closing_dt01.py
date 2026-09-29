@@ -23,7 +23,7 @@ for path in (SCRIPT_DIR, CLOSING_DIR, CURRICULUM_DIR, SRC_PATH):
         sys.path.insert(0, path)
 
 from envs.docking3dof.gym_env import Docking3DoFGymEnv
-from train_sac_closing_no_safety_termination import (
+from train_p3_reach_nonterminal_safety_continuation import (
     evaluate_rollout,
     summarize_rollouts,
     write_csv,

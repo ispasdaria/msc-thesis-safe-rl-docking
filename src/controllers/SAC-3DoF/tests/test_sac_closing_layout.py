@@ -239,3 +239,15 @@ def test_timestep_transfer_family_contains_code_tests_and_artifacts():
     assert (family / "logs" / "uniform_dt01_actor_transfer").is_dir()
     assert (family / "results" / "uniform_dt01_actor_transfer").is_dir()
     assert (family / "results" / "timestep_transfer").is_dir()
+
+
+def test_two_stage_capture_family_replaces_trial_layout():
+    family = CLOSING_DIR / "two_stage_capture"
+
+    assert not (CLOSING_DIR / "two_stage_capture_trial").exists()
+    assert (family / "train_capture_sac.py").is_file()
+    assert (family / "train_systematic_capture_sac.py").is_file()
+    assert (family / "evaluate_capture_sweep.py").is_file()
+    assert (family / "artifacts").is_dir()
+    assert (family / "tests" / "test_capture_experiments.py").is_file()
+    assert (family / "tests" / "test_systematic_capture.py").is_file()

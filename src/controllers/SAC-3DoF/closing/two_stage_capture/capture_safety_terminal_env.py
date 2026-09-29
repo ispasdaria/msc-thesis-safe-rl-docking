@@ -109,7 +109,7 @@ class CaptureSafetyTerminalCoreEnv(Docking3DoFEnv):
 
 
 class CaptureSafetyTerminalEnv(Docking3DoFGymEnv):
-    """Closing environment tailored to the 50--150 m P3 capture task."""
+    """Closing environment tailored to the 50-150 m P3 capture task."""
 
     reward_scheme = "capture_progress_safety_terminal_v1"
     progress_scale = 100.0

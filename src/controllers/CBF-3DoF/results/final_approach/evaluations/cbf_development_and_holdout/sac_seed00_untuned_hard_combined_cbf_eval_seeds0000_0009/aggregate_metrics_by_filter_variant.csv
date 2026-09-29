@@ -1,0 +1,2 @@
+variant,episodes,success_rate,failure_rate,mean_steps,mean_intervention_fraction,qp_failure_count,maximum_slack,termination_reasons,violated_constraints
+both,10,0.0,1.0,94.8,0.041505075801824234,0,0.0,safety_violation:10,alignment:10

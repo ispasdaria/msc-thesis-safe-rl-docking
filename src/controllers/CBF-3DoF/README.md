@@ -246,8 +246,8 @@ cone, speed, attitude, and angular-rate response gains. It rejects
 configurations that fail the admissible boundary precheck, hard QP solve, QP
 residual, or sampled post-step barrier check. The physical cone slope, speed
 limit, attitude limit, and angular-rate limit are never tuned. The default
-study uses validation scenario seeds 100--119 and keeps the previous
-development seeds and future final-test seeds separate.
+study uses validation scenario seeds 100--119 and keeps the development and
+final-test seed partitions separate.
 
 ```powershell
 .\.venv\Scripts\python.exe src/controllers/CBF-3DoF/tuning/tune_final_approach_cbf.py

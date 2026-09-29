@@ -15,8 +15,13 @@ Each complete evaluation directory normally contains:
 - per-step trajectory files named `step_timeseries_*.npz`
 
 The run names identify the SAC training configuration and seed, the CBF
-comparison, and the evaluation-seed range. The explicitly incomplete previous
-run was removed.
+comparison, and the evaluation-seed range. The directory explicitly labeled
+as an incomplete run was removed.
 
 Representative figures derived from selected evaluations are stored separately
 in `../plots/`.
+
+`controller_campaigns/campaign_round5_seed10_best490k_seeds_0_49/` is the
+representative campaign for tracing configuration, metrics, and step histories
+into the comparison figures. The alignment-screen directories represent
+systematic controller screens rather than single-policy summary results.

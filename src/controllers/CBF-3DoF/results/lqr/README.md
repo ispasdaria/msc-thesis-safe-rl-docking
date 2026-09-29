@@ -9,3 +9,9 @@ This directory contains paired evaluations of the repository LQR controllers wit
 - `comparison_figures/` contains retained LQR and CBF figures and their selected trajectory histories.
 
 Reduced tables fully superseded by the family-breakdown results and one byte-identical unfiltered duplicate were removed.
+
+The two `*_full_cbf_family_breakdown_seeds_0_49/` directories are the
+representative closing and final-approach results. Each contains the resolved
+configuration, per-episode table, and aggregate family metrics.
+`comparison_figures/` contains the corresponding selected trajectories and
+rendered comparisons.

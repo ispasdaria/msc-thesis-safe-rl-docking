@@ -6,3 +6,8 @@
 - `tuning/` contains the closing gain-search study.
 
 Two abandoned 20,000-second folders containing only partial trajectory files were removed. Complete evaluation folders retain their configuration, per-episode metrics, aggregate metrics, and available step histories.
+
+`evaluations/controller_campaigns/campaign_phase_balanced_100k_seeds_0_49/`
+is the representative closing campaign because it contains the configuration,
+episode table, aggregate table, and retained step histories used by the
+cross-controller trajectory figures.

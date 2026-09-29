@@ -80,7 +80,22 @@ their source locations; no active machine-specific absolute path was found.
 Each program's `--help` path completed without initiating an experiment.
 
 Two statements were revised: the paired-evaluation module now describes the
-sampling design directly, and the final-approach plotter requests a schema
-that records the missing field instead of referring ambiguously to the
-"current" schema. No behavioral or interface change was required. The other
+sampling design directly, and the final-approach plotter identifies the
+required field instead of using a relative schema label. No behavioral or
+interface change was required. The other
 seven executable files and all six reviewed test modules required no edits.
+
+## Documentation review
+
+All 14 Markdown files in the audited tree were reviewed. The root README and
+the evaluation, tuning, plotting, closing-result, final-approach evaluation,
+LQR-result, and trajectory-figure READMEs were revised to identify their
+purpose, expected artifacts, and representative retained examples. The
+remaining phase-specific READMEs and two technical result reports already
+provide their required scope, provenance, or interpretation details.
+
+Temporal labels were replaced where an explicit schema or dataset partition
+was available. Statements about CBF behavior retain the distinction between
+continuous-time inequalities, sampled rollouts, soft constraints, hard
+constraints, and non-certified nominal fallback. No document claims a formal
+sampled-data guarantee.

@@ -1,8 +1,8 @@
 """Paired evaluation of a final-approach SAC policy with CBF-QP variants.
 
-The same evaluation seeds are used for every requested variant, which makes
-the baseline-versus-filter comparison paired rather than dependent on a new
-set of randomly sampled initial states.
+The same evaluation seeds are used for every requested variant. This defines
+a paired baseline-versus-filter comparison instead of independently sampled
+initial states.
 """
 
 from __future__ import annotations

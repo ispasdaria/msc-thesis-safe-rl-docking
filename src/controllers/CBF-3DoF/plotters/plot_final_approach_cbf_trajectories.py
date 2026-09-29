@@ -134,7 +134,7 @@ def _require(episode: Episode, name: str) -> np.ndarray:
     if name not in episode.arrays:
         raise KeyError(
             f"{name!r} is absent from {episode.variant}/seed{episode.eval_seed}. "
-            "Regenerate the evaluation with the current evaluator schema."
+            "Regenerate the evaluation with a schema that records this field."
         )
     return episode.arrays[name]
 

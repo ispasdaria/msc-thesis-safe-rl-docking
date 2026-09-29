@@ -69,3 +69,18 @@ and `qp_filter.py` required no source changes. The reviewed test files required
 no changes. The fallback in `qp_filter.py` remains explicitly non-certified:
 on QP failure it returns the bounded nominal action and records the failure in
 the result diagnostics.
+
+## Workflow program review
+
+The three evaluators, two tuning programs, four plotters, and six associated
+test modules were reviewed for path construction, imports, argument parsing,
+seed pairing, deterministic ordering, result schemas, error messages, and
+terminology. All nine command-line programs resolve repository paths from
+their source locations; no active machine-specific absolute path was found.
+Each program's `--help` path completed without initiating an experiment.
+
+Two statements were revised: the paired-evaluation module now describes the
+sampling design directly, and the final-approach plotter requests a schema
+that records the missing field instead of referring ambiguously to the
+"current" schema. No behavioral or interface change was required. The other
+seven executable files and all six reviewed test modules required no edits.

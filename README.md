@@ -68,7 +68,7 @@ The repository contains:
 
 The CBF formulation, protected constraints, evaluator outputs, limitations,
 and example commands are documented in
-[src/controllers/cbf_3DoF/README.md](src/controllers/cbf_3DoF/README.md).
+[src/controllers/CBF-3DoF/README.md](src/controllers/CBF-3DoF/README.md).
 
 ### Benchmark problems
 
@@ -105,7 +105,7 @@ src/controllers/SAC-3DoF/           SAC experiments and mixed-mission analysis
 src/controllers/SAC-3DoF/closing/   Closing-phase SAC work
 src/controllers/SAC-3DoF/final_approach/
                                     Final-approach SAC work
-src/controllers/cbf_3DoF/           CBF-QP filters and evaluations
+src/controllers/CBF-3DoF/           CBF-QP filters and evaluations
 ```
 
 Tests, models, numerical results, and figures are generally colocated with the
@@ -180,7 +180,7 @@ Subsystem tests can be run by supplying the corresponding test directory. For
 example:
 
 ```powershell
-python -m pytest src/controllers/cbf_3DoF/tests -q
+python -m pytest src/controllers/CBF-3DoF/tests -q
 ```
 
 ## Reproduction entry points
@@ -203,7 +203,7 @@ implemented workflows:
 - Retained full-mission figures:
   [`src/controllers/SAC-3DoF/figures/representative_full_mission_figures/`](src/controllers/SAC-3DoF/figures/representative_full_mission_figures/)
 - CBF-QP evaluation and tuning:
-  [`src/controllers/cbf_3DoF/`](src/controllers/cbf_3DoF/)
+  [`src/controllers/CBF-3DoF/`](src/controllers/CBF-3DoF/)
 - Benchmark problems:
   [`benchmark_problems/`](benchmark_problems/)
 

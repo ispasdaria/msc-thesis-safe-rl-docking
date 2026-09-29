@@ -453,7 +453,7 @@
         "results/final_approach/evaluations/cbf_development_and_holdout/sac_seed16_untuned_hard_combined_cbf_eval_seeds0000_0009/run_configuration.json",
         "results/final_approach/evaluations/cbf_development_and_holdout/sac_seed19_alignment_screen_hard_cone_speed_vs_full_cbf_eval_seeds0120_0129/run_configuration.json"
       ],
-      "closing_physical_constraints|final_controls": [
+      "closing_constraints|final_controls": [
         "results/trajectory_figures/constraint_and_control_figure_summary.json"
       ],
       "closing|diagnostic_verification|final_approach": [
@@ -476,5 +476,5 @@
       ]
     }
   },
-  "total_size_bytes": 6347124524
+  "total_size_bytes": 6347125597
 }

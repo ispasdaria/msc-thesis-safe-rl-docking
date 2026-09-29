@@ -137,3 +137,19 @@ The inventory fixed-point check identified and corrected an audit-tool issue:
 self-records initially captured placeholder output sizes. The CLI now iterates
 until the inventory and summary record their final on-disk sizes. The fix is
 covered by `test_outputs_account_for_themselves_on_second_run`.
+
+## Final verification
+
+The focused CBF suite passes 123 tests with one skipped Windows symlink test.
+The repository suite passes 580 tests with the same skip and two Gymnasium
+warnings about intentionally unbounded observation-space limits. All CBF Python
+files compile, all nine workflow `--help` commands exit successfully, every
+local Markdown link resolves, and the final artifact audit reports no
+path-level validation errors.
+
+Verification also identified that `plot_constraint_and_control_diagnostics.py`
+ignored `--help` and executed its plotting pipeline. Argument parsing now
+occurs before output generation, and a regression test verifies that help
+exits without invoking either plotting function. The retained figure-summary
+content was restored; its missing terminal newline was normalized without
+changing any JSON key or value.

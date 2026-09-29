@@ -1,5 +1,9 @@
+import importlib.util
 from pathlib import Path
+import sys
 import unittest
+
+import pytest
 
 
 SCRIPT = (
@@ -7,6 +11,24 @@ SCRIPT = (
     / "plotters"
     / "plot_sac_cbf_trajectory_comparisons.py"
 )
+DIAGNOSTIC_SCRIPT = SCRIPT.with_name("plot_constraint_and_control_diagnostics.py")
+
+
+def test_diagnostic_plotter_help_has_no_output_side_effects(monkeypatch):
+    spec = importlib.util.spec_from_file_location("cbf_diagnostic_plotter", DIAGNOSTIC_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    called = []
+    monkeypatch.setattr(module, "closing_physical_figure", lambda: called.append("closing"))
+    monkeypatch.setattr(module, "final_control_figure", lambda: called.append("final"))
+    monkeypatch.setattr(sys, "argv", [str(DIAGNOSTIC_SCRIPT), "--help"])
+
+    with pytest.raises(SystemExit) as exit_info:
+        module.main()
+
+    assert exit_info.value.code == 0
+    assert called == []
 
 
 class TrajectoryComparisonFigureLayoutTest(unittest.TestCase):

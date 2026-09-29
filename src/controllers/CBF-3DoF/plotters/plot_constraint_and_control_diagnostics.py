@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -379,7 +380,10 @@ def final_control_figure() -> list[dict]:
     return reports
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    """Generate the retained constraint and control diagnostic figures."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.parse_args(argv)
     OUT.mkdir(parents=True, exist_ok=True)
     setup_style()
     report = {

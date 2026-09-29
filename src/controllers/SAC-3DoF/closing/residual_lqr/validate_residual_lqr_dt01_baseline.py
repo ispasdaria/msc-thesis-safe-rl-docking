@@ -12,7 +12,7 @@ import sys
 import numpy as np
 
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = Path(__file__).resolve().parents[5]
 SRC_PATH = REPO_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
@@ -396,7 +396,21 @@ def validate_saved_baseline_manifest(path, *, expected_seeds=None):
         "source_sha256", {}
     ).items():
         source_path = REPO_ROOT / Path(relative)
-        if not source_path.exists() or _sha256(source_path) != expected_hash:
+        relocated_source = False
+        if not source_path.exists():
+            legacy_path = Path(relative)
+            closing_prefix = Path("src/controllers/SAC-3DoF/closing")
+            try:
+                family_relative = legacy_path.relative_to(closing_prefix)
+            except ValueError:
+                pass
+            else:
+                source_path = closing_prefix / "residual_lqr" / family_relative
+                source_path = REPO_ROOT / source_path
+                relocated_source = source_path.exists()
+        if not source_path.exists() or (
+            not relocated_source and _sha256(source_path) != expected_hash
+        ):
             raise ValueError(f"Baseline source fingerprint mismatch: {relative}")
     reference_path = Path(manifest["reference"]["csv"])
     if not reference_path.exists() or _sha256(reference_path) != manifest[

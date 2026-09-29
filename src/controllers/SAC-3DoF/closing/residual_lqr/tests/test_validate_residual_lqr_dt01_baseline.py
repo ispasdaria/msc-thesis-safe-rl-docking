@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
 
 from validate_residual_lqr_dt01_baseline import (
     DEFAULT_OUTPUT_DIR,

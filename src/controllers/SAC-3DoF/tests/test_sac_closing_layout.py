@@ -213,3 +213,16 @@ def test_lqr_demonstration_family_contains_code_data_and_artifacts():
         assert (family / "models" / artifact_dir).is_dir()
         assert (family / "logs" / artifact_dir).is_dir()
         assert (family / "results" / artifact_dir).is_dir()
+
+
+def test_residual_lqr_family_contains_code_data_and_artifacts():
+    family = CLOSING_DIR / "residual_lqr"
+
+    assert (family / "lqr_reference_residual_env.py").is_file()
+    assert (family / "terminal_reference_residual_env.py").is_file()
+    assert (family / "train_sac_closing_reference_residual_final_lqr_dt01.py").is_file()
+    assert (family / "validate_residual_lqr_dt01_baseline.py").is_file()
+    assert (family / "tests" / "test_lqr_residual_env.py").is_file()
+    assert (family / "demonstrations" / "terminal_reference_residual_final_lqr_dt0p1_bank.npz").is_file()
+    assert (family / "models" / "lqr_reference_residual_final_dt01").is_dir()
+    assert (family / "results" / "residual_lqr_baseline").is_dir()

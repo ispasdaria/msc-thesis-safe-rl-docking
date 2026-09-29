@@ -16,15 +16,16 @@ from envs.docking3dof.gym_env import Docking3DoFGymEnv
 
 
 CLOSING_DIR = Path(__file__).resolve().parent
+VANILLA_DIR = CLOSING_DIR.parent / "vanilla_sac"
 SOURCE_STEM = (
     "sac_closing_p3augobs_rewardv15_optuna_trial16_"
     "400ksteps_seed0_buffer300k"
 )
 DEFAULT_SOURCE_MODEL = (
-    CLOSING_DIR / "models" / "reward_shaping_trials" / f"{SOURCE_STEM}.zip"
+    VANILLA_DIR / "models" / "reward_shaping_trials" / f"{SOURCE_STEM}.zip"
 )
 DEFAULT_SOURCE_VECNORMALIZE = (
-    CLOSING_DIR
+    VANILLA_DIR
     / "models"
     / "reward_shaping_trials"
     / f"{SOURCE_STEM}_vecnormalize.pkl"

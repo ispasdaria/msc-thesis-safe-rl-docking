@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
 import numpy as np
 import torch as th
 from stable_baselines3.common.utils import polyak_update
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+CLOSING_DIR = SCRIPT_DIR.parent
+if str(CLOSING_DIR) not in sys.path:
+    sys.path.insert(0, str(CLOSING_DIR))
 
 from behavior_cloned_warmup_sac import BehaviorClonedWarmupSAC
 

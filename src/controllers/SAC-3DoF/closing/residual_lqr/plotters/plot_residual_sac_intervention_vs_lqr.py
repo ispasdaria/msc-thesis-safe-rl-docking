@@ -20,9 +20,10 @@ import numpy as np
 
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[3]
+FAMILY_DIR = HERE.parent
+REPO = HERE.parents[5]
 SRC = REPO / "src"
-for path in (HERE, SRC):
+for path in (FAMILY_DIR, FAMILY_DIR.parent, SRC):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -32,13 +33,13 @@ from zero_residual_constrained_sac import ZeroResidualConstrainedSAC
 
 
 REFERENCE_EXPERIMENT = "sac_closing_lqr_reference_residual_pilot_j_final_lqr_terminal_dt0p1_500k_seed0"
-REFERENCE_RESULTS = HERE / "results" / "lqr_reference_residual_final_dt01" / REFERENCE_EXPERIMENT
-REFERENCE_MODELS = HERE / "models" / "lqr_reference_residual_final_dt01" / REFERENCE_EXPERIMENT
+REFERENCE_RESULTS = FAMILY_DIR / "results" / "lqr_reference_residual_final_dt01" / REFERENCE_EXPERIMENT
+REFERENCE_MODELS = FAMILY_DIR / "models" / "lqr_reference_residual_final_dt01" / REFERENCE_EXPERIMENT
 DIRECT_EXPERIMENT = "sac_closing_direct_residual_dt0p1_no_her_stable_200k_seed0"
-DIRECT_RESULTS = HERE / "results" / "her_lqr_residual" / DIRECT_EXPERIMENT
-DIRECT_MODELS = HERE / "models" / "her_lqr_residual" / DIRECT_EXPERIMENT
+DIRECT_RESULTS = FAMILY_DIR / "results" / "her_lqr_residual" / DIRECT_EXPERIMENT
+DIRECT_MODELS = FAMILY_DIR / "models" / "her_lqr_residual" / DIRECT_EXPERIMENT
 
-OUTPUT_DIR = HERE / "results" / "publication_figures" / "residual_sac"
+OUTPUT_DIR = FAMILY_DIR / "results" / "retained_figures" / "residual_sac"
 OUTPUT_STEM = OUTPUT_DIR / "residual_sac_intervention_vs_zero_residual_lqr"
 MAX_STEPS = 120_000
 NONNEGLIGIBLE = 1e-3

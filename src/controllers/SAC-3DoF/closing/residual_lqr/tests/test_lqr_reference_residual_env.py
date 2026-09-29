@@ -6,7 +6,7 @@ import sys
 import numpy as np
 
 
-SRC_PATH = Path(__file__).resolve().parents[4]
+SRC_PATH = Path(__file__).resolve().parents[5]
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 CLOSING_PATH = Path(__file__).resolve().parents[1]

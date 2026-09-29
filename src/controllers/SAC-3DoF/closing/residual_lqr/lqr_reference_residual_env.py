@@ -20,7 +20,7 @@ from envs.docking3dof.goal_conditioned_closing_env import (
 
 
 CLOSING_DIR = Path(__file__).resolve().parent
-LQR_DIR = CLOSING_DIR.parents[1] / "LQR-3DoF"
+LQR_DIR = CLOSING_DIR.parents[2] / "LQR-3DoF"
 if str(LQR_DIR) not in sys.path:
     sys.path.insert(0, str(LQR_DIR))
 

@@ -99,3 +99,20 @@ was available. Statements about CBF behavior retain the distinction between
 continuous-time inequalities, sampled rollouts, soft constraints, hard
 constraints, and non-certified nominal fallback. No document claims a formal
 sampled-data guarantee.
+
+## JSON and CSV review
+
+All 126 JSON files and 244 CSV files parse successfully. The JSON collection
+contains 16 top-level object-key schemas, and the CSV collection contains 27
+header schemas. The variants correspond to distinct artifact roles or recorded
+evaluator generations: run configurations, aggregate tables, per-episode
+tables, paired comparisons, tuning plans, tuning trials, selected gains, and
+figure provenance. No schema was normalized across historical runs.
+
+No assistant references, conversational drafting language, duplicate CSV
+headers, inconsistent row widths, or encoding failures were found. A total of
+118 structured-text files contain absolute Windows paths. These fields record
+the model, normalization state, result directory, or study storage used by a
+completed run; they are retained as historical provenance and are not consumed
+as active defaults by the reviewed programs. No JSON or CSV artifact was
+modified, so all recorded numeric values and provenance fields remain intact.

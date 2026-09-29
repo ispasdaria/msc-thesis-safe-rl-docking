@@ -25,9 +25,9 @@ Each evaluation directory contains:
   metrics.
 - `step_timeseries_<filter>_eval_seedXXXX.npz`: complete step-level state,
   action, barrier, residual, slack, and solver diagnostics. Runs made with the
-  schema-version-2 evaluator additionally records post-step barriers and explicit
-  protected-set violation flags; older archived runs contain the pre-step
-  barrier samples only.
+  schema-version-2 evaluator additionally record post-step barriers and
+  explicit protected-set violation flags; older archived runs contain the
+  pre-step barrier samples only.
 
 The tuning directory contains the Optuna database, complete gain-search trial
 table, search plan, and selected gain configuration. The database is retained

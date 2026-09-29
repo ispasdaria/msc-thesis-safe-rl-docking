@@ -1,9 +1,9 @@
 # Residual SAC around the closing LQR: experiment results
 
 This directory records three residual-SAC pilots evaluated on closing
-validation seeds 100 through 109.  Each episode was allowed at most 12,000
-one-second control steps.  These ten-episode evaluations are diagnostic pilot
-comparisons, not final statistically powered thesis results.
+validation seeds 100 through 109. Each episode was allowed at most 12,000
+one-second control steps. These ten-episode evaluations are diagnostic pilot
+comparisons and are not statistically powered evaluations.
 
 The corresponding saved models are documented in
 [`models/her_lqr_residual/README.md`](../../models/her_lqr_residual/README.md).
@@ -115,7 +115,7 @@ Checkpoint 0 initializes the deterministic SAC residual to exactly zero.
 Therefore, checkpoint 0 is an exact actuator-realizable LQR rollout, not an
 independently learned SAC policy.
 
-On validation seeds 100--109 it achieved:
+On validation seeds 100-109 it achieved:
 
 | Metric | Result |
 |---|---:|

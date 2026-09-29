@@ -96,8 +96,8 @@ a narrow, coupled six-tolerance boundary. The unchanged scalar reward and
 small residual policy produce marginal local improvements, but those
 improvements are not reliably coordinated into simultaneous P3 membership.
 
-This negative result is useful for the thesis: it shows that increasing the
-number of terminal encounters alone was insufficient. It also rules out the
+This negative result shows that increasing the number of terminal encounters
+alone was insufficient. It also rules out the
 simple explanation that prior SAC variants failed only because full closing
 episodes contained too few near-P3 transitions.
 

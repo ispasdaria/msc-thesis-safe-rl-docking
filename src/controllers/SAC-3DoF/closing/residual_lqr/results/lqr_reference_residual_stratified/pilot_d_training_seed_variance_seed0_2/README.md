@@ -56,7 +56,7 @@ mean is below LQR (72.5% versus 74.2%). These results do not support claiming
 that the residual SAC reliably improves the closing controller, and they do
 not justify hyperparameter tuning on the current formulation.
 
-For deployment or the thesis reference controller, retain the exact LQR. If a
+For the reference controller, retain the exact LQR. If a
 residual-SAC artifact must be shown as the best observed candidate, use Pilot D
 training seed 0 checkpoint 25k, clearly labeled as an exploratory result rather
 than a statistically validated improvement.

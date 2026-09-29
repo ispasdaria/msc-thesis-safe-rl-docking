@@ -144,8 +144,8 @@ git lfs install
 git lfs pull
 ```
 
-The LFS-managed files are located in
-`src/controllers/SAC-3DoF/closing/demonstrations/`:
+The LFS-managed LQR demonstration files are located in
+`src/controllers/SAC-3DoF/closing/lqr_demonstration_learning/demonstrations/`:
 
 - `lqr_closing_training_rewardv15_expanded_200successes.npz`;
 - `lqr_closing_training_rewardv15_dt_dt0p1_200successes.partial.npz`;

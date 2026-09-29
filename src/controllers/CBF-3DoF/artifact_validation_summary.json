@@ -6,13 +6,13 @@
     "npz": 4081,
     "other": 1,
     "png": 48,
-    "python": 36,
+    "python": 34,
     "sqlite": 2
   },
   "counts_by_status": {
-    "valid": 4552
+    "valid": 4550
   },
-  "file_count": 4552,
+  "file_count": 4550,
   "issues": [],
   "schema_families": {
     "csv": {
@@ -33,10 +33,10 @@
         "results/closing/tuning/closing_gain_search_20260911_014517/validation/ranked_gain_configurations.csv"
       ],
       "eval_seed|baseline_success|cbf_success|baseline_failure|cbf_failure|baseline_final_p3_position_error|cbf_final_p3_position_error|cbf_minus_baseline_final_p3_position_error|baseline_minimum_p3_position_error|cbf_minimum_p3_position_error|baseline_velocity_warning_fraction|cbf_velocity_warning_fraction|baseline_protected_violations_beyond_tolerance|cbf_protected_violations_beyond_tolerance|cbf_intervention_fraction|cbf_qp_failure_count": [
-        "results/closing/evaluations/cbf_development_ablations/20260812_171843/paired_baseline_vs_both.csv",
-        "results/closing/evaluations/cbf_development_ablations/20260813_180944/paired_baseline_vs_both.csv",
-        "results/closing/evaluations/cbf_development_ablations/20260817_130403/paired_baseline_vs_both.csv",
         "results/closing/evaluations/cbf_development_ablations/SAC closing v15 trial16 seed0 400k - hard speed CBF ablation - eval seeds0200-0299 - 20260812_181716/paired_baseline_vs_both.csv",
+        "results/closing/evaluations/cbf_development_ablations/p3reach_v7_300k_baseline_vs_speed_cbfs_seeds0200_0204/paired_baseline_vs_both.csv",
+        "results/closing/evaluations/cbf_development_ablations/trial16_400k_speed_cbf_ablation_seeds0000_0009/paired_baseline_vs_both.csv",
+        "results/closing/evaluations/cbf_development_ablations/trial16_400k_speed_cbf_ablation_seeds0200_0299/paired_baseline_vs_both.csv",
         "results/closing/evaluations/cbf_development_ablations/v12_best_speed_cbf_seeds200_209_20260821/paired_baseline_vs_both.csv",
         "results/closing/evaluations/reward_progression_evaluations/P3-recovery-final-300k-baseline-vs-CBF-seeds0200-0209/paired_baseline_vs_both.csv",
         "results/closing/evaluations/reward_progression_evaluations/P3reach-v2-best500k-baseline-vs-speedCBF-seeds0200-0209-20260814_143431/paired_baseline_vs_both.csv"
@@ -164,10 +164,10 @@
         "results/final_approach/evaluations/alignment_screen_300k/sac_300k_buffer300k_seed17_schema2_diagnostics_unfiltered_cone_speed_full_cbf_eval_seeds0120_0129/aggregate_metrics_by_filter_variant.csv"
       ],
       "variant|episodes|success_rate|failure_rate|time_limit_rate|mean_steps|mean_final_p3_position_error|mean_minimum_p3_position_error|mean_final_p3_max_target_ratio|mean_velocity_safe_fraction|mean_velocity_warning_fraction|mean_velocity_unsafe_fraction|mean_geometry_warning_fraction|mean_geometry_unsafe_fraction|mean_alignment_warning_fraction|mean_alignment_unsafe_fraction|mean_intervention_fraction|initial_protected_set_violation_count|qp_failure_count|qp_failure_reasons|qp_failure_minimal_infeasible_constraint_groups|minimum_qp_failure_hard_feasibility_margin|strict_protected_barrier_violation_count|protected_barrier_violation_beyond_tolerance_count|termination_reasons|violated_constraints|strict_protected_barriers_violated|protected_barriers_violated_beyond_tolerance": [
-        "results/closing/evaluations/cbf_development_ablations/20260812_171843/aggregate_metrics_by_filter_variant.csv",
-        "results/closing/evaluations/cbf_development_ablations/20260813_180944/aggregate_metrics_by_filter_variant.csv",
-        "results/closing/evaluations/cbf_development_ablations/20260817_130403/aggregate_metrics_by_filter_variant.csv",
         "results/closing/evaluations/cbf_development_ablations/SAC closing v15 trial16 seed0 400k - hard speed CBF ablation - eval seeds0200-0299 - 20260812_181716/aggregate_metrics_by_filter_variant.csv",
+        "results/closing/evaluations/cbf_development_ablations/p3reach_v7_300k_baseline_vs_speed_cbfs_seeds0200_0204/aggregate_metrics_by_filter_variant.csv",
+        "results/closing/evaluations/cbf_development_ablations/trial16_400k_speed_cbf_ablation_seeds0000_0009/aggregate_metrics_by_filter_variant.csv",
+        "results/closing/evaluations/cbf_development_ablations/trial16_400k_speed_cbf_ablation_seeds0200_0299/aggregate_metrics_by_filter_variant.csv",
         "results/closing/evaluations/cbf_development_ablations/v12_best_speed_cbf_seeds200_209_20260821/aggregate_metrics_by_filter_variant.csv",
         "results/closing/evaluations/reward_progression_evaluations/P3-recovery-final-300k-baseline-vs-CBF-seeds0200-0209/aggregate_metrics_by_filter_variant.csv",
         "results/closing/evaluations/reward_progression_evaluations/P3reach-from-scratch-final600k-baseline-seeds0200-0209/aggregate_metrics_by_filter_variant.csv",
@@ -211,10 +211,10 @@
         "results/closing/evaluations/cbf_development_ablations/v12_cone_speed_cbf_all_seeds204_209_20260821/per_episode_metrics.csv"
       ],
       "variant|eval_seed|initial_rx|initial_ry|initial_vx|initial_vy|initial_psi|initial_omega|p3_target_rx|p3_target_ry|p3_target_vx|p3_target_vy|p3_target_psi|p3_target_omega|initial_h_port_speed|initial_h_axial_port_speed|initial_protected_set_satisfied|steps|success|failure|time_limit|termination_reason|violated_constraints|total_reward|final_port_distance|minimum_port_distance|final_port_speed|maximum_port_speed|final_abs_axial_speed|maximum_abs_axial_speed|final_p3_position_error|minimum_p3_position_error|final_p3_velocity_error|final_p3_attitude_error|final_p3_rate_error|final_p3_max_target_ratio|velocity_safe_fraction|velocity_warning_fraction|velocity_unsafe_fraction|geometry_safe_fraction|geometry_warning_fraction|geometry_unsafe_fraction|alignment_safe_fraction|alignment_warning_fraction|alignment_unsafe_fraction|intervention_count|intervention_fraction|mean_intervention_scaled_norm|max_intervention_scaled_norm|qp_failure_count|qp_failure_reasons|qp_failure_minimal_infeasible_constraint_groups|minimum_qp_failure_hard_feasibility_margin|strict_protected_barrier_violation_count|strict_protected_barriers_violated|protected_barrier_violation_beyond_tolerance_count|protected_barriers_violated_beyond_tolerance|min_h_port_speed|min_h_axial_port_speed|min_post_h_port_speed|min_post_h_axial_port_speed|min_raw_residual_port_speed|min_raw_residual_axial_port_speed|step_log": [
-        "results/closing/evaluations/cbf_development_ablations/20260812_171843/per_episode_metrics.csv",
-        "results/closing/evaluations/cbf_development_ablations/20260813_180944/per_episode_metrics.csv",
-        "results/closing/evaluations/cbf_development_ablations/20260817_130403/per_episode_metrics.csv",
         "results/closing/evaluations/cbf_development_ablations/SAC closing v15 trial16 seed0 400k - hard speed CBF ablation - eval seeds0200-0299 - 20260812_181716/per_episode_metrics.csv",
+        "results/closing/evaluations/cbf_development_ablations/p3reach_v7_300k_baseline_vs_speed_cbfs_seeds0200_0204/per_episode_metrics.csv",
+        "results/closing/evaluations/cbf_development_ablations/trial16_400k_speed_cbf_ablation_seeds0000_0009/per_episode_metrics.csv",
+        "results/closing/evaluations/cbf_development_ablations/trial16_400k_speed_cbf_ablation_seeds0200_0299/per_episode_metrics.csv",
         "results/closing/evaluations/cbf_development_ablations/v12_best_speed_cbf_seeds200_209_20260821/per_episode_metrics.csv",
         "results/closing/evaluations/reward_progression_evaluations/P3-recovery-final-300k-baseline-vs-CBF-seeds0200-0209/per_episode_metrics.csv",
         "results/closing/evaluations/reward_progression_evaluations/P3reach-from-scratch-final600k-baseline-seeds0200-0209/per_episode_metrics.csv",
@@ -337,12 +337,12 @@
         "results/closing/evaluations/controller_campaigns/campaign_vanilla_final_full_cbf_seeds_0_49_30000s/run_configuration.json"
       ],
       "cbf|closing_reward_version|constraint_policy|environment|max_steps|mode|model|num_seeds|p3_target_sampling|p3_tolerances_used_as_cbf_constraints|paired_evaluation|protected_barrier_tolerance|qp_failure_behavior|result_schema_version|seed_start|variants|vecnormalize": [
-        "results/closing/evaluations/cbf_development_ablations/20260812_171843/run_configuration.json",
-        "results/closing/evaluations/cbf_development_ablations/20260813_180944/run_configuration.json",
-        "results/closing/evaluations/cbf_development_ablations/20260817_130403/run_configuration.json",
         "results/closing/evaluations/cbf_development_ablations/SAC closing v15 trial16 seed0 400k - hard speed CBF ablation - eval seeds0200-0299 - 20260812_181716/run_configuration.json",
+        "results/closing/evaluations/cbf_development_ablations/p3reach_v7_300k_baseline_vs_speed_cbfs_seeds0200_0204/run_configuration.json",
         "results/closing/evaluations/cbf_development_ablations/trial16_400k_cone_speed_cbf_20260822_014706/run_configuration.json",
         "results/closing/evaluations/cbf_development_ablations/trial16_400k_full_alignment_cbf_20260822_021650/run_configuration.json",
+        "results/closing/evaluations/cbf_development_ablations/trial16_400k_speed_cbf_ablation_seeds0000_0009/run_configuration.json",
+        "results/closing/evaluations/cbf_development_ablations/trial16_400k_speed_cbf_ablation_seeds0200_0299/run_configuration.json",
         "results/closing/evaluations/cbf_development_ablations/v12_best_speed_cbf_seeds200_209_20260821/run_configuration.json",
         "results/closing/evaluations/cbf_development_ablations/v12_cone_cbf_final_full_seed209_20260821/run_configuration.json",
         "results/closing/evaluations/cbf_development_ablations/v12_cone_cbf_full_seed200_20260821/run_configuration.json",
@@ -476,5 +476,5 @@
       ]
     }
   },
-  "total_size_bytes": 6347125596
+  "total_size_bytes": 6347130029
 }

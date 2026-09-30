@@ -18,7 +18,6 @@ import csv
 import json
 import os
 import platform
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,16 +26,22 @@ import numpy as np
 import scipy
 from scipy.integrate import solve_ivp
 
+if __package__:
+    from ._path_setup import ensure_project_imports
+else:
+    from _path_setup import ensure_project_imports
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-SRC_PATH = REPO_ROOT / "src"
-if str(SRC_PATH) not in sys.path:
-    sys.path.insert(0, str(SRC_PATH))
+ensure_project_imports()
 
 from envs.docking3dof.core import Docking3DoFEnv
 
 
 DEFAULT_DTS = (4.0, 2.0, 1.0, 0.5, 0.25, 0.1)
+DEFAULT_OUTPUT_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "results"
+    / "integrator_timestep_verification"
+)
 DEFAULT_ACTION_BODY = np.array(
     [2.0e-4, 1.0e-4, np.deg2rad(1.0e-4)],
     dtype=float,
@@ -757,9 +762,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=None,
+        default=DEFAULT_OUTPUT_DIR,
         help=(
-            "Optional directory for detailed_convergence.csv, "
+            "Directory for detailed_convergence.csv, "
             "worst_case_summary.csv, terminal_event_resolution.csv, and "
             "study_metadata.json. When dt=0.1 s is included, "
             "rk4_dt_0p1_summary.json is also written."
@@ -797,23 +802,22 @@ def main() -> None:
     print_rk4_focus_summary(rk4_focus_summary)
     print_terminal_event_results(event_rows)
 
-    if args.output_dir is not None:
-        output_dir = args.output_dir.resolve()
-        write_csv(output_dir / "detailed_convergence.csv", detailed_rows)
-        write_csv(output_dir / "worst_case_summary.csv", summary_rows)
-        write_csv(output_dir / "terminal_event_resolution.csv", event_rows)
-        if rk4_focus_summary is not None:
-            write_json(
-                output_dir / "rk4_dt_0p1_summary.json",
-                rk4_focus_summary,
-            )
-        write_metadata(
-            output_dir / "study_metadata.json",
-            args=args,
-            dts=dts,
-            reference_evaluations=reference_evaluations,
+    output_dir = args.output_dir.resolve()
+    write_csv(output_dir / "detailed_convergence.csv", detailed_rows)
+    write_csv(output_dir / "worst_case_summary.csv", summary_rows)
+    write_csv(output_dir / "terminal_event_resolution.csv", event_rows)
+    if rk4_focus_summary is not None:
+        write_json(
+            output_dir / "rk4_dt_0p1_summary.json",
+            rk4_focus_summary,
         )
-        print(f"\nSaved verification artifacts to: {output_dir}")
+    write_metadata(
+        output_dir / "study_metadata.json",
+        args=args,
+        dts=dts,
+        reference_evaluations=reference_evaluations,
+    )
+    print(f"\nSaved verification artifacts to: {output_dir}")
 
 
 if __name__ == "__main__":

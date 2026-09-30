@@ -23,7 +23,11 @@ def test_pytest_configuration_discovers_environment_tests_from_src():
     config = configparser.ConfigParser()
     config.read(REPO_ROOT / "pytest.ini")
 
-    assert config["pytest"]["pythonpath"].split() == ["src"]
+    assert config["pytest"]["pythonpath"].split() == [
+        "src",
+        "src/controllers/LQR-3DoF",
+        "src/controllers/CBF-3DoF",
+    ]
     assert config["pytest"]["testpaths"].split() == [
         "src/envs/docking3dof/tests"
     ]

@@ -1,16 +1,14 @@
-import os
-import sys
-
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Allow running this file directly by adding the parent folder to sys.path.
-CURRENT_DIR = os.path.dirname(__file__)
-PARENT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
-if PARENT_DIR not in sys.path:
-    sys.path.insert(0, PARENT_DIR)
+if __package__:
+    from ._path_setup import ensure_project_imports
+else:
+    from _path_setup import ensure_project_imports
 
-from core import Docking3DoFEnv
+ensure_project_imports()
+
+from envs.docking3dof.core import Docking3DoFEnv
 
 
 def run_zero_action_rollout():

@@ -1,14 +1,6 @@
-import os
-import sys
 import pytest
 
 import numpy as np
-
-# Allow imports from the repo's src/ directory when running pytest from the root.
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
-SRC_PATH = os.path.join(REPO_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
 
 from envs.docking3dof.core import Docking3DoFEnv
 

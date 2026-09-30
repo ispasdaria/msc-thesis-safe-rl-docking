@@ -1,13 +1,12 @@
-import os
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Allow imports from the repo's src/ directory when running pytest from the root.
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
-SRC_PATH = os.path.join(REPO_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+if __package__:
+    from ._path_setup import ensure_project_imports
+else:
+    from _path_setup import ensure_project_imports
+
+ensure_project_imports()
 
 from envs.docking3dof.core import Docking3DoFEnv
 
@@ -283,8 +282,7 @@ def run_test_4_axial_braking():
     At psi = 0:
         ax_O = -ax_Bc
 
-    To brake negative vx, we want ax_O > 0,
-    so we command ax_Bc < 0.
+    Braking negative vx requires ax_O > 0 and therefore ax_Bc < 0.
     """
 
     env = Docking3DoFEnv(
@@ -347,8 +345,7 @@ def run_test_5_negative_ry_lateral_correction():
     At psi = 0:
         ay_O = -ay_Bc
 
-    If ry < 0, we want ay_O > 0,
-    so we command ay_Bc < 0.
+    Correcting ry < 0 requires ay_O > 0 and therefore ay_Bc < 0.
     """
 
     env = Docking3DoFEnv(
@@ -490,7 +487,7 @@ def run_test_7_angular_rate_damping():
     Start with positive angular rate.
     Apply negative angular acceleration to reduce omegaz.
 
-    This checks angular-rate damping, not just attitude correction.
+    The test isolates angular-rate damping from attitude correction.
     """
 
     env = Docking3DoFEnv(
@@ -560,7 +557,7 @@ def run_test_8_wrong_direction_lateral():
     Deliberately apply the wrong lateral acceleration.
 
     If ry > 0, the correct command is ay_Bc > 0.
-    Here we command ay_Bc < 0, so |ry| should increase.
+    Commanding ay_Bc < 0 should increase |ry|.
     """
 
     env = Docking3DoFEnv(
@@ -625,7 +622,7 @@ def run_test_9_wrong_direction_attitude():
     Deliberately apply positive angular acceleration.
 
     If psi > 0, the correct command is negative alphaz.
-    Here we command positive alphaz, so |psi| should increase.
+    Commanding positive alphaz should increase |psi|.
     """
 
     env = Docking3DoFEnv(

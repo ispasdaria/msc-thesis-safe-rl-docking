@@ -6,22 +6,8 @@ fixture runs one deterministic nominal mission and the tests evaluate it
 against mission-level acceptance criteria.
 """
 
-import os
-import sys
-
 import numpy as np
 import pytest
-
-
-REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
-)
-SRC_PATH = os.path.join(REPO_ROOT, "src")
-LQR_PATH = os.path.join(SRC_PATH, "controllers", "LQR-3DoF")
-
-for path in (SRC_PATH, LQR_PATH):
-    if path not in sys.path:
-        sys.path.insert(0, path)
 
 from evaluation.run_lqr_full_mission import create_runner, run_full_mission
 

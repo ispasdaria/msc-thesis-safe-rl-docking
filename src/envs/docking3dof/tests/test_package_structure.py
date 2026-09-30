@@ -19,7 +19,7 @@ SAFETY_EXPLORATION_EXPORTS = (
 )
 
 
-def test_pytest_configuration_discovers_environment_tests_from_src():
+def test_pytest_configuration_exposes_sources_without_narrowing_discovery():
     config = configparser.ConfigParser()
     config.read(REPO_ROOT / "pytest.ini")
 
@@ -28,9 +28,7 @@ def test_pytest_configuration_discovers_environment_tests_from_src():
         "src/controllers/LQR-3DoF",
         "src/controllers/CBF-3DoF",
     ]
-    assert config["pytest"]["testpaths"].split() == [
-        "src/envs/docking3dof/tests"
-    ]
+    assert "testpaths" not in config["pytest"]
 
 
 def test_production_modules_do_not_bootstrap_python_import_paths():

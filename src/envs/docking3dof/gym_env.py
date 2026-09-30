@@ -1421,10 +1421,10 @@ class Docking3DoFGymEnv(gym.Env):
         No visual renderer yet.
         Use core_env.get_history_arrays() for plotting.
         """
-        pass
+        return None
 
     def close(self):
-        pass
+        return None
 
     def get_history_arrays(self):
         return self.core_env.get_history_arrays()

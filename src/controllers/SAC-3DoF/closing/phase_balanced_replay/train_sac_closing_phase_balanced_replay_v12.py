@@ -22,7 +22,7 @@ import train_p3_reach_reward_from_scratch as training
 from envs.docking3dof.closing_safety_exploration_env import (
     ClosingSafetyExplorationV12GymEnv,
 )
-from phase_balanced_replay_buffer import PhaseBalancedReplayBuffer
+from phase_balanced_replay_buffer_implementation import PhaseBalancedReplayBuffer
 
 
 CAPTURE_DISTANCE_M = 400.0

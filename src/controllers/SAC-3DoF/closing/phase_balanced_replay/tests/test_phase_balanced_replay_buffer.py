@@ -12,7 +12,7 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from phase_balanced_replay_buffer import (  # noqa: E402
+from phase_balanced_replay_buffer_implementation import (  # noqa: E402
     PhaseBalancedReplayBuffer,
 )
 from train_sac_closing_v15_phase_balanced_replay import (  # noqa: E402

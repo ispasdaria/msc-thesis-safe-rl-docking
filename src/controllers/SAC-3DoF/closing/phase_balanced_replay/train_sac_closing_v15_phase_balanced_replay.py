@@ -35,7 +35,7 @@ for path in (SCRIPT_DIR, CLOSING_DIR, VANILLA_DIR, SRC_PATH):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from phase_balanced_replay_buffer import (  # noqa: E402
+from phase_balanced_replay_buffer_implementation import (  # noqa: E402
     PhaseBalancedReplayBuffer,
 )
 from train_sac_closing_multiseed import (  # noqa: E402

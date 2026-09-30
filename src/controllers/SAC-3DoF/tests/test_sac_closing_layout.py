@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -225,7 +226,7 @@ def test_curriculum_and_p3_reach_scripts_import_from_repository_root():
 def test_phase_balanced_replay_family_contains_code_and_artifacts():
     family = CLOSING_DIR / "phase_balanced_replay"
 
-    assert (family / "phase_balanced_replay_buffer.py").is_file()
+    assert (family / "phase_balanced_replay_buffer_implementation.py").is_file()
     assert (family / "guarded_simultaneous_target_replay_buffer.py").is_file()
     assert (family / "train_sac_closing_v15_phase_balanced_replay.py").is_file()
     assert (
@@ -253,6 +254,36 @@ def test_phase_balanced_replay_family_contains_code_and_artifacts():
         "train_sac_closing_v15_phase_balanced_replay_v21_cbf.py",
     }
     assert not any((family / name).exists() for name in old_names)
+
+
+def test_retained_phase_balanced_checkpoint_loads_from_repository_root():
+    """Catch removal of the legacy module path embedded in the checkpoint."""
+
+    model_path = (
+        CLOSING_DIR
+        / "phase_balanced_replay"
+        / "models"
+        / "multiseed"
+        / "sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0"
+        / "seed_0"
+        / "model_0100000_steps.zip"
+    )
+    command = (
+        "from stable_baselines3 import SAC; "
+        f"model = SAC.load({str(model_path)!r}, device='cpu'); "
+        "assert model.observation_space.shape == (12,); "
+        "assert model.action_space.shape == (3,)"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", command],
+        cwd=CLOSING_DIR.parents[3],
+        env={key: value for key, value in os.environ.items() if key != "PYTHONPATH"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_lqr_demonstration_family_contains_code_data_and_artifacts():

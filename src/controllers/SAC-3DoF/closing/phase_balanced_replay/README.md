@@ -14,7 +14,7 @@ The short variant launchers are retained because they encode distinct replay and
 
 ## Contents
 
-- `phase_balanced_replay_buffer.py` and `guarded_simultaneous_target_replay_buffer.py` implement the replay partitions.
+- `phase_balanced_replay_buffer_implementation.py` contains the original phase-balanced replay-buffer implementation, while `guarded_simultaneous_target_replay_buffer.py` extends it with guarded simultaneous-target sampling.
 - `models/multiseed/`, `logs/multiseed/`, and `results/multiseed/` contain the associated training runs.
 - `results/multiseed_evaluation/` contains deterministic held-out evaluations.
 - `results/retained_figures/` contains figures and diagnostics for the retained checkpoint.

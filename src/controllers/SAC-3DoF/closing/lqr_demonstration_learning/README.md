@@ -26,4 +26,12 @@ The short training presets are retained because replay prefill, mixed replay, be
 - `plotters/` regenerates family-specific comparisons.
 - `tests/` verifies dataset integrity, timing equivalence, replay partitioning, and behavior-cloning losses.
 
+The large demonstration `.npz` files are managed by Git LFS. A normal clone
+may contain small pointer files instead of the dataset payloads; this is
+intentional and keeps the initial checkout manageable. The datasets are only
+required for regenerating or continuing the demonstration-replay and
+behavior-cloning experiments. Users who need those workflows can retrieve the
+uploaded payloads with `git lfs pull`. The retained SAC policy checkpoints and
+ordinary controller evaluations do not require these demonstration datasets.
+
 `behavior_cloned_warmup_sac.py` remains at the closing root because the residual-LQR family also imports it.

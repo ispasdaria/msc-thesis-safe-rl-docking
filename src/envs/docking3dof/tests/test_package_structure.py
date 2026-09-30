@@ -43,10 +43,18 @@ def test_production_modules_do_not_bootstrap_python_import_paths():
     assert offenders == []
 
 
-def test_diagnostics_and_results_have_dedicated_directories():
+def test_validation_and_results_have_dedicated_directories():
     tests_dir = DOCKING_PACKAGE / "tests"
+    validation_dir = DOCKING_PACKAGE / "validation"
 
-    assert (tests_dir / "diagnostics").is_dir()
+    assert validation_dir.is_dir()
+    assert {
+        "action_response.py",
+        "integrator_timestep_verification.py",
+        "manual_control.py",
+        "timestep_convergence.py",
+    }.issubset({path.name for path in validation_dir.iterdir()})
+    assert not (tests_dir / "diagnostics").exists()
     assert (
         tests_dir / "results" / "integrator_timestep_verification"
     ).is_dir()

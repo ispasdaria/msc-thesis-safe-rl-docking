@@ -39,6 +39,7 @@ from envs.docking3dof.core import Docking3DoFEnv
 DEFAULT_DTS = (4.0, 2.0, 1.0, 0.5, 0.25, 0.1)
 DEFAULT_OUTPUT_DIR = (
     Path(__file__).resolve().parents[1]
+    / "tests"
     / "results"
     / "integrator_timestep_verification"
 )

@@ -1,10 +1,10 @@
 """Compatibility exports for closing safety-exploration environments.
 
-Implementations live in :mod:`envs.docking3dof.rewards.closing_safety`.
+Implementations live in :mod:`envs.docking3dof.rewards.safety_exploration`.
 This module preserves the import path used by training and evaluation scripts.
 """
 
-from envs.docking3dof.rewards.closing_safety import (
+from envs.docking3dof.rewards.safety_exploration import (
     ClosingSafetyExplorationCoreEnv,
     ClosingSafetyExplorationGymEnv,
     ClosingSafetyExplorationV2GymEnv,

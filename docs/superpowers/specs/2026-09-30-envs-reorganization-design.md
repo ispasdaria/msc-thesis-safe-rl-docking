@@ -36,10 +36,11 @@ src/envs/docking3dof/
   rewards/
     __init__.py
     closing.py
-    closing_safety_base.py
-    closing_safety_v01_v07.py
-    closing_safety_v08_v14.py
-    closing_safety_v15_v21.py
+    safety_exploration.py
+    goal_conditioned.py
+  shields/
+    __init__.py
+    closing_cbf.py
   tests/
     test_core.py
     test_runners.py
@@ -47,11 +48,6 @@ src/envs/docking3dof/
     test_gym_wrapper.py
     test_gym_rollout.py
     test_closing_safety_exploration_env.py
-    diagnostics/
-      manual_control.py
-      action_response.py
-      timestep_convergence.py
-      integrator_timestep_verification.py
     results/
       integrator_timestep_verification/
         detailed_convergence.csv
@@ -59,11 +55,12 @@ src/envs/docking3dof/
         terminal_event_resolution.csv
         study_metadata.json
         rk4_dt_0p1_summary.json
+  validation/
+    manual_control.py
+    action_response.py
+    timestep_convergence.py
+    integrator_timestep_verification.py
 ```
-
-Exact reward-module groupings may shift slightly if dependency analysis shows
-a cleaner boundary, but each module will remain focused and the compatibility
-surface described below will not change.
 
 ## Test Organization
 
@@ -72,8 +69,8 @@ surface described below will not change.
 into the main `tests` directory. This produces one automated-test hierarchy.
 
 Files whose entry points run simulations, create plots, or write reports are
-diagnostic programs rather than pytest modules. They move to
-`tests/diagnostics` and receive names that do not imply automatic collection.
+validation programs rather than pytest modules. They move to the top-level
+`validation` package and receive names that do not imply automatic collection.
 Their direct-execution entry points remain available.
 
 Generated verification data remains under `tests`, as requested, at
@@ -113,9 +110,19 @@ action scaling, step orchestration, and reward dispatch. Extracted reward code
 receives the same state and diagnostic inputs and returns the same total and
 component dictionary.
 
-The safety-exploration variants will be grouped into a small base module and
-version-family modules. Shared calculations will be extracted only where the
-current implementations already express identical behavior. This is a
+The standard closing reward implementation moves to `rewards/closing.py` and
+is invoked by `Docking3DoFGymEnv._compute_sac_reward` through a focused
+dispatcher. The dispatcher owns closing-phase reward calculations; the Gym
+environment retains observation, action, transition, and final-approach
+orchestration.
+
+The complete safety-exploration hierarchy moves to
+`rewards/safety_exploration.py`. Its inheritance chain remains together
+because later historical variants reuse earlier private calculations.
+
+The goal-conditioned implementation moves to `rewards/goal_conditioned.py`,
+and the CBF-shielded implementation moves to `shields/closing_cbf.py`.
+Original top-level modules remain explicit compatibility facades. This is a
 structural refactor, not an opportunity to redesign reward formulas.
 
 Before moving each reward family, characterization tests will record public

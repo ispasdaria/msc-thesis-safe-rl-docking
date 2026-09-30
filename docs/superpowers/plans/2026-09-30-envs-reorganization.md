@@ -11,10 +11,13 @@
 - Modify `pytest.ini`: configure the repository `src` import root and standard test discovery.
 - Rename `src/envs/docking3dof/tests/unit_test_core.py` to `src/envs/docking3dof/tests/test_core.py`.
 - Move `src/envs/docking3dof/tests_gym/*.py` into `src/envs/docking3dof/tests/`.
-- Move manual programs into `src/envs/docking3dof/tests/diagnostics/` with non-test names.
+- Move manual programs into `src/envs/docking3dof/validation/` with non-test names.
 - Move generated files into `src/envs/docking3dof/tests/results/integrator_timestep_verification/`.
 - Modify `src/envs/docking3dof/runners.py`: remove path mutation and clean formatting.
-- Create `src/envs/docking3dof/rewards/`: focused closing and safety-exploration implementations.
+- Create `src/envs/docking3dof/rewards/closing.py`: standard closing reward implementation.
+- Create `src/envs/docking3dof/rewards/safety_exploration.py`: complete safety-exploration hierarchy.
+- Create `src/envs/docking3dof/rewards/goal_conditioned.py`: goal-conditioned wrappers.
+- Create `src/envs/docking3dof/shields/`: the closing CBF-shield implementation.
 - Modify `src/envs/docking3dof/gym_env.py`: delegate closing reward computation while preserving its public class.
 - Modify `src/envs/docking3dof/closing_safety_exploration_env.py`: compatibility facade for extracted classes.
 - Modify affected tests and repository callers only where paths, not public APIs, change.
@@ -23,7 +26,7 @@
 
 - Existing environment imports remain valid, including every class currently exported from `closing_safety_exploration_env.py`.
 - `Docking3DoFGymEnv._compute_sac_reward(...)` retains its current signature and return value.
-- Diagnostic programs remain runnable from the repository root with `.venv/Scripts/python.exe <path>`.
+- Validation programs remain runnable from the repository root with `.venv/Scripts/python.exe <path>`.
 - Integrator verification accepts the existing explicit output argument and defaults to `tests/results/integrator_timestep_verification`.
 
 ## Review Focus
@@ -134,10 +137,9 @@ Change `render()` and `close()` to return `None` explicitly. Do not add renderin
 
 Run the focused tests, followed by the entire reorganized environment suite.
 
-### Task 4: Characterize and extract the standard closing reward
+### Task 4: Extract the standard closing reward
 
 **Files:**
-- Create: `src/envs/docking3dof/rewards/__init__.py`
 - Create: `src/envs/docking3dof/rewards/closing.py`
 - Modify: `src/envs/docking3dof/gym_env.py`
 - Modify: `src/envs/docking3dof/tests/test_gym_wrapper.py`
@@ -158,14 +160,16 @@ Move only closing-reward calculations into `rewards/closing.py`. Expose one inte
 
 Expected: reward totals, component dictionaries, and termination behavior remain unchanged.
 
-### Task 5: Extract safety-exploration reward families
+### Task 5: Organize specialized reward and shield implementations
 
 **Files:**
-- Create: `src/envs/docking3dof/rewards/closing_safety_base.py`
-- Create: `src/envs/docking3dof/rewards/closing_safety_v01_v07.py`
-- Create: `src/envs/docking3dof/rewards/closing_safety_v08_v14.py`
-- Create: `src/envs/docking3dof/rewards/closing_safety_v15_v21.py`
+- Rename: `src/envs/docking3dof/rewards/closing_safety.py` → `src/envs/docking3dof/rewards/safety_exploration.py`
+- Create: `src/envs/docking3dof/rewards/goal_conditioned.py`
+- Create: `src/envs/docking3dof/shields/__init__.py`
+- Create: `src/envs/docking3dof/shields/closing_cbf.py`
 - Modify: `src/envs/docking3dof/closing_safety_exploration_env.py`
+- Modify: `src/envs/docking3dof/goal_conditioned_closing_env.py`
+- Modify: `src/envs/docking3dof/closing_cbf_shield_env.py`
 - Modify: `src/envs/docking3dof/tests/test_closing_safety_exploration_env.py`
 - Modify: repository callers only if they import internal implementation locations
 
@@ -177,21 +181,57 @@ Enumerate every current public environment class and assert that importing it fr
 
 Expected: pass. Temporarily include a nonexistent expected export to demonstrate failure, then restore the valid list.
 
-- [ ] **Step 3: Move the base environments and versions 1–7**
+- [ ] **Step 3: Rename the complete safety-exploration implementation**
 
-Place shared core/Gym behavior in `closing_safety_base.py` and the first version family in `closing_safety_v01_v07.py`. Re-export moved classes from the original module. Run all safety-exploration tests.
+Keep the complete inheritance hierarchy together in
+`rewards/safety_exploration.py`. Re-export every public class from the
+original top-level module and run all safety-exploration tests.
 
-- [ ] **Step 4: Move versions 8–14**
+- [ ] **Step 4: Move the goal-conditioned implementation**
 
-Preserve inheritance order and import earlier family classes explicitly. Re-export from the compatibility module and run all safety-exploration tests.
+Move all goal-conditioned classes to `rewards/goal_conditioned.py`. Replace
+the original module with explicit compatibility exports and run its tests and
+repository import checks.
 
-- [ ] **Step 5: Move versions 15–21 and terminal variants**
+- [ ] **Step 5: Move the closing CBF shield implementation**
 
-Preserve all class names, class attributes, observation changes, and inherited methods. Re-export from the compatibility module and run all safety-exploration tests.
+Move `build_closing_cbf_config`, `CBF_TRAINING_VARIANTS`, and
+`ClosingCBFShieldedGymEnv` to `shields/closing_cbf.py`. Replace the original
+module with explicit compatibility exports and run CBF and repository import
+tests.
 
-- [ ] **Step 6: Reduce the compatibility module**
+- [ ] **Step 6: Verify all compatibility modules**
 
-Leave a module docstring, explicit imports, and `__all__`. Do not place reward calculations in the facade.
+Each old top-level module contains only a module docstring, explicit imports,
+and `__all__`. No reward or shield calculations remain in the facades.
+
+### Task 5A: Move diagnostics to top-level validation
+
+**Files:**
+- Create: `src/envs/docking3dof/validation/__init__.py`
+- Move: `src/envs/docking3dof/tests/diagnostics/manual_control.py` → `src/envs/docking3dof/validation/manual_control.py`
+- Move: `src/envs/docking3dof/tests/diagnostics/action_response.py` → `src/envs/docking3dof/validation/action_response.py`
+- Move: `src/envs/docking3dof/tests/diagnostics/timestep_convergence.py` → `src/envs/docking3dof/validation/timestep_convergence.py`
+- Move: `src/envs/docking3dof/tests/diagnostics/integrator_timestep_verification.py` → `src/envs/docking3dof/validation/integrator_timestep_verification.py`
+- Move: `src/envs/docking3dof/tests/diagnostics/_path_setup.py` → `src/envs/docking3dof/validation/_path_setup.py`
+- Modify: `src/envs/docking3dof/tests/test_package_structure.py`
+
+- [ ] **Step 1: Change the structure test to require top-level validation**
+
+Assert that `validation/` and its four programs exist and that
+`tests/diagnostics/` no longer exists. Run the test and observe failure before
+moving files.
+
+- [ ] **Step 2: Move validation programs and adjust result paths**
+
+Move files without changing their behavior. Update the integrator program's
+default output path so it still resolves to
+`tests/results/integrator_timestep_verification/` from its new location.
+
+- [ ] **Step 3: Run direct-execution and import smoke checks**
+
+Run the integrator program with `--help` and import every validation module
+without executing simulations or opening plots.
 
 - [ ] **Step 7: Run repository-wide import and test checks**
 

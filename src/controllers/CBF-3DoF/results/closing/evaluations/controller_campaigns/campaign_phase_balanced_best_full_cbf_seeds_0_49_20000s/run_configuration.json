@@ -1,7 +1,7 @@
 {
   "result_schema_version": 3,
-  "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
-  "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
+  "model": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
+  "vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
   "variants": [
     "full"
   ],

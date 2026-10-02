@@ -1,8 +1,8 @@
 {
   "experiment_name": "sac_closing_best_standard_v15dt_dt0p1_4m_seed0",
   "completed": true,
-  "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0_final.zip",
-  "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0_final_vecnormalize.pkl",
+  "final_model": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0_final.zip",
+  "final_vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0\\sac_closing_best_standard_v15dt_dt0p1_4m_seed0_final_vecnormalize.pkl",
   "best_checkpoint": {
     "timestep": 3500000,
     "completed_episodes": 264,

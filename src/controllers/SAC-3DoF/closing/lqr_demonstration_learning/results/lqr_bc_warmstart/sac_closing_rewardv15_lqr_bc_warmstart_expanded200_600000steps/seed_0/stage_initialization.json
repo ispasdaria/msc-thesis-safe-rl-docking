@@ -33,7 +33,7 @@
     "successful_episodes": 200,
     "transition_count": 2181927
   },
-  "dataset_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_expanded_200successes.npz",
+  "dataset_path": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_expanded_200successes.npz",
   "demo_fraction_switch_step": 300000,
   "demonstration_count": 2181927,
   "initial_demo_fraction": 0.5,

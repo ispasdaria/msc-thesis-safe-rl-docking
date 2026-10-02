@@ -186,7 +186,7 @@
     "temporal_stride": 10,
     "transition_count": 864228
   },
-  "bc_dataset_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_dt_dt0p1_bc_stride10_78episodes.npz",
+  "bc_dataset_path": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_dt_dt0p1_bc_stride10_78episodes.npz",
   "bc_metrics": {
     "best_epoch": 1,
     "epochs_completed": 6,
@@ -285,7 +285,7 @@
     "temporal_stride": 1,
     "transition_count": 2211908
   },
-  "replay_dataset_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_dt_dt0p1_replay_20episodes.npz",
+  "replay_dataset_path": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_dt_dt0p1_replay_20episodes.npz",
   "sample_calls": 0,
   "sampled_demo_transitions": 0,
   "sampled_online_transitions": 0,

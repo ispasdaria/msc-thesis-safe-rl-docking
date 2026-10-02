@@ -21,7 +21,7 @@
       "success_rate": 0.38
     }
   },
-  "dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_oracle_seeds400_449.npz",
+  "dataset": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_oracle_seeds400_449.npz",
   "horizon": 600,
   "paired_comparison": {
     "discordant_pairs": 3,

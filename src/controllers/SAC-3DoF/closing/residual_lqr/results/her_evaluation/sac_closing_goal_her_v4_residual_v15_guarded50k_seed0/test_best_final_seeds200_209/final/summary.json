@@ -13,7 +13,7 @@
   "mean_return": -8348.565344252414,
   "mean_steps": 12000.0,
   "mean_target_2x_steps": 0.0,
-  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\her\\sac_closing_goal_her_v4_residual_v15_guarded50k_seed0\\final_model.zip",
+  "model_path": "src\\controllers\\SAC-3DoF\\closing\\models\\her\\sac_closing_goal_her_v4_residual_v15_guarded50k_seed0\\final_model.zip",
   "model_type": "final",
   "n_episodes": 10,
   "n_failure": 0,

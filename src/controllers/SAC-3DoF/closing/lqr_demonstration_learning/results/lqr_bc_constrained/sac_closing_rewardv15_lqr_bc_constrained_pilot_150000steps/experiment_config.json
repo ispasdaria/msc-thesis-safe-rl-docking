@@ -33,7 +33,7 @@
   ],
   "critic_warmup_steps": 50000,
   "demo_fraction_switch_step": 75000,
-  "demonstration_dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_expanded_200successes.npz",
+  "demonstration_dataset": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_expanded_200successes.npz",
   "demonstration_metadata": {
     "action_size": 3,
     "controller": "LQRClosingController",

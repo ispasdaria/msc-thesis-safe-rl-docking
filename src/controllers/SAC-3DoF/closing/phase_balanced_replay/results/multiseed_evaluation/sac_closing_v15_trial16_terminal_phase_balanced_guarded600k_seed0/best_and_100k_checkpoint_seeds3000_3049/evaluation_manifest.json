@@ -135,10 +135,10 @@
     "replay_warmup_action_source": "loaded stochastic SAC policy",
     "reward_version": "v15",
     "safety_violation_termination_enabled": true,
-    "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+    "source_model": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
     "source_model_num_timesteps": 400000,
     "source_model_sha256": "2fed2a5924488bf88837bec6b1f74c94a9e35b02245783d50629222b4c61fe3f",
-    "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+    "source_vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
     "source_vecnormalize_sha256": "97db792aa9e729cc6b95b6d0d4a50eb393bef8d471d3ba0ced6937467ba2619c",
     "terminal_conditions": [
       "P3 success",

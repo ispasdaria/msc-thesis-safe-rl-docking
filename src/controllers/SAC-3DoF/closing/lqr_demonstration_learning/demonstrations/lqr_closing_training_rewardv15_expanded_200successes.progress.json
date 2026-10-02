@@ -4,5 +4,5 @@
   "last_attempted_seed": 21800,
   "successful_episodes": 200,
   "transition_count": 2181927,
-  "output": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_expanded_200successes.npz"
+  "output": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_expanded_200successes.npz"
 }

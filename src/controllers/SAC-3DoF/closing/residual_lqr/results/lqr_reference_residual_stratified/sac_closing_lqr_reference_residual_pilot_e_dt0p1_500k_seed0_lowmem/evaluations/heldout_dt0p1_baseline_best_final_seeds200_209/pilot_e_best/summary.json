@@ -40,7 +40,7 @@
   "mean_return": 0.6468583355549665,
   "mean_steps": 118112.0,
   "mean_target_2x_steps": 6961.6,
-  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\lqr_reference_residual_stratified\\sac_closing_lqr_reference_residual_pilot_e_dt0p1_500k_seed0_lowmem\\best_model.zip",
+  "model_path": "src\\controllers\\SAC-3DoF\\closing\\models\\lqr_reference_residual_stratified\\sac_closing_lqr_reference_residual_pilot_e_dt0p1_500k_seed0_lowmem\\best_model.zip",
   "n_episodes": 10,
   "n_failure": 0,
   "n_success": 3,

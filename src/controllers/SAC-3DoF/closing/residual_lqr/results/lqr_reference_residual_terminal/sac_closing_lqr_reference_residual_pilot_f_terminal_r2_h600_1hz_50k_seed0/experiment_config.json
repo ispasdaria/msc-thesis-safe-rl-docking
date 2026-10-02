@@ -58,7 +58,7 @@
         1.0
       ],
       "candidate_count": 27,
-      "dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_oracle_seeds400_449.npz",
+      "dataset": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_oracle_seeds400_449.npz",
       "interpretation_limit": "Success demonstrates useful bounded residual action authority. Failure does not prove mathematical uncontrollability because the oracle uses a finite grid and constant-action lookahead.",
       "lookahead_steps": 1,
       "n_states": 20,
@@ -66,7 +66,7 @@
       "rollout_horizon": 1500,
       "sample_seed": 91000
     },
-    "path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\lqr_reference_residual_terminal\\oracle_study_n20_h1",
+    "path": "src\\controllers\\SAC-3DoF\\closing\\results\\lqr_reference_residual_terminal\\oracle_study_n20_h1",
     "summary": {
       "baseline_success_rate": 0.5,
       "baseline_successes": 10,
@@ -172,7 +172,7 @@
       "eligible_source_failure_snapshots": 0,
       "eligible_source_success_snapshots": 1110,
       "eligible_source_timeout_snapshots": 775,
-      "path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_training_bank.npz",
+      "path": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_training_bank.npz",
       "total_snapshots": 5120
     },
     "max_time_seconds": 600.0,

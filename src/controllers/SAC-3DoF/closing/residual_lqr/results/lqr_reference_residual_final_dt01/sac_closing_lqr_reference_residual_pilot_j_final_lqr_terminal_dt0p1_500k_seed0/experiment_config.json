@@ -106,7 +106,7 @@
     },
     "rule": "strictly higher success rate and no higher hard-failure rate than zero-residual final LQR",
     "selected_checkpoint": 0,
-    "selected_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\lqr_reference_residual_final_dt01\\sac_closing_lqr_reference_residual_pilot_j_final_lqr_terminal_dt0p1_500k_seed0\\accepted_model.zip"
+    "selected_model": "src\\controllers\\SAC-3DoF\\closing\\models\\lqr_reference_residual_final_dt01\\sac_closing_lqr_reference_residual_pilot_j_final_lqr_terminal_dt0p1_500k_seed0\\accepted_model.zip"
   },
   "acceptance_seeds": [
     300,
@@ -142,7 +142,7 @@
   ],
   "control_frequency_hz": 10.0,
   "controller_provenance": {
-    "baseline_manifest": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\residual_lqr_baseline\\dt0p1_validation_seeds100_109\\baseline_manifest.json",
+    "baseline_manifest": "src\\controllers\\SAC-3DoF\\closing\\results\\residual_lqr_baseline\\dt0p1_validation_seeds100_109\\baseline_manifest.json",
     "baseline_manifest_sha256": "415684f251118c62b489f5dbf966865a312948757352a59880bbb2e1b438f257",
     "lqr_actions_or_transitions_from_dt1_used": false,
     "numeric_fingerprint_sha256": "1b9f2e69911af7ad5499fb9f64be06b272126be18155c2f50e867d792be28931",
@@ -189,7 +189,7 @@
   "method": "provenance-locked final-LQR terminal resets with Pilot G SAC/replay",
   "oracle_controllability_study": {
     "available": false,
-    "path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\lqr_reference_residual_terminal\\oracle_study_n20_h1"
+    "path": "src\\controllers\\SAC-3DoF\\closing\\results\\lqr_reference_residual_terminal\\oracle_study_n20_h1"
   },
   "pilot": "J",
   "prefill_replay_statistics": {
@@ -306,12 +306,12 @@
       "eligible_source_failure_snapshots": 0,
       "eligible_source_success_snapshots": 1400,
       "eligible_source_timeout_snapshots": 2558,
-      "path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_final_lqr_dt0p1_bank.npz",
+      "path": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_final_lqr_dt0p1_bank.npz",
       "provenance": {
-        "baseline_manifest_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\residual_lqr_baseline\\dt0p1_validation_seeds100_109\\baseline_manifest.json",
+        "baseline_manifest_path": "src\\controllers\\SAC-3DoF\\closing\\results\\residual_lqr_baseline\\dt0p1_validation_seeds100_109\\baseline_manifest.json",
         "baseline_manifest_sha256": "415684f251118c62b489f5dbf966865a312948757352a59880bbb2e1b438f257",
         "controller_numeric_fingerprint_sha256": "1b9f2e69911af7ad5499fb9f64be06b272126be18155c2f50e867d792be28931",
-        "dataset_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_final_lqr_dt0p1_bank.npz",
+        "dataset_path": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\terminal_reference_residual_final_lqr_dt0p1_bank.npz",
         "dataset_sha256": "31812684742439d6d11589ff996e6b13d03514c26d43ee257ec28a88b57a91c2",
         "dt_seconds": 0.1,
         "integrator": "rk4",

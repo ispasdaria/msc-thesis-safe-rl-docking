@@ -38,7 +38,7 @@
   "mean_return": 1.556978904648862,
   "mean_steps": 11300.3,
   "mean_target_2x_steps": 596.41,
-  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\lqr_reference_residual_stratified\\sac_closing_lqr_reference_residual_pilot_d_stratified_1hz_50k_seed0\\checkpoint_0_model.zip",
+  "model_path": "src\\controllers\\SAC-3DoF\\closing\\models\\lqr_reference_residual_stratified\\sac_closing_lqr_reference_residual_pilot_d_stratified_1hz_50k_seed0\\checkpoint_0_model.zip",
   "n_episodes": 100,
   "n_failure": 0,
   "n_success": 75,

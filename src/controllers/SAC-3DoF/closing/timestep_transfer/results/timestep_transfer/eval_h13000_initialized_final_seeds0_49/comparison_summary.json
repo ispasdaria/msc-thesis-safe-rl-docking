@@ -33,9 +33,9 @@
     "deterministic": true,
     "device": "cpu",
     "max_time_seconds": 13000.0,
-    "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_v15_trial16_h13000_initialized_from_400k_add400k_seed0.zip",
+    "model_path": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_v15_trial16_h13000_initialized_from_400k_add400k_seed0.zip",
     "model_sha256": "a3c468d642c3dbde47903854e30f243d9f7daedd73ece3cea49327b95dec9f63",
-    "output_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\timestep_transfer\\eval_h13000_initialized_final_seeds0_49",
+    "output_dir": "src\\controllers\\SAC-3DoF\\closing\\results\\timestep_transfer\\eval_h13000_initialized_final_seeds0_49",
     "purpose": "deterministic closing SAC evaluation",
     "return_comparison_warning": "Native uses V15 while 0.1 s variants use time-scaled V15-dt. Compare task, safety, and state-error metrics; do not rank variants by episode return.",
     "seeds": [
@@ -107,7 +107,7 @@
         "reward_version": "v15"
       }
     ],
-    "vecnormalize_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_v15_trial16_h13000_initialized_from_400k_add400k_seed0_vecnormalize.pkl",
+    "vecnormalize_path": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_v15_trial16_h13000_initialized_from_400k_add400k_seed0_vecnormalize.pkl",
     "vecnormalize_sha256": "59cc5010eb7ae54aee91930de7856af8b367834e383e1076567242c19db68853"
   },
   "summaries": {

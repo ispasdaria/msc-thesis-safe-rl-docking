@@ -110,12 +110,12 @@
   "max_steps": 12000,
   "mean_return": -24530.054612830536,
   "mode": "testing",
-  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\lqr_bc_warmstart\\sac_closing_rewardv15_lqr_bc_warmstart_expanded200_600000steps\\seed_0\\model_0100000_steps.zip",
+  "model_path": "src\\controllers\\SAC-3DoF\\closing\\models\\lqr_bc_warmstart\\sac_closing_rewardv15_lqr_bc_warmstart_expanded200_600000steps\\seed_0\\model_0100000_steps.zip",
   "model_type": "checkpoint",
   "num_rollouts": 50,
   "seed_start": 0,
   "success_rate": 0.0,
   "timeout_rate": 0.02,
   "training_seed": 0,
-  "vecnormalize_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\lqr_bc_warmstart\\sac_closing_rewardv15_lqr_bc_warmstart_expanded200_600000steps\\seed_0\\model_0100000_steps_vecnormalize.pkl"
+  "vecnormalize_path": "src\\controllers\\SAC-3DoF\\closing\\models\\lqr_bc_warmstart\\sac_closing_rewardv15_lqr_bc_warmstart_expanded200_600000steps\\seed_0\\model_0100000_steps_vecnormalize.pkl"
 }

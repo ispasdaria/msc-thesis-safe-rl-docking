@@ -1,7 +1,7 @@
 {
   "checkpoint_step": null,
   "experiment_name": "sac_closing_p3reachv14_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260819_215125",
-  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv14_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260819_215125\\best_model.zip",
+  "model_path": "src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv14_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260819_215125\\best_model.zip",
   "model_type": "best",
   "reward_scheme": "p3_reach_v14",
   "safety_violation_termination_enabled": false,
@@ -40,5 +40,5 @@
     "timeout_rate": 0.0,
     "unsafe_episode_rate": 1.0
   },
-  "vecnormalize_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv14_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260819_215125\\best_vecnormalize.pkl"
+  "vecnormalize_path": "src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv14_gamma0999_from_scratch_no_safety_termination_600k_seed0_20260819_215125\\best_vecnormalize.pkl"
 }

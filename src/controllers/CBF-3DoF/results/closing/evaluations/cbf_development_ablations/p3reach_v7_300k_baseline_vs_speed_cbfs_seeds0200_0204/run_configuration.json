@@ -1,7 +1,7 @@
 {
   "result_schema_version": 1,
-  "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv7_from_scratch_no_safety_termination_300k_seed0_20260817_032054\\final_model.zip",
-  "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv7_from_scratch_no_safety_termination_300k_seed0_20260817_032054\\final_vecnormalize.pkl",
+  "model": "src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv7_from_scratch_no_safety_termination_300k_seed0_20260817_032054\\final_model.zip",
+  "vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\p3reach_from_scratch\\sac_closing_p3reachv7_from_scratch_no_safety_termination_300k_seed0_20260817_032054\\final_vecnormalize.pkl",
   "variants": [
     "baseline",
     "both"

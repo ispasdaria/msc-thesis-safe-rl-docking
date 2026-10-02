@@ -1,7 +1,7 @@
 {
   "result_schema_version": 1,
-  "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
-  "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+  "model": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+  "vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
   "variants": [
     "baseline",
     "total_speed",

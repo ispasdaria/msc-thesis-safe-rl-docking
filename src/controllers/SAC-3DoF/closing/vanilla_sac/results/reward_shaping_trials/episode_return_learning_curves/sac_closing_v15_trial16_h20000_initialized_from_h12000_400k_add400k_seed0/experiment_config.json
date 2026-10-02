@@ -16,7 +16,7 @@
   },
   "buffer_size": 300000,
   "initialization": "checkpoint",
-  "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
-  "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+  "source_model": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+  "source_vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
   "existing_artifacts_overwritten": false
 }

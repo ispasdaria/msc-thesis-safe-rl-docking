@@ -57,9 +57,9 @@
     0.01,
     0.003
   ],
-  "retained_sac_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
-  "retained_sac_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
-  "cbf_source_campaign": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\cbf_3DoF\\results\\final_approach\\evaluations\\campaign_round5_seed10_best490k_seeds_0_49",
+  "retained_sac_model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+  "retained_sac_vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
+  "cbf_source_campaign": "src\\controllers\\cbf_3DoF\\results\\final_approach\\evaluations\\campaign_round5_seed10_best490k_seeds_0_49",
   "cbf_command_integrated": "action_filtered (post-CBF physical body-frame command)",
   "lqr_and_sac_command_integrated": "core action_body_clipped"
 }

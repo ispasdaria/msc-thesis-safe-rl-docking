@@ -6,9 +6,9 @@
   "experiment_name": "sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot",
   "max_steps": 120000,
   "max_time_seconds": 12000.0,
-  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot_best.zip",
+  "model_path": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot_best.zip",
   "model_type": "best",
-  "output_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\evaluations\\heldout_best_seeds200_209",
+  "output_dir": "src\\controllers\\SAC-3DoF\\closing\\results\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\evaluations\\heldout_best_seeds200_209",
   "reward_version": "v15_dt",
   "seeds": [
     200,
@@ -153,6 +153,6 @@
     "simulated_training_time_seconds": 50000.0,
     "total_timesteps": 500000
   },
-  "training_config_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\experiment_config.json",
-  "vecnormalize_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot_best_vecnormalize.pkl"
+  "training_config_path": "src\\controllers\\SAC-3DoF\\closing\\results\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\experiment_config.json",
+  "vecnormalize_path": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\dt_0p1\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot\\sac_closing_v15dt_dt0p1_trial16_500ksteps_seed0_pilot_best_vecnormalize.pkl"
 }

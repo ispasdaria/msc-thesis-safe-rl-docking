@@ -13,10 +13,10 @@
     "study_name": "sac_closing_p3augobs_rewardv15_optuna_expanded_v2",
     "train_steps": 300000
   },
-  "log_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\logs\\optuna\\v2",
-  "metrics_csv": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\optuna\\v2\\sac_closing_p3augobs_rewardv15_optuna_expanded_v2\\trial_metrics.csv",
+  "log_dir": "src\\controllers\\SAC-3DoF\\closing\\logs\\optuna\\v2",
+  "metrics_csv": "src\\controllers\\SAC-3DoF\\closing\\results\\optuna\\v2\\sac_closing_p3augobs_rewardv15_optuna_expanded_v2\\trial_metrics.csv",
   "optuna_version": "v2",
-  "results_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\optuna\\v2\\sac_closing_p3augobs_rewardv15_optuna_expanded_v2",
+  "results_dir": "src\\controllers\\SAC-3DoF\\closing\\results\\optuna\\v2\\sac_closing_p3augobs_rewardv15_optuna_expanded_v2",
   "search_space": {
     "batch_size": [
       256,
@@ -59,6 +59,6 @@
       "32_16"
     ]
   },
-  "storage": "sqlite:///D:/Daria Master Thesis/msc-thesis-safe-rl-docking/src/controllers/SAC-3DoF/closing/results/optuna/v2/sac_closing_p3augobs_rewardv15_optuna_expanded_v2/study.db",
+  "storage": "sqlite:///src/controllers/SAC-3DoF/closing/results/optuna/v2/sac_closing_p3augobs_rewardv15_optuna_expanded_v2/study.db",
   "study_name": "sac_closing_p3augobs_rewardv15_optuna_expanded_v2"
 }

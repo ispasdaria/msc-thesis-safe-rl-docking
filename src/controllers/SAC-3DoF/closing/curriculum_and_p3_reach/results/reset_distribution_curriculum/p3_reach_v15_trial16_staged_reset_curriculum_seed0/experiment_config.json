@@ -9,8 +9,8 @@
   "retention_drop": 0.1,
   "reward_version": "v15",
   "seed": 0,
-  "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_rewardv15_trial16_multiseed_600ksteps\\seed_0\\model_0400000_steps.zip",
-  "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_rewardv15_trial16_multiseed_600ksteps\\seed_0\\model_0400000_steps_vecnormalize.pkl",
+  "source_model": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_rewardv15_trial16_multiseed_600ksteps\\seed_0\\model_0400000_steps.zip",
+  "source_vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_rewardv15_trial16_multiseed_600ksteps\\seed_0\\model_0400000_steps_vecnormalize.pkl",
   "stages": [
     {
       "default_budget": 100000,

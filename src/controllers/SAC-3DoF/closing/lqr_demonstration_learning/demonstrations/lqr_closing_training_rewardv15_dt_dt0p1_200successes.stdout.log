@@ -5,7 +5,7 @@ Existing successes: 0
 Target successes:   200
 First seed:          20000
 Maximum attempts:    1000
-Output:              D:\Daria Master Thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\demonstrations\lqr_closing_training_rewardv15_dt_dt0p1_200successes.npz
+Output:              src\controllers\SAC-3DoF\closing\demonstrations\lqr_closing_training_rewardv15_dt_dt0p1_200successes.npz
 Held-out seeds 300--899 are not used by this default campaign.
 ========================================================================================
 attempt=0001 seed=20000 success=False reason=safety_violation steps=304 retained=0

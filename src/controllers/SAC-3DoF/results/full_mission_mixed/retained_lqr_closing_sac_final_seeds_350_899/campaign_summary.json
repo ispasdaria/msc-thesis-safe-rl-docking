@@ -26,8 +26,8 @@
     "final_dt_s": 1.0,
     "closing_model": null,
     "closing_vecnormalize": null,
-    "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
-    "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
+    "final_model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+    "final_vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
     "distributions": {
       "mission_elapsed_time_s": {
         "count": 550,
@@ -338,8 +338,8 @@
     "final_dt_s": 1.0,
     "closing_model": null,
     "closing_vecnormalize": null,
-    "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k.zip",
-    "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k_vecnormalize.pkl",
+    "final_model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k.zip",
+    "final_vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k_vecnormalize.pkl",
     "distributions": {
       "mission_elapsed_time_s": {
         "count": 550,

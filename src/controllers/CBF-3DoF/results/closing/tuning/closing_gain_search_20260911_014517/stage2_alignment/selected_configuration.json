@@ -35,7 +35,7 @@
     "mean_terminal_p3_velocity_error": 0.015363842297860164,
     "mean_terminal_p3_attitude_error": 0.02961534440795095,
     "mean_terminal_p3_rate_error": 0.0005033056177933869,
-    "checkpoint_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
+    "checkpoint_path": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
     "seed_list": "200,201,202,203,204,205,206,207,208,209",
     "numerical_tolerance": 1e-06,
     "safety_feasible": true,

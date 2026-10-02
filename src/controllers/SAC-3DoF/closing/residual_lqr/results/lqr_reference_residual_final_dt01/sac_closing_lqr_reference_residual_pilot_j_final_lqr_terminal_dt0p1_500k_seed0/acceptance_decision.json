@@ -105,5 +105,5 @@
   },
   "rule": "strictly higher success rate and no higher hard-failure rate than zero-residual final LQR",
   "selected_checkpoint": 0,
-  "selected_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\lqr_reference_residual_final_dt01\\sac_closing_lqr_reference_residual_pilot_j_final_lqr_terminal_dt0p1_500k_seed0\\accepted_model.zip"
+  "selected_model": "src\\controllers\\SAC-3DoF\\closing\\models\\lqr_reference_residual_final_dt01\\sac_closing_lqr_reference_residual_pilot_j_final_lqr_terminal_dt0p1_500k_seed0\\accepted_model.zip"
 }

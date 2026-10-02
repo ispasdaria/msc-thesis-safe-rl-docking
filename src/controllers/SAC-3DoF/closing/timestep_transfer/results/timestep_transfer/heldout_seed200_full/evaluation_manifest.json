@@ -2,9 +2,9 @@
   "deterministic": true,
   "device": "cpu",
   "max_time_seconds": 12000.0,
-  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
+  "model_path": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
   "model_sha256": "d633e22933e04621cb0eb5ae5b346522d7d01b834a13944789656a801247f1b7",
-  "output_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\timestep_transfer\\heldout_seed200_full",
+  "output_dir": "src\\controllers\\SAC-3DoF\\closing\\results\\timestep_transfer\\heldout_seed200_full",
   "purpose": "isolate simulator integration timestep from deterministic SAC policy decision cadence",
   "return_comparison_warning": "Native uses V15 while 0.1 s variants use time-scaled V15-dt. Compare task, safety, and state-error metrics; do not rank variants by episode return.",
   "seeds": [
@@ -47,6 +47,6 @@
       "reward_version": "v15_dt"
     }
   ],
-  "vecnormalize_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
+  "vecnormalize_path": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
   "vecnormalize_sha256": "565b52f5eca81380facd8bc79f8a103a4d178613bc737309e63c054c7eb40cd9"
 }

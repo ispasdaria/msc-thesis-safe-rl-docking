@@ -3,7 +3,7 @@
   "actor_learning_rate_scale": 0.1,
   "bc_action_clip": 0.999,
   "bc_batch_size": 512,
-  "bc_demonstration_dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_dt_dt0p1_bc_stride10_78episodes.npz",
+  "bc_demonstration_dataset": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_dt_dt0p1_bc_stride10_78episodes.npz",
   "bc_demonstration_metadata": {
     "action_hold_steps": 1,
     "action_size": 3,
@@ -281,7 +281,7 @@
   "max_time_seconds": 12000.0,
   "normalization_frozen_for_full_run": true,
   "online_buffer_size": 1,
-  "replay_demonstration_dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_dt_dt0p1_replay_20episodes.npz",
+  "replay_demonstration_dataset": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_dt_dt0p1_replay_20episodes.npz",
   "replay_demonstration_metadata": {
     "action_hold_steps": 1,
     "action_size": 3,

@@ -9,7 +9,7 @@
     500000,
     600000
   ],
-  "demonstration_dataset": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_28successes.npz",
+  "demonstration_dataset": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_28successes.npz",
   "demonstration_metadata": {
     "action_size": 3,
     "controller": "LQRClosingController",

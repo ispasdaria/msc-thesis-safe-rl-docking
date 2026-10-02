@@ -32,7 +32,7 @@
     "pretrained weights",
     "replay prefill"
   ],
-  "log_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\logs\\optuna\\p3reach_v12",
+  "log_dir": "src\\controllers\\SAC-3DoF\\closing\\logs\\optuna\\p3reach_v12",
   "objective_priority": [
     "success rate",
     "fraction reaching simultaneous 3x/5x/10x P3 tolerances",
@@ -41,7 +41,7 @@
     "terminal velocity and alignment ratios",
     "failed approaches and safety diagnostics"
   ],
-  "results_dir": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\optuna\\p3reach_v12\\sac_closing_p3reach_v12_vanilla_sac_600k",
+  "results_dir": "src\\controllers\\SAC-3DoF\\closing\\results\\optuna\\p3reach_v12\\sac_closing_p3reach_v12_vanilla_sac_600k",
   "reward_scheme": "p3_reach_v12",
   "search_space": {
     "batch_size": [
@@ -83,7 +83,7 @@
       "32_16"
     ]
   },
-  "storage": "sqlite:///D:/Daria Master Thesis/msc-thesis-safe-rl-docking/src/controllers/SAC-3DoF/closing/results/optuna/p3reach_v12/sac_closing_p3reach_v12_vanilla_sac_600k/study.db",
+  "storage": "sqlite:///src/controllers/SAC-3DoF/closing/results/optuna/p3reach_v12/sac_closing_p3reach_v12_vanilla_sac_600k/study.db",
   "study_name": "sac_closing_p3reach_v12_vanilla_sac_600k",
   "study_version": "p3reach_v12",
   "vanilla_sac_from_scratch": true,

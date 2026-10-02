@@ -24,7 +24,7 @@
   "mean_return": -44303.35351698424,
   "mean_steps": 11600.2,
   "mean_warning_fraction": 0.049690963130181724,
-  "model_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_rewardv18_trial16_multiseed_300ksteps\\seed_2\\model_0300000_steps.zip",
+  "model_path": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_rewardv18_trial16_multiseed_300ksteps\\seed_2\\model_0300000_steps.zip",
   "n_failure": 12,
   "n_success": 0,
   "n_test_episodes": 100,
@@ -35,5 +35,5 @@
   "time_limit_rate": 0.88,
   "training_seed": 2,
   "variant": "checkpoint_0300000_steps",
-  "vecnorm_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_rewardv18_trial16_multiseed_300ksteps\\seed_2\\model_0300000_steps_vecnormalize.pkl"
+  "vecnorm_path": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_rewardv18_trial16_multiseed_300ksteps\\seed_2\\model_0300000_steps_vecnormalize.pkl"
 }

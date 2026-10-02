@@ -12,7 +12,7 @@
     "successful_episodes": 28,
     "transition_count": 301874
   },
-  "dataset_path": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_28successes.npz",
+  "dataset_path": "src\\controllers\\SAC-3DoF\\closing\\demonstrations\\lqr_closing_training_rewardv15_28successes.npz",
   "learning_starts": 0,
   "prefilled_transitions": 301874,
   "replay_capacity": 1000000,

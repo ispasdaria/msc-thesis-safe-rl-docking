@@ -1,9 +1,9 @@
 SAC closing evaluation summary
 ================================================================================
 Model name: sac_closing_p3augobs_rewardv16_300ksteps_seed0_buffer300k
-Model path: d:\Daria Master Thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\models\reward_shaping_trials\sac_closing_p3augobs_rewardv16_300ksteps_seed0_buffer300k.zip
-VecNorm path: d:\Daria Master Thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\models\reward_shaping_trials\sac_closing_p3augobs_rewardv16_300ksteps_seed0_buffer300k_vecnormalize.pkl
-Results dir: d:\Daria Master Thesis\msc-thesis-safe-rl-docking\src\controllers\SAC-3DoF\closing\results\reward_shaping_trials\eval_rollouts\sac_closing_p3augobs_rewardv16_300ksteps_seed0_buffer300k
+Model path: src\controllers\SAC-3DoF\closing\models\reward_shaping_trials\sac_closing_p3augobs_rewardv16_300ksteps_seed0_buffer300k.zip
+VecNorm path: src\controllers\SAC-3DoF\closing\models\reward_shaping_trials\sac_closing_p3augobs_rewardv16_300ksteps_seed0_buffer300k_vecnormalize.pkl
+Results dir: src\controllers\SAC-3DoF\closing\results\reward_shaping_trials\eval_rollouts\sac_closing_p3augobs_rewardv16_300ksteps_seed0_buffer300k
 
 Number of rollouts: 10
 Success rate:       0.00

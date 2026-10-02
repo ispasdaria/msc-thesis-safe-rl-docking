@@ -1,16 +1,16 @@
 {
   "models": {
     "com": {
-      "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_com_observation.zip",
-      "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_com_observation_vecnormalize.pkl"
+      "model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_com_observation.zip",
+      "vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_com_observation_vecnormalize.pkl"
     },
     "docking_port": {
-      "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
-      "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl"
+      "model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+      "vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl"
     },
     "combined": {
-      "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_combined_observation.zip",
-      "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_combined_observation_vecnormalize.pkl"
+      "model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_combined_observation.zip",
+      "vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\observation_comparison\\final_sac_combined_observation_vecnormalize.pkl"
     }
   },
   "testing_seeds": [
@@ -103,9 +103,9 @@
     "docking_port_median_terminal_position_error_m": 0.07282469973001529
   },
   "outputs": {
-    "per_seed": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\per_seed_results.csv",
-    "aggregate": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\aggregate_results.csv",
-    "figure_pdf": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\observation_space_trajectory_comparison.pdf",
-    "distance_figure_pdf": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\docking_port_distance_vs_timesteps.pdf"
+    "per_seed": "src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\per_seed_results.csv",
+    "aggregate": "src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\aggregate_results.csv",
+    "figure_pdf": "src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\observation_space_trajectory_comparison.pdf",
+    "distance_figure_pdf": "src\\controllers\\SAC-3DoF\\final_approach\\results\\observation_comparison\\evaluation\\docking_port_distance_vs_timesteps.pdf"
   }
 }

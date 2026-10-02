@@ -17,9 +17,9 @@
   ],
   "deterministic": true,
   "fixed_observation_scaling": true,
-  "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\two_stage_capture_trial\\artifacts\\systematic\\models\\systematic_capture_v10_h150_pilot_seed0\\systematic_capture_sac_125000_steps.zip",
+  "model": "src\\controllers\\SAC-3DoF\\closing\\two_stage_capture_trial\\artifacts\\systematic\\models\\systematic_capture_v10_h150_pilot_seed0\\systematic_capture_sac_125000_steps.zip",
   "observation_mode": "markov",
   "schema": "systematic_capture_evaluation_v2_terminal_state_safe",
   "success_set": "validated_X_P3_testing",
-  "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\two_stage_capture_trial\\artifacts\\systematic\\models\\systematic_capture_v10_h150_pilot_seed0\\systematic_capture_sac_vecnormalize_125000_steps.pkl"
+  "vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\two_stage_capture_trial\\artifacts\\systematic\\models\\systematic_capture_v10_h150_pilot_seed0\\systematic_capture_sac_vecnormalize_125000_steps.pkl"
 }

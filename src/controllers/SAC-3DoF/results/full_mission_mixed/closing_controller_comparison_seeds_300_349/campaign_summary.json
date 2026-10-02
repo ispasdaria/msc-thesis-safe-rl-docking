@@ -25,8 +25,8 @@
     "final_dt_s": 1.0,
     "closing_model": null,
     "closing_vecnormalize": null,
-    "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
-    "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
+    "final_model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+    "final_vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
     "distributions": {
       "mission_elapsed_time_s": {
         "count": 50,
@@ -336,8 +336,8 @@
     "final_dt_s": 1.0,
     "closing_model": null,
     "closing_vecnormalize": null,
-    "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k.zip",
-    "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k_vecnormalize.pkl",
+    "final_model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k.zip",
+    "final_vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_600ksteps_buffer600k\\sac_final_approach_portobs_rewardv9_600ksteps_seed11_optuna12_buffer600k_vecnormalize.pkl",
     "distributions": {
       "mission_elapsed_time_s": {
         "count": 50,
@@ -641,10 +641,10 @@
     "final_termination_counts": {},
     "closing_dt_s": 1.0,
     "final_dt_s": 1.0,
-    "closing_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
-    "closing_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
-    "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
-    "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
+    "closing_model": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
+    "closing_vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
+    "final_model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+    "final_vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
     "distributions": {
       "mission_elapsed_time_s": {
         "count": 50,
@@ -949,10 +949,10 @@
     "final_termination_counts": {},
     "closing_dt_s": 1.0,
     "final_dt_s": 1.0,
-    "closing_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
-    "closing_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
-    "final_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
-    "final_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
+    "closing_model": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k.zip",
+    "closing_vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\reward_shaping_trials\\sac_closing_p3augobs_rewardv15_optuna_trial16_400ksteps_seed0_buffer300k_vecnormalize.pkl",
+    "final_model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12.zip",
+    "final_vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_100ksteps_buffer100k\\sac_final_approach_portobs_rewardv9_100ksteps_seed12_optuna12_vecnormalize.pkl",
     "distributions": {
       "mission_elapsed_time_s": {
         "count": 50,

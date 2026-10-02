@@ -92,10 +92,10 @@
     "version": "v15_dt"
   },
   "source_entropy_coefficient": 0.00017023862164933234,
-  "source_model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
+  "source_model": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps.zip",
   "source_model_num_timesteps": 100000,
   "source_model_sha256": "d633e22933e04621cb0eb5ae5b346522d7d01b834a13944789656a801247f1b7",
-  "source_vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
+  "source_vecnormalize": "src\\controllers\\SAC-3DoF\\closing\\models\\multiseed\\sac_closing_v15_trial16_terminal_phase_balanced_guarded600k_seed0\\seed_0\\model_0100000_steps_vecnormalize.pkl",
   "source_vecnormalize_sha256": "565b52f5eca81380facd8bc79f8a103a4d178613bc737309e63c054c7eb40cd9",
   "strict_from_scratch_vanilla_sac": false,
   "training_seed": 0,

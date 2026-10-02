@@ -5,7 +5,7 @@
   "baseline_action_semantics": "clip physical LQR command, normalize, then add bounded residual",
   "baseline_controller": "LQRClosingController",
   "baseline_controller_fingerprint_sha256": "1b9f2e69911af7ad5499fb9f64be06b272126be18155c2f50e867d792be28931",
-  "baseline_manifest": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\closing\\results\\residual_lqr_baseline\\dt0p1_validation_seeds100_109\\baseline_manifest.json",
+  "baseline_manifest": "src\\controllers\\SAC-3DoF\\closing\\results\\residual_lqr_baseline\\dt0p1_validation_seeds100_109\\baseline_manifest.json",
   "baseline_successes": 4,
   "best_checkpoint": 0,
   "cbf_filter_used_during_training": false,

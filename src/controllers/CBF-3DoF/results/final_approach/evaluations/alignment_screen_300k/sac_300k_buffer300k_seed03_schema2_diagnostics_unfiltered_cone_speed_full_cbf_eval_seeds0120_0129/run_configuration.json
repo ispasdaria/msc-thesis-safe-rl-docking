@@ -1,7 +1,7 @@
 {
   "result_schema_version": 2,
-  "model": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_300ksteps_buffer300k\\sac_final_approach_portobs_rewardv9_300ksteps_seed3_optuna12_buffer300k.zip",
-  "vecnormalize": "D:\\Daria Master Thesis\\msc-thesis-safe-rl-docking\\src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_300ksteps_buffer300k\\sac_final_approach_portobs_rewardv9_300ksteps_seed3_optuna12_buffer300k_vecnormalize.pkl",
+  "model": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_300ksteps_buffer300k\\sac_final_approach_portobs_rewardv9_300ksteps_seed3_optuna12_buffer300k.zip",
+  "vecnormalize": "src\\controllers\\SAC-3DoF\\final_approach\\models\\optuna12_300ksteps_buffer300k\\sac_final_approach_portobs_rewardv9_300ksteps_seed3_optuna12_buffer300k_vecnormalize.pkl",
   "variants": [
     "baseline",
     "both",
